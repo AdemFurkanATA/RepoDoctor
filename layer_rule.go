@@ -113,7 +113,6 @@ func detectLayer(pkgPath string) LayerConvention {
 // containsLayerKeyword checks if a path contains a layer keyword
 func containsLayerKeyword(path, keyword string) bool {
 	// Simple check: look for /keyword/ or /keyword at end
-	pathLower := path
 	if len(path) >= len(keyword) {
 		for i := 0; i <= len(path)-len(keyword); i++ {
 			if i+len(keyword) <= len(path) {
