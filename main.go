@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-const version = "0.1.0-dev"
+const version = "0.2.0-dev"
 
 func main() {
 	// Command flags
@@ -16,6 +16,11 @@ func main() {
 	analyzePath := analyzeCmd.String("path", ".", "Path to analyze")
 	analyzeFormat := analyzeCmd.String("format", "text", "Output format (text, json)")
 	analyzeVerbose := analyzeCmd.Bool("verbose", false, "Enable verbose output")
+
+	// Extract imports command
+	extractCmd := flag.NewFlagSet("extract", flag.ExitOnError)
+	extractPath := extractCmd.String("path", ".", "Path to extract imports from")
+	extractModule := extractCmd.String("module", "RepoDoctor", "Module path for normalization")
 
 	versionCmd := flag.NewFlagSet("version", flag.ExitOnError)
 
@@ -29,6 +34,9 @@ func main() {
 	case "analyze":
 		analyzeCmd.Parse(os.Args[2:])
 		runAnalyze(*analyzePath, *analyzeFormat, *analyzeVerbose)
+	case "extract":
+		extractCmd.Parse(os.Args[2:])
+		runExtract(*extractPath, *extractModule, *analyzeVerbose)
 	case "version":
 		versionCmd.Parse(os.Args[2:])
 		fmt.Printf("RepoDoctor v%s\n", version)
@@ -49,6 +57,7 @@ Usage:
 
 Commands:
   analyze    Analyze repository architecture and health
+  extract    Extract Go package imports from source files
   version    Show version information
   help       Show this help message
 
@@ -58,9 +67,16 @@ Arguments:
     -format    Output format: text, json (default: text)
     -verbose   Enable verbose output
 
+  extract [options]
+    -path      Directory path to extract imports from (default: current directory)
+    -module    Module path for import normalization (default: RepoDoctor)
+    -verbose   Enable verbose output
+
 Examples:
   repodoctor analyze .
   repodoctor analyze -path ./myproject -format json
+  repodoctor extract .
+  repodoctor extract -path ./src -module github.com/myorg/myrepo
   repodoctor version`)
 }
 
@@ -161,4 +177,69 @@ func scanDirectory(path string, verbose bool) (totalFiles, goFiles, totalLines i
 	})
 
 	return
+}
+
+func runExtract(path, module string, verbose bool) {
+	// Resolve to absolute path
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error resolving path: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Check if path exists
+	info, err := os.Stat(absPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: path does not exist: %s\n", absPath)
+		os.Exit(1)
+	}
+
+	if !info.IsDir() {
+		fmt.Fprintf(os.Stderr, "Error: path is not a directory: %s\n", absPath)
+		os.Exit(1)
+	}
+
+	fmt.Printf("RepoDoctor v%s\n", version)
+	fmt.Printf("Extracting imports from: %s\n", absPath)
+	fmt.Printf("Module path: %s\n\n", module)
+
+	// Create extractor and extract imports
+	extractor := NewImportExtractor(module)
+	imports, err := extractor.ExtractFromDir(absPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error extracting imports: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Display results
+	fmt.Println("📊 Import Extraction Results")
+	fmt.Println(strings.Repeat("─", 60))
+
+	totalImports := 0
+	for filePath, metadata := range imports {
+		relPath, _ := filepath.Rel(absPath, filePath)
+		if relPath == "" {
+			relPath = filePath
+		}
+
+		fmt.Printf("\n📄 %s (package: %s)\n", relPath, metadata.Package)
+		if len(metadata.Imports) > 0 {
+			for _, imp := range metadata.Imports {
+				fmt.Printf("   • %s\n", imp)
+				totalImports++
+			}
+		} else {
+			fmt.Printf("   (no external imports)\n")
+		}
+
+		if verbose {
+			fmt.Printf("   └─ Absolute: %s\n", filePath)
+		}
+	}
+
+	fmt.Println(strings.Repeat("─", 60))
+	fmt.Printf("📦 Total files analyzed: %d\n", len(imports))
+	fmt.Printf("📥 Total unique imports: %d\n", totalImports)
+	fmt.Println("✨ Import extraction completed successfully")
+	fmt.Println()
 }
