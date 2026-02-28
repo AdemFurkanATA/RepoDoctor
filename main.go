@@ -100,32 +100,50 @@ func runAnalyze(path, format string, verbose bool) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("RepoDoctor v%s\n", version)
-	fmt.Printf("Analyzing: %s\n\n", absPath)
+	// Extract imports and build dependency graph
+	if verbose {
+		fmt.Printf("Extracting imports from: %s\n", absPath)
+	}
 
-	// Perform basic analysis
-	files, goFiles, totalLines := scanDirectory(absPath, verbose)
+	// Determine module name (simplified - in real usage, read from go.mod)
+	moduleName := "RepoDoctor"
+	extractor := NewImportExtractor(moduleName)
+	imports, err := extractor.ExtractFromDir(absPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: error extracting imports: %v\n", err)
+	}
+
+	// Build dependency graph
+	graph := NewDependencyGraph()
+	for filePath, importMeta := range imports {
+		graph.AddNode(filePath)
+		for _, imp := range importMeta.Imports {
+			graph.AddEdge(filePath, imp)
+		}
+	}
+
+	if verbose {
+		fmt.Printf("Built dependency graph with %d nodes and %d edges\n", 
+			graph.GetNodeCount(), graph.GetEdgeCount())
+	}
+
+	// Create scorer and run analysis
+	scorer := NewStructuralScorer(graph, DefaultScoringWeights())
+	
+	// Generate report
+	reporter := NewReporter(OutputFormat(format))
+	report := reporter.GenerateReport(scorer, absPath, version)
 
 	// Display results
 	if format == "json" {
-		fmt.Printf("{\n")
-		fmt.Printf("  \"version\": \"%s\",\n", version)
-		fmt.Printf("  \"path\": \"%s\",\n", absPath)
-		fmt.Printf("  \"totalFiles\": %d,\n", files)
-		fmt.Printf("  \"goFiles\": %d,\n", goFiles)
-		fmt.Printf("  \"totalLines\": %d,\n", totalLines)
-		fmt.Printf("  \"status\": \"v0.1-dev\"\n")
-		fmt.Printf("}\n")
+		fmt.Println(reporter.Format(report))
 	} else {
-		fmt.Println("📊 Analysis Results")
-		fmt.Println(strings.Repeat("─", 40))
-		fmt.Printf("📁 Total Files:      %d\n", files)
-		fmt.Printf("📄 Go Files:         %d\n", goFiles)
-		fmt.Printf("📝 Total Lines:      %d\n", totalLines)
-		fmt.Println(strings.Repeat("─", 40))
-		fmt.Println("Status: v0.1-dev (Early Development)")
-		fmt.Println("✨ Full analysis engine coming soon...")
-		fmt.Println()
+		fmt.Println(reporter.Format(report))
+	}
+
+	// Exit with error code if violations found
+	if report.HasViolations {
+		os.Exit(1)
 	}
 }
 
