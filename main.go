@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-const version = "0.1.0-dev"
+const version = "0.2.0-dev"
 
 func main() {
 	// Command flags
@@ -16,6 +16,10 @@ func main() {
 	analyzePath := analyzeCmd.String("path", ".", "Path to analyze")
 	analyzeFormat := analyzeCmd.String("format", "text", "Output format (text, json)")
 	analyzeVerbose := analyzeCmd.Bool("verbose", false, "Enable verbose output")
+
+	extractCmd := flag.NewFlagSet("extract", flag.ExitOnError)
+	extractPath := extractCmd.String("path", ".", "Path to extract imports from")
+	extractModule := extractCmd.String("module", "", "Module name for import path normalization")
 
 	versionCmd := flag.NewFlagSet("version", flag.ExitOnError)
 
@@ -29,6 +33,9 @@ func main() {
 	case "analyze":
 		analyzeCmd.Parse(os.Args[2:])
 		runAnalyze(*analyzePath, *analyzeFormat, *analyzeVerbose)
+	case "extract":
+		extractCmd.Parse(os.Args[2:])
+		runExtract(*extractPath, *extractModule)
 	case "version":
 		versionCmd.Parse(os.Args[2:])
 		fmt.Printf("RepoDoctor v%s\n", version)
@@ -48,7 +55,8 @@ Usage:
   repodoctor <command> [options]
 
 Commands:
-  analyze    Analyze repository architecture and health
+  analyze    Analyze repository for structural violations
+  extract    Extract imports from Go files
   version    Show version information
   help       Show this help message
 
@@ -58,9 +66,14 @@ Arguments:
     -format    Output format: text, json (default: text)
     -verbose   Enable verbose output
 
+  extract [options]
+    -path      Directory path to scan (default: current directory)
+    -module    Module name for import path normalization
+
 Examples:
   repodoctor analyze .
   repodoctor analyze -path ./myproject -format json
+  repodoctor extract -path . -module RepoDoctor
   repodoctor version`)
 }
 
@@ -84,32 +97,50 @@ func runAnalyze(path, format string, verbose bool) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("RepoDoctor v%s\n", version)
-	fmt.Printf("Analyzing: %s\n\n", absPath)
+	// Extract imports and build dependency graph
+	if verbose {
+		fmt.Printf("Extracting imports from: %s\n", absPath)
+	}
 
-	// Perform basic analysis
-	files, goFiles, totalLines := scanDirectory(absPath, verbose)
+	// Determine module name (simplified - in real usage, read from go.mod)
+	moduleName := "RepoDoctor"
+	extractor := NewImportExtractor(moduleName)
+	imports, err := extractor.ExtractFromDir(absPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: error extracting imports: %v\n", err)
+	}
+
+	// Build dependency graph
+	graph := NewDependencyGraph()
+	for filePath, importMeta := range imports {
+		graph.AddNode(filePath)
+		for _, imp := range importMeta.Imports {
+			graph.AddEdge(filePath, imp)
+		}
+	}
+
+	if verbose {
+		fmt.Printf("Built dependency graph with %d nodes and %d edges\n", 
+			graph.GetNodeCount(), graph.GetEdgeCount())
+	}
+
+	// Create scorer and run analysis
+	scorer := NewStructuralScorer(graph, DefaultScoringWeights())
+	
+	// Generate report
+	reporter := NewReporter(OutputFormat(format))
+	report := reporter.GenerateReport(scorer, absPath, version)
 
 	// Display results
 	if format == "json" {
-		fmt.Printf("{\n")
-		fmt.Printf("  \"version\": \"%s\",\n", version)
-		fmt.Printf("  \"path\": \"%s\",\n", absPath)
-		fmt.Printf("  \"totalFiles\": %d,\n", files)
-		fmt.Printf("  \"goFiles\": %d,\n", goFiles)
-		fmt.Printf("  \"totalLines\": %d,\n", totalLines)
-		fmt.Printf("  \"status\": \"v0.1-dev\"\n")
-		fmt.Printf("}\n")
+		fmt.Println(reporter.Format(report))
 	} else {
-		fmt.Println("📊 Analysis Results")
-		fmt.Println(strings.Repeat("─", 40))
-		fmt.Printf("📁 Total Files:      %d\n", files)
-		fmt.Printf("📄 Go Files:         %d\n", goFiles)
-		fmt.Printf("📝 Total Lines:      %d\n", totalLines)
-		fmt.Println(strings.Repeat("─", 40))
-		fmt.Println("Status: v0.1-dev (Early Development)")
-		fmt.Println("✨ Full analysis engine coming soon...")
-		fmt.Println()
+		fmt.Println(reporter.Format(report))
+	}
+
+	// Exit with error code if violations found
+	if report.HasViolations {
+		os.Exit(1)
 	}
 }
 
@@ -161,4 +192,36 @@ func scanDirectory(path string, verbose bool) (totalFiles, goFiles, totalLines i
 	})
 
 	return
+}
+
+func runExtract(path, module string) {
+	if module == "" {
+		fmt.Fprintf(os.Stderr, "Error: -module flag is required\n")
+		os.Exit(1)
+	}
+
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error resolving path: %v\n", err)
+		os.Exit(1)
+	}
+
+	extractor := NewImportExtractor(module)
+	imports, err := extractor.ExtractFromDir(absPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error extracting imports: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("Extracted Imports:")
+	fmt.Println(strings.Repeat("─", 60))
+	count := 0
+	for filePath, importMeta := range imports {
+		fmt.Printf("\n%s:\n", filePath)
+		for _, imp := range importMeta.Imports {
+			fmt.Printf("  - %s\n", imp)
+			count++
+		}
+	}
+	fmt.Printf("\nTotal files: %d, Total imports: %d\n", len(imports), count)
 }
