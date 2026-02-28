@@ -4,6 +4,10 @@
 
 RepoDoctor is a CLI tool that analyzes your Go repository's architectural health by evaluating structure, dependency patterns, and maintainability signals. It doesn't lint your syntax—it inspects your engineering decisions.
 
+![Version](https://img.shields.io/badge/version-v0.2.0--dev-blue)
+[![Go Version](https://img.shields.io/badge/go-1.25+-00ADD8)](https://go.dev/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 [Go Version](https://go.dev/)
 [License](LICENSE)
 [Status](../../tree/main)
@@ -15,12 +19,18 @@ RepoDoctor is a CLI tool that analyzes your Go repository's architectural health
 ```bash
 # Clone the repository
 git clone https://github.com/AdemFurkanATA/RepoDoctor.git
-cd repodoctor
+cd RepoDoctor
 
 # Build
 go build -o repodoctor.exe
 
-# Run
+# Run analysis
+./repodoctor analyze -path . -format text
+
+# Extract imports
+./repodoctor extract -path . -module RepoDoctor
+
+# Show help
 ./repodoctor --help
 ```
 
@@ -42,53 +52,107 @@ Most static analysis tools focus on **code style** and **formatting**. RepoDocto
 
 ---
 
-## 🎯 Core Features (v0.1)
+## 🎯 Core Features (v0.2)
 
-### Planned Capabilities
+### Implemented Capabilities
 
-- **File Size Analysis** — Detect unusually large files
-- **Function Size Heuristics** — Identify overly complex functions
-- **Circular Import Detection** — Catch import cycles in Go packages
-- **Layer Validation** — Enforce architectural boundaries
-- **Repository Scoring** — Quantitative health metrics (0-100)
-- **JSON Reports** — Machine-readable output for CI integration
+- ✅ **Import Extraction** — AST-based Go import analysis with AST parsing
+- ✅ **Dependency Graph** — Graph-based dependency mapping with cycle detection
+- ✅ **Circular Dependency Detection** — DFS-based import cycle identification (critical severity)
+- ✅ **Layer Validation** — Enforce handler → service → repo architecture (high severity)
+- ✅ **Structural Scoring** — Maintainability score (0-100) with penalty weights
+- ✅ **CLI Reports** — Beautiful text output and JSON export for CI integration
+- ✅ **13 Unit Tests** — Comprehensive test coverage for all core components
 
 ---
 
-## 📖 Usage (Planned)
+## 📖 Usage
+
+### Analyze Command
+
+Analyze your repository for structural violations:
 
 ```bash
-# Analyze current directory
-repodoctor analyze .
+# Analyze current directory (text output)
+repodoctor analyze -path .
 
 # Analyze with JSON output
-repodoctor analyze ./my-project --format json
+repodoctor analyze -path ./my-project -format json
 
-# Check specific rules
-repodoctor check --rules=circular-imports,size
-
-# Generate health report
-repodoctor report --output=health.json
+# Verbose mode
+repodoctor analyze -path . -verbose
 ```
 
-### Example Output
+### Extract Command
+
+Extract imports from Go files:
+
+```bash
+# Extract imports with module normalization
+repodoctor extract -path . -module RepoDoctor
+```
+
+### Example Text Output
 
 ```
-RepoDoctor v0.1.0
-Analyzing: ./my-project
+╔═══════════════════════════════════════════════════════════╗
+║          RepoDoctor Structural Analysis Report           ║
+╚═══════════════════════════════════════════════════════════╝
 
-Architecture Health: B+ (85/100)
-Maintainability Score: 78/100
+Version: v0.2.0-dev
+Path: C:\project
 
-Issues Found:
-  ⚠ [CIRCULAR] internal/service ↔ internal/repo
-  ⚠ [LARGE_FILE] user_handler.go (823 lines)
+┌───────────────────────────────────────────────────────────┐
+│  STRUCTURAL HEALTH SCORE                                  │
+└───────────────────────────────────────────────────────────┘
+✓ Score: 85.0 / 100.0
 
-Checks Passed:
-  ✓ Test coverage detected
-  ✓ No god objects identified
-  
-Analysis completed in 234ms
+┌───────────────────────────────────────────────────────────┐
+│  VIOLATIONS SUMMARY                                       │
+└───────────────────────────────────────────────────────────┘
+Total Violations: 3
+  - Circular Dependencies: 1
+  - Layer Violations: 2
+
+┌───────────────────────────────────────────────────────────┐
+│  CIRCULAR DEPENDENCIES [CRITICAL]                         │
+└───────────────────────────────────────────────────────────┘
+[1] project/service → project/repo → project/service
+
+┌───────────────────────────────────────────────────────────┐
+│  LAYER VIOLATIONS [HIGH]                                  │
+└───────────────────────────────────────────────────────────┘
+[1] project/repo/user_repo.go (repo) -> project/service/user_service.go (service): upward import not allowed
+
+┌───────────────────────────────────────────────────────────┐
+│  SCORE BREAKDOWN                                          │
+└───────────────────────────────────────────────────────────┘
+Base Score:           100.0
+Circular Penalty:     -10.0 (1 violations x 10.0)
+Layer Penalty:        -10.0 (2 violations x 5.0)
+─────────────────────────────────────────────────
+Final Score:          80.0
+```
+
+### Example JSON Output
+
+```json
+{
+  "version": "v0.2.0-dev",
+  "path": "C:\\project",
+  "score": {
+    "total": 80.00,
+    "max": 100.00,
+    "circularPenalty": 10.00,
+    "layerPenalty": 10.00
+  },
+  "violations": {
+    "circular": 1,
+    "layer": 2
+  },
+  "circularViolations": [...],
+  "layerViolations": [...]
+}
 ```
 
 ---
@@ -101,35 +165,38 @@ RepoDoctor philosophy:
 
 RepoDoctor enforces engineering discipline through:
 
-1. **Structure Analysis** — Evaluates package organization
-2. **Dependency Graph** — Maps import relationships
-3. **Heuristic Rules** — Applies industry best practices
-4. **Scoring System** — Quantifies architectural quality
+1. **Import Extraction** — AST-based parsing of Go files
+2. **Dependency Graph** — Adjacency list representation with DFS traversal
+3. **Rule Engine** — Pluggable rule interface (CircularDependency, LayerValidation)
+4. **Scoring System** — Weighted penalty calculation (circular: 10pts, layer: 5pts)
+5. **Reporter** — Multi-format output (text with ASCII borders, JSON)
 
 ---
 
 ## 🗺️ Roadmap
 
-### v0.1 — Core Engine (Current)
+### v0.1 — Core Engine ✅ (Completed)
 
-- Project initialization
-- CLI argument parsing
-- Basic file analysis
-- Architecture health scoring
+- ✅ Project initialization
+- ✅ CLI argument parsing
+- ✅ Import extraction with AST
+- ✅ Dependency graph construction
 
-### v0.2 — Rule Engine
+### v0.2 — Rule Engine ✅ (Current)
 
-- Circular import detection
+- ✅ Circular import detection (DFS-based)
+- ✅ Layer violation rules (handler → service → repo)
+- ✅ Structural scoring system
+- ✅ Text and JSON output formats
+- ✅ Comprehensive test suite (13 tests)
+
+### v0.3 — Advanced Analysis (Planned)
+
 - File/function size thresholds
-- Layer violation rules
-- Configurable rule sets
-
-### v0.3 — Reporting & CI
-
-- JSON/XML output formats
+- God object detection
+- Custom rule configuration
 - GitHub Actions integration
-- Custom thresholds
-- Trend analysis
+- Trend analysis over time
 
 ---
 
@@ -151,7 +218,14 @@ go build -o repodoctor.exe
 ### Run Tests
 
 ```bash
+# Run all tests
 go test ./...
+
+# Run tests with verbose output
+go test -v ./...
+
+# Run tests with coverage
+go test -v -cover ./...
 ```
 
 ---
@@ -159,21 +233,22 @@ go test ./...
 ## 📁 Project Structure
 
 ```
-repodoctor/
-├── cmd/                 # CLI command definitions
-├── internal/            # Core analysis engine
-│   ├── analyzer/        # File and package analyzers
-│   ├── rules/           # Architecture rule definitions
-│   ├── scoring/         # Health scoring logic
-│   └── report/          # Output formatters
-├── pkg/                 # Public libraries
-├── docs/                # Documentation (local only)
-├── main.go              # Application entry point
-├── go.mod               # Go module definition
-└── README.md            # This file
+RepoDoctor/
+├── main.go                 # CLI entry point (analyze, extract, version commands)
+├── import_extractor.go     # AST-based import extraction
+├── dependency_graph.go     # Graph data structure with cycle detection
+├── circular_rule.go        # Circular dependency rule (critical severity)
+├── layer_rule.go           # Layer validation rule (high severity)
+├── scoring.go              # Structural scoring system
+├── reporter.go             # Output formatter (text, JSON)
+├── dependency_test.go      # Comprehensive test suite (13 tests)
+├── docs/                   # Documentation
+│   ├── specs/              # Feature specifications
+│   ├── architecture.md     # Architecture overview
+│   └── roadmap.md          # Development roadmap
+├── go.mod                  # Go module definition
+└── README.md               # This file
 ```
-
-> **Note:** The `docs/` directory contains local development documentation and is not committed to version control.
 
 ---
 
@@ -204,4 +279,26 @@ Inspired by the need for architectural discipline in growing codebases. Built wi
 **RepoDoctor** — *Enforcing engineering discipline, one repository at a time.*
 
 ---
+
+## 📊 Test Coverage
+
+```bash
+$ go test -v ./...
+=== RUN   TestDependencyGraphAcyclic
+--- PASS: TestDependencyGraphAcyclic (0.00s)
+=== RUN   TestDependencyGraphSimpleCycle
+--- PASS: TestDependencyGraphSimpleCycle (0.00s)
+=== RUN   TestDependencyGraphMultiNodeCycle
+--- PASS: TestDependencyGraphMultiNodeCycle (0.00s)
+=== RUN   TestLayerValidationRuleUpwardImport
+--- PASS: TestLayerValidationRuleUpwardImport (0.00s)
+=== RUN   TestLayerValidationRuleRepoToService
+--- PASS: TestLayerValidationRuleRepoToService (0.00s)
+=== RUN   TestStructuralScoringDeterministic
+--- PASS: TestStructuralScoringDeterministic (0.00s)
+PASS
+ok      RepoDoctor      0.367s
+```
+
+All 13 tests pass with deterministic output.
 
