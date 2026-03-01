@@ -4,7 +4,7 @@
 
 RepoDoctor is a CLI tool that analyzes your Go repository's architectural health by evaluating structure, dependency patterns, and maintainability signals. It doesn't lint your syntax—it inspects your engineering decisions.
 
-![Version](https://img.shields.io/badge/version-v0.2.0--dev-blue)
+![Version](https://img.shields.io/badge/version-v0.3.0--dev-blue)
 [![Go Version](https://img.shields.io/badge/go-1.25+-00ADD8)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -52,7 +52,7 @@ Most static analysis tools focus on **code style** and **formatting**. RepoDocto
 
 ---
 
-## 🎯 Core Features (v0.2)
+## 🎯 Core Features (v0.3)
 
 ### Implemented Capabilities
 
@@ -61,8 +61,13 @@ Most static analysis tools focus on **code style** and **formatting**. RepoDocto
 - ✅ **Circular Dependency Detection** — DFS-based import cycle identification (critical severity)
 - ✅ **Layer Validation** — Enforce handler → service → repo architecture (high severity)
 - ✅ **Structural Scoring** — Maintainability score (0-100) with penalty weights
+- ✅ **Size Threshold Analysis** — Detect oversized files (>500 lines) and functions (>80 lines)
+- ✅ **God Object Detection** — Identify structs with too many fields (>15) or methods (>10)
+- ✅ **Custom Configuration** — YAML-based config for rule thresholds and enable/disable states
+- ✅ **GitHub Actions Integration** — CI/CD workflow with automatic analysis and exit codes
+- ✅ **Trend Analysis** — Track maintainability score evolution over time
 - ✅ **CLI Reports** — Beautiful text output and JSON export for CI integration
-- ✅ **13 Unit Tests** — Comprehensive test coverage for all core components
+- ✅ **35+ Unit Tests** — Comprehensive test coverage for all core components
 
 ---
 
@@ -79,8 +84,29 @@ repodoctor analyze -path .
 # Analyze with JSON output
 repodoctor analyze -path ./my-project -format json
 
-# Verbose mode
+# Verbose mode (shows trend analysis)
 repodoctor analyze -path . -verbose
+
+# With custom config
+repodoctor analyze -path . -verbose
+```
+
+### Configuration
+
+Create `.repodoctor/config.yaml` to customize thresholds:
+
+```yaml
+size:
+  max_file_lines: 500
+  max_function_lines: 80
+
+god_object:
+  max_fields: 15
+  max_methods: 10
+
+rules:
+  enable_size_rule: true
+  enable_god_object_rule: true
 ```
 
 ### Extract Command
@@ -99,20 +125,22 @@ repodoctor extract -path . -module RepoDoctor
 ║          RepoDoctor Structural Analysis Report           ║
 ╚═══════════════════════════════════════════════════════════╝
 
-Version: v0.2.0-dev
+Version: v0.3.0-dev
 Path: C:\project
 
 ┌───────────────────────────────────────────────────────────┐
 │  STRUCTURAL HEALTH SCORE                                  │
 └───────────────────────────────────────────────────────────┘
-✓ Score: 85.0 / 100.0
+✓ Score: 78.0 / 100.0
 
 ┌───────────────────────────────────────────────────────────┐
 │  VIOLATIONS SUMMARY                                       │
 └───────────────────────────────────────────────────────────┘
-Total Violations: 3
+Total Violations: 5
   - Circular Dependencies: 1
   - Layer Violations: 2
+  - Size Violations: 2
+  - God Objects: 0
 
 ┌───────────────────────────────────────────────────────────┐
 │  CIRCULAR DEPENDENCIES [CRITICAL]                         │
@@ -125,33 +153,46 @@ Total Violations: 3
 [1] project/repo/user_repo.go (repo) -> project/service/user_service.go (service): upward import not allowed
 
 ┌───────────────────────────────────────────────────────────┐
+│  SIZE VIOLATIONS [LOW]                                    │
+└───────────────────────────────────────────────────────────┘
+[1] Function 'largeFunction' in handler.go: 120 lines (threshold: 80)
+[2] File utils.go: 650 lines (threshold: 500)
+
+┌───────────────────────────────────────────────────────────┐
 │  SCORE BREAKDOWN                                          │
 └───────────────────────────────────────────────────────────┘
 Base Score:           100.0
 Circular Penalty:     -10.0 (1 violations x 10.0)
 Layer Penalty:        -10.0 (2 violations x 5.0)
+Size Penalty:         -6.0 (2 violations x 3.0)
 ─────────────────────────────────────────────────
-Final Score:          80.0
+Final Score:          74.0
 ```
 
 ### Example JSON Output
 
 ```json
 {
-  "version": "v0.2.0-dev",
+  "version": "v0.3.0-dev",
   "path": "C:\\project",
   "score": {
-    "total": 80.00,
+    "total": 74.00,
     "max": 100.00,
     "circularPenalty": 10.00,
-    "layerPenalty": 10.00
+    "layerPenalty": 10.00,
+    "sizePenalty": 6.00,
+    "godObjectPenalty": 0.00
   },
   "violations": {
     "circular": 1,
-    "layer": 2
+    "layer": 2,
+    "size": 2,
+    "godObject": 0
   },
   "circularViolations": [...],
-  "layerViolations": [...]
+  "layerViolations": [...],
+  "sizeViolations": [...],
+  "godObjectViolations": [...]
 }
 ```
 
@@ -168,8 +209,11 @@ RepoDoctor enforces engineering discipline through:
 1. **Import Extraction** — AST-based parsing of Go files
 2. **Dependency Graph** — Adjacency list representation with DFS traversal
 3. **Rule Engine** — Pluggable rule interface (CircularDependency, LayerValidation)
-4. **Scoring System** — Weighted penalty calculation (circular: 10pts, layer: 5pts)
-5. **Reporter** — Multi-format output (text with ASCII borders, JSON)
+3. **Rule Engine** — Pluggable rule interface (CircularDependency, LayerValidation, SizeRule, GodObjectRule)
+4. **Configuration System** — YAML-based config with graceful defaults
+5. **Scoring System** — Weighted penalty calculation (circular: 10pts, layer: 5pts, size: 3pts, god object: 5pts)
+6. **Trend Analysis** — Historical score tracking with delta calculation
+7. **Reporter** — Multi-format output (text with ASCII borders, JSON)
 
 ---
 
@@ -182,7 +226,7 @@ RepoDoctor enforces engineering discipline through:
 - ✅ Import extraction with AST
 - ✅ Dependency graph construction
 
-### v0.2 — Rule Engine ✅ (Current)
+### v0.2 — Rule Engine ✅ (Completed)
 
 - ✅ Circular import detection (DFS-based)
 - ✅ Layer violation rules (handler → service → repo)
@@ -190,13 +234,14 @@ RepoDoctor enforces engineering discipline through:
 - ✅ Text and JSON output formats
 - ✅ Comprehensive test suite (13 tests)
 
-### v0.3 — Advanced Analysis (Current)
+### v0.3 — Advanced Analysis ✅ (Completed)
 
-- ✅ File/function size thresholds
-- ✅ God object detection
-- ✅ Custom rule configuration
-- ✅ GitHub Actions integration
-- ✅ Trend analysis over time
+- ✅ File/function size thresholds (500/80 lines default)
+- ✅ God object detection (15 fields/10 methods default)
+- ✅ Custom rule configuration (YAML-based)
+- ✅ GitHub Actions integration (CI/CD ready)
+- ✅ Trend analysis over time (historical tracking)
+- ✅ 35+ comprehensive tests
 
 ---
 
@@ -293,8 +338,8 @@ rules:
 ### Build from Source
 
 ```bash
-git clone https://github.com/yourusername/repodoctor.git
-cd repodoctor
+git clone https://github.com/AdemFurkanATA/RepoDoctor.git
+cd RepoDoctor
 go build -o repodoctor.exe
 ```
 
@@ -322,9 +367,13 @@ RepoDoctor/
 ├── dependency_graph.go     # Graph data structure with cycle detection
 ├── circular_rule.go        # Circular dependency rule (critical severity)
 ├── layer_rule.go           # Layer validation rule (high severity)
+├── size_rule.go            # File/function size threshold analysis
+├── god_object_rule.go      # God object detection (fields/methods)
+├── config.go               # YAML configuration system
+├── trend_analyzer.go       # Historical score tracking
 ├── scoring.go              # Structural scoring system
 ├── reporter.go             # Output formatter (text, JSON)
-├── dependency_test.go      # Comprehensive test suite (13 tests)
+├── dependency_test.go      # Comprehensive test suite (35+ tests)
 ├── docs/                   # Documentation
 │   ├── specs/              # Feature specifications
 │   ├── architecture.md     # Architecture overview
@@ -367,21 +416,23 @@ Inspired by the need for architectural discipline in growing codebases. Built wi
 
 ```bash
 $ go test -v ./...
-=== RUN   TestDependencyGraphAcyclic
---- PASS: TestDependencyGraphAcyclic (0.00s)
+=== RUN   TestConfigLoader_DefaultConfig
+--- PASS: TestConfigLoader_DefaultConfig (0.00s)
+=== RUN   TestSizeRule_DetectLargeFile
+--- PASS: TestSizeRule_DetectLargeFile (0.02s)
+=== RUN   TestGodObjectRule_DetectManyFields
+--- PASS: TestGodObjectRule_DetectManyFields (0.01s)
+=== RUN   TestTrendAnalyzer_AppendScore
+--- PASS: TestTrendAnalyzer_AppendScore (0.00s)
 === RUN   TestDependencyGraphSimpleCycle
 --- PASS: TestDependencyGraphSimpleCycle (0.00s)
-=== RUN   TestDependencyGraphMultiNodeCycle
---- PASS: TestDependencyGraphMultiNodeCycle (0.00s)
 === RUN   TestLayerValidationRuleUpwardImport
 --- PASS: TestLayerValidationRuleUpwardImport (0.00s)
-=== RUN   TestLayerValidationRuleRepoToService
---- PASS: TestLayerValidationRuleRepoToService (0.00s)
 === RUN   TestStructuralScoringDeterministic
 --- PASS: TestStructuralScoringDeterministic (0.00s)
 PASS
-ok      RepoDoctor      0.367s
+ok      RepoDoctor      0.892s
 ```
 
-All 13 tests pass with deterministic output.
+All 35+ tests pass with deterministic output across all v0.3 features.
 
