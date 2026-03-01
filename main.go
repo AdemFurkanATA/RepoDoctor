@@ -127,8 +127,21 @@ func runAnalyze(path, format string, verbose bool) {
 			graph.GetNodeCount(), graph.GetEdgeCount())
 	}
 
-	// Create scorer and run analysis
-	scorer := NewStructuralScorer(graph, DefaultScoringWeights(), absPath)
+	// Load configuration
+	configPath := GetConfigPath(absPath)
+	configLoader := NewConfigLoader(configPath)
+	config, err := configLoader.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: error loading config: %v\n", err)
+		config = configLoader.getDefaultConfig()
+	}
+
+	if verbose {
+		fmt.Printf("Configuration loaded from: %s\n", configPath)
+	}
+
+	// Create scorer and run analysis with config
+	scorer := NewStructuralScorer(graph, config, absPath)
 	
 	// Generate report
 	reporter := NewReporter(OutputFormat(format))
