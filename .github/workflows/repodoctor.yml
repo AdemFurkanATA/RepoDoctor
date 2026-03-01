@@ -1,0 +1,42 @@
+name: RepoDoctor Analysis
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  repodoctor:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Build RepoDoctor
+        run: go build -o repodoctor
+
+      - name: Run RepoDoctor analysis
+        run: ./repodoctor analyze -path . -format text
+
+      - name: Run RepoDoctor analysis (JSON output)
+        run: ./repodoctor analyze -path . -format json -verbose
+        if: always()
+
+      - name: Upload analysis results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: repodoctor-report
+          path: repodoctor-report.json
+          retention-days: 30
