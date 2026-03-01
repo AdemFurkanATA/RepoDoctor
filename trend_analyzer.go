@@ -116,7 +116,7 @@ func (t *TrendAnalyzer) CalculateDelta(currentScore float64) (delta float64, tre
 	}
 
 	delta = currentScore - prevScore
-	
+
 	if delta > 0 {
 		trend = "increased"
 	} else if delta < 0 {
@@ -131,17 +131,17 @@ func (t *TrendAnalyzer) CalculateDelta(currentScore float64) (delta float64, tre
 // GetTrendSummary returns a human-readable trend summary
 func (t *TrendAnalyzer) GetTrendSummary(currentScore float64) string {
 	delta, trend, hasPrevious := t.CalculateDelta(currentScore)
-	
+
 	if !hasPrevious {
 		return "Current Score: No previous data available"
 	}
-	
+
 	prevScore, _ := t.GetPreviousScore()
-	
+
 	summary := fmt.Sprintf("Current Score: %.1f\n", currentScore)
 	summary += fmt.Sprintf("Previous Score: %.1f\n", prevScore)
 	summary += fmt.Sprintf("Delta: %+.1f (%s)", delta, trend)
-	
+
 	return summary
 }
 

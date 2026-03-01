@@ -317,7 +317,7 @@ func TestGraphInterface(t *testing.T) {
 
 	// Test AddNode
 	graph.AddNode("node1")
-	
+
 	// Verify node count instead of HasNode
 	if graph.GetNodeCount() != 1 {
 		t.Errorf("Expected 1 node after adding node1, got %d", graph.GetNodeCount())
