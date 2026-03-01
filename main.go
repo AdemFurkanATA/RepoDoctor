@@ -127,21 +127,8 @@ func runAnalyze(path, format string, verbose bool) {
 			graph.GetNodeCount(), graph.GetEdgeCount())
 	}
 
-	// Load configuration
-	configPath := GetConfigPath(absPath)
-	configLoader := NewConfigLoader(configPath)
-	config, err := configLoader.Load()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: error loading config: %v\n", err)
-		config = configLoader.getDefaultConfig()
-	}
-
-	if verbose {
-		fmt.Printf("Configuration loaded from: %s\n", configPath)
-	}
-
-	// Create scorer and run analysis with config
-	scorer := NewStructuralScorer(graph, config, absPath)
+	// Create scorer and run analysis
+	scorer := NewStructuralScorer(graph, DefaultScoringWeights(), absPath)
 	
 	// Generate report
 	reporter := NewReporter(OutputFormat(format))
@@ -154,9 +141,29 @@ func runAnalyze(path, format string, verbose bool) {
 		fmt.Println(reporter.Format(report))
 	}
 
-	// Exit with error code if critical violations found (circular dependencies)
-	// Per Spec 11: Exit code 1 only for critical violations
-	if report.Score.CircularCount > 0 {
+	// Trend analysis
+	trendAnalyzer := NewTrendAnalyzer(absPath)
+	if err := trendAnalyzer.LoadHistory(); err != nil {
+		if verbose {
+			fmt.Printf("Warning: could not load history: %v\n", err)
+		}
+	}
+	
+	// Display trend summary
+	if verbose {
+		fmt.Println()
+		fmt.Println(trendAnalyzer.GetTrendSummary(report.Score.TotalScore))
+	}
+	
+	// Append current score to history
+	if err := trendAnalyzer.AppendScore(report.Score.TotalScore); err != nil {
+		if verbose {
+			fmt.Printf("Warning: could not save to history: %v\n", err)
+		}
+	}
+
+	// Exit with error code if violations found
+	if report.HasViolations {
 		os.Exit(1)
 	}
 }

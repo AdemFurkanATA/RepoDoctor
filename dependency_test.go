@@ -204,8 +204,8 @@ func TestStructuralScoringCircularPenalty(t *testing.T) {
 	graph.AddEdge("A", "B")
 	graph.AddEdge("B", "A")
 
-	config := (&ConfigLoader{}).getDefaultConfig()
-	scorer := NewStructuralScorer(graph, config, "")
+	weights := DefaultScoringWeights()
+	scorer := NewStructuralScorer(graph, weights, "")
 	score := scorer.CalculateScore()
 
 	// Should have penalty for circular dependency
@@ -234,8 +234,8 @@ func TestStructuralScoringLayerPenalty(t *testing.T) {
 	graph.AddNode(servicePath)
 	graph.AddEdge(repoPath, servicePath)
 
-	config := (&ConfigLoader{}).getDefaultConfig()
-	scorer := NewStructuralScorer(graph, config, "")
+	weights := DefaultScoringWeights()
+	scorer := NewStructuralScorer(graph, weights, "")
 	score := scorer.CalculateScore()
 
 	// Should have penalty for layer violation
@@ -265,7 +265,7 @@ func TestStructuralScoringDeterministic(t *testing.T) {
 	// Run scoring multiple times
 	var scores []*StructuralScore
 	for i := 0; i < 3; i++ {
-		scorer := NewStructuralScorer(graph, config, "")
+		scorer := NewStructuralScorer(graph, weights, "")
 		scores = append(scores, scorer.CalculateScore())
 	}
 
