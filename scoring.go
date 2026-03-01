@@ -4,17 +4,17 @@ import "fmt"
 
 // StructuralScore represents the overall structural health score
 type StructuralScore struct {
-	TotalScore        float64
-	CircularPenalty   float64
-	LayerPenalty      float64
-	SizePenalty       float64
-	GodObjectPenalty  float64
-	ViolationCount    int
-	CircularCount     int
-	LayerCount        int
-	SizeCount         int
-	GodObjectCount    int
-	MaxScore          float64
+	TotalScore       float64
+	CircularPenalty  float64
+	LayerPenalty     float64
+	SizePenalty      float64
+	GodObjectPenalty float64
+	ViolationCount   int
+	CircularCount    int
+	LayerCount       int
+	SizeCount        int
+	GodObjectCount   int
+	MaxScore         float64
 }
 
 // ScoringWeights defines penalty weights for different violation types
@@ -37,12 +37,12 @@ func DefaultScoringWeights() *ScoringWeights {
 
 // StructuralScorer calculates structural health scores
 type StructuralScorer struct {
-	weights        *ScoringWeights
-	circularRule   *CircularDependencyRule
-	layerRule      *LayerValidationRule
-	sizeRule       *SizeRule
-	godObjectRule  *GodObjectRule
-	score          *StructuralScore
+	weights       *ScoringWeights
+	circularRule  *CircularDependencyRule
+	layerRule     *LayerValidationRule
+	sizeRule      *SizeRule
+	godObjectRule *GodObjectRule
+	score         *StructuralScore
 }
 
 // NewStructuralScorer creates a new structural scorer with configuration
@@ -54,13 +54,13 @@ func NewStructuralScorer(graph Graph, config *Config, dirPath string) *Structura
 	// Create rules with config thresholds
 	sizeRule := NewSizeRule()
 	godObjectRule := NewGodObjectRule()
-	
+
 	// Apply config thresholds
 	if config.Size != nil {
 		sizeRule.MaxFileLines = config.Size.MaxFileLines
 		sizeRule.MaxFunctionLines = config.Size.MaxFunctionLines
 	}
-	
+
 	if config.GodObject != nil {
 		godObjectRule.MaxFields = config.GodObject.MaxFields
 		godObjectRule.MaxMethods = config.GodObject.MaxMethods

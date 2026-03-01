@@ -8,7 +8,7 @@ type CycleViolation struct {
 
 // CircularDependencyRule detects circular dependencies in a graph
 type CircularDependencyRule struct {
-	graph     Graph
+	graph      Graph
 	violations []CycleViolation
 }
 

@@ -97,7 +97,7 @@ func runAnalyze(path, format string, verbose bool) {
 
 	// Create scorer and run analysis
 	scorer := NewStructuralScorer(graph, config, absPath)
-	
+
 	// Generate and display report
 	report := generateReport(scorer, absPath, format, verbose)
 
@@ -151,7 +151,7 @@ func buildDependencyGraph(imports map[string]*ImportMetadata, verbose bool) Grap
 	}
 
 	if verbose {
-		fmt.Printf("Built dependency graph with %d nodes and %d edges\n", 
+		fmt.Printf("Built dependency graph with %d nodes and %d edges\n",
 			graph.GetNodeCount(), graph.GetEdgeCount())
 	}
 	return graph
@@ -191,12 +191,12 @@ func handleTrendAnalysis(absPath string, report *StructuralReport, verbose bool)
 	if err := trendAnalyzer.LoadHistory(); err != nil && verbose {
 		fmt.Printf("Warning: could not load history: %v\n", err)
 	}
-	
+
 	if verbose {
 		fmt.Println()
 		fmt.Println(trendAnalyzer.GetTrendSummary(report.Score.TotalScore))
 	}
-	
+
 	if err := trendAnalyzer.AppendScore(report.Score.TotalScore); err != nil && verbose {
 		fmt.Printf("Warning: could not save to history: %v\n", err)
 	}

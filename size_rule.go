@@ -31,7 +31,7 @@ func NewSizeRule() *SizeRule {
 		MaxFileLines:     500,
 		MaxFunctionLines: 80,
 		violations:       make([]SizeViolation, 0),
-		fset:            token.NewFileSet(),
+		fset:             token.NewFileSet(),
 	}
 }
 

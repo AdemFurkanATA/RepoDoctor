@@ -17,14 +17,14 @@ type ImportMetadata struct {
 
 // ImportExtractor extracts import metadata from Go source files
 type ImportExtractor struct {
-	modulePath   string
+	modulePath    string
 	stdlibPrefixs map[string]bool
 }
 
 // NewImportExtractor creates a new ImportExtractor
 func NewImportExtractor(modulePath string) *ImportExtractor {
 	return &ImportExtractor{
-		modulePath: modulePath,
+		modulePath:    modulePath,
 		stdlibPrefixs: buildStdlibPrefixs(),
 	}
 }
@@ -165,32 +165,32 @@ func buildStdlibPrefixs() map[string]bool {
 	return map[string]bool{
 		// A
 		"archive": true,
-		"bufio": true,
-		"bytes": true,
+		"bufio":   true,
+		"bytes":   true,
 		// C
-		"compress": true,
+		"compress":  true,
 		"container": true,
-		"context": true,
-		"crypto": true,
+		"context":   true,
+		"crypto":    true,
 		// D
 		"database": true,
-		"debug": true,
+		"debug":    true,
 		// E
 		"encoding": true,
-		"errors": true,
+		"errors":   true,
 		// F
 		"flag": true,
-		"fmt": true,
+		"fmt":  true,
 		// G
 		"go": true,
 		// H
 		"hash": true,
 		"html": true,
 		// I
-		"image": true,
-		"index": true,
+		"image":    true,
+		"index":    true,
 		"internal": true,
-		"io": true,
+		"io":       true,
 		// L
 		"log": true,
 		// M
@@ -201,23 +201,23 @@ func buildStdlibPrefixs() map[string]bool {
 		// O
 		"os": true,
 		// P
-		"path": true,
+		"path":   true,
 		"plugin": true,
-		"pprof": true,
+		"pprof":  true,
 		// R
 		"reflect": true,
-		"regexp": true,
+		"regexp":  true,
 		"runtime": true,
 		// S
-		"sort": true,
+		"sort":    true,
 		"strconv": true,
 		"strings": true,
-		"sync": true,
+		"sync":    true,
 		"syscall": true,
 		// T
 		"testing": true,
-		"text": true,
-		"time": true,
+		"text":    true,
+		"time":    true,
 		// U
 		"unicode": true,
 		// V

@@ -42,13 +42,13 @@ func (r *Reporter) GenerateReport(scorer *StructuralScorer, path, version string
 	violations := scorer.GetAllViolations()
 
 	return &StructuralReport{
-		Version:  version,
-		Path:     path,
-		Score:    scorer.CalculateScore(),
-		Circular: violations.Circular,
-		Layer:    violations.Layer,
-		Size:     violations.Size,
-		GodObject: violations.GodObject,
+		Version:       version,
+		Path:          path,
+		Score:         scorer.CalculateScore(),
+		Circular:      violations.Circular,
+		Layer:         violations.Layer,
+		Size:          violations.Size,
+		GodObject:     violations.GodObject,
 		HasViolations: len(violations.Circular) > 0 || len(violations.Layer) > 0 || len(violations.Size) > 0 || len(violations.GodObject) > 0,
 	}
 }
@@ -67,14 +67,15 @@ func (r *Reporter) Format(report *StructuralReport) string {
 func (r *Reporter) formatText(report *StructuralReport) string {
 	var sb strings.Builder
 
-	r.writeHeader(&sb)
-	r.writeScoreSection(&sb, report)
-	r.writeViolationsSummary(&sb, report)
-	r.writeCircularViolations(&sb, report)
-	r.writeLayerViolations(&sb, report)
-	r.writeSizeViolations(&sb, report)
-	r.writeScoreBreakdown(&sb, report)
-	
+	writeHeader(&sb)
+	writeScoreSection(&sb, report)
+	writeViolationsSummary(&sb, report)
+	writeCircularViolations(&sb, report)
+	writeLayerViolations(&sb, report)
+	writeSizeViolations(&sb, report)
+	writeGodObjectViolations(&sb, report)
+	writeScoreBreakdown(&sb, report)
+
 	return sb.String()
 }
 
@@ -83,7 +84,7 @@ func formatCyclePath(path []string) string {
 	if len(path) == 0 {
 		return ""
 	}
-	
+
 	result := ""
 	for i, pkg := range path {
 		result += pkg
@@ -93,14 +94,14 @@ func formatCyclePath(path []string) string {
 	}
 	// Complete the cycle
 	result += " → " + path[0]
-	
+
 	return result
 }
 
 // formatJSON formats the report as JSON
 func (r *Reporter) formatJSON(report *StructuralReport) string {
 	var sb strings.Builder
-	
+
 	sb.WriteString("{\n")
 	sb.WriteString(fmt.Sprintf("  \"version\": \"%s\",\n", report.Version))
 	sb.WriteString(fmt.Sprintf("  \"path\": \"%s\",\n", report.Path))
@@ -116,7 +117,7 @@ func (r *Reporter) formatJSON(report *StructuralReport) string {
 	sb.WriteString(fmt.Sprintf("    \"layer\": %d,\n", report.Score.LayerCount))
 	sb.WriteString(fmt.Sprintf("    \"size\": %d\n", report.Score.SizeCount))
 	sb.WriteString("  },\n")
-	
+
 	// Circular violations
 	sb.WriteString("  \"circularViolations\": [\n")
 	for i, v := range report.Circular {
@@ -130,7 +131,7 @@ func (r *Reporter) formatJSON(report *StructuralReport) string {
 		sb.WriteString("\n")
 	}
 	sb.WriteString("  ],\n")
-	
+
 	// Layer violations
 	sb.WriteString("  \"layerViolations\": [\n")
 	for i, v := range report.Layer {
@@ -145,7 +146,7 @@ func (r *Reporter) formatJSON(report *StructuralReport) string {
 		sb.WriteString("\n")
 	}
 	sb.WriteString("  ],\n")
-	
+
 	// Size violations
 	sb.WriteString("  \"sizeViolations\": [\n")
 	for i, v := range report.Size {
@@ -162,7 +163,7 @@ func (r *Reporter) formatJSON(report *StructuralReport) string {
 	}
 	sb.WriteString("  ]\n")
 	sb.WriteString("}\n")
-	
+
 	return sb.String()
 }
 
@@ -171,7 +172,7 @@ func formatStringArray(arr []string) string {
 	if len(arr) == 0 {
 		return "[]"
 	}
-	
+
 	result := "["
 	for i, s := range arr {
 		result += fmt.Sprintf("\"%s\"", s)
