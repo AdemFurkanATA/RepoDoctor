@@ -128,7 +128,7 @@ func runAnalyze(path, format string, verbose bool) {
 	}
 
 	// Create scorer and run analysis
-	scorer := NewStructuralScorer(graph, DefaultScoringWeights())
+	scorer := NewStructuralScorer(graph, DefaultScoringWeights(), absPath)
 	
 	// Generate report
 	reporter := NewReporter(OutputFormat(format))
