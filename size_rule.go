@@ -2,8 +2,10 @@ package main
 
 import (
 	"go/ast"
+	"go/parser"
 	"go/token"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -59,7 +61,32 @@ func (s *SizeRule) checkFilesInDir(dirPath string) error {
 
 // walkDir walks through a directory and calls the callback for each Go file
 func (s *SizeRule) walkDir(root string, callback func(string) error) error {
-	return nil // Will be implemented
+	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil // Skip files with errors
+		}
+
+		// Skip directories
+		if info.IsDir() {
+			// Skip hidden directories
+			if strings.HasPrefix(info.Name(), ".") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Skip non-Go files
+		if !strings.HasSuffix(path, ".go") {
+			return nil
+		}
+
+		// Skip hidden files
+		if strings.HasPrefix(info.Name(), ".") {
+			return nil
+		}
+
+		return callback(path)
+	})
 }
 
 // checkFile checks a single file for size violations
@@ -103,7 +130,7 @@ func (s *SizeRule) countNonEmptyLines(content string) int {
 // checkFunctions checks function sizes in a file
 func (s *SizeRule) checkFunctions(filePath string, content []byte) {
 	// Parse AST
-	node, err := ast.Parse(s.fset, filePath, content, 0)
+	node, err := parser.ParseFile(s.fset, filePath, content, 0)
 	if err != nil {
 		return // Skip malformed files
 	}
