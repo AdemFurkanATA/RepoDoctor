@@ -81,14 +81,42 @@ Examples:
 }
 
 func runAnalyze(path, format string, verbose bool) {
-	// Resolve to absolute path
+	// Validate and resolve path
+	absPath := validatePath(path)
+
+	// Extract imports and build dependency graph
+	if verbose {
+		fmt.Printf("Extracting imports from: %s\n", absPath)
+	}
+
+	imports := extractImports(absPath, verbose)
+	graph := buildDependencyGraph(imports, verbose)
+
+	// Load configuration
+	config := loadConfiguration(absPath, verbose)
+
+	// Create scorer and run analysis
+	scorer := NewStructuralScorer(graph, config, absPath)
+	
+	// Generate and display report
+	report := generateReport(scorer, absPath, format, verbose)
+
+	// Trend analysis
+	handleTrendAnalysis(absPath, report, verbose)
+
+	// Exit with error code if critical violations found
+	if report.HasViolations {
+		os.Exit(1)
+	}
+}
+
+func validatePath(path string) string {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error resolving path: %v\n", err)
 		os.Exit(1)
 	}
 
-	// Check if path exists
 	info, err := os.Stat(absPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: path does not exist: %s\n", absPath)
@@ -100,20 +128,20 @@ func runAnalyze(path, format string, verbose bool) {
 		os.Exit(1)
 	}
 
-	// Extract imports and build dependency graph
-	if verbose {
-		fmt.Printf("Extracting imports from: %s\n", absPath)
-	}
+	return absPath
+}
 
-	// Determine module name (simplified - in real usage, read from go.mod)
+func extractImports(absPath string, verbose bool) map[string]*ImportMetadata {
 	moduleName := "RepoDoctor"
 	extractor := NewImportExtractor(moduleName)
 	imports, err := extractor.ExtractFromDir(absPath)
-	if err != nil {
+	if err != nil && verbose {
 		fmt.Fprintf(os.Stderr, "Warning: error extracting imports: %v\n", err)
 	}
+	return imports
+}
 
-	// Build dependency graph
+func buildDependencyGraph(imports map[string]*ImportMetadata, verbose bool) Graph {
 	graph := NewDependencyGraph()
 	for filePath, importMeta := range imports {
 		graph.AddNode(filePath)
@@ -126,24 +154,51 @@ func runAnalyze(path, format string, verbose bool) {
 		fmt.Printf("Built dependency graph with %d nodes and %d edges\n", 
 			graph.GetNodeCount(), graph.GetEdgeCount())
 	}
+	return graph
+}
 
-	// Create scorer and run analysis
-	scorer := NewStructuralScorer(graph, DefaultScoringWeights())
-	
-	// Generate report
+func loadConfiguration(absPath string, verbose bool) *Config {
+	configPath := GetConfigPath(absPath)
+	configLoader := NewConfigLoader(configPath)
+	config, err := configLoader.Load()
+	if err != nil {
+		if verbose {
+			fmt.Printf("Warning: error loading config: %v\n", err)
+		}
+		config = configLoader.getDefaultConfig()
+	}
+
+	if verbose {
+		fmt.Printf("Configuration loaded from: %s\n", configPath)
+	}
+	return config
+}
+
+func generateReport(scorer *StructuralScorer, absPath, format string, verbose bool) *StructuralReport {
 	reporter := NewReporter(OutputFormat(format))
 	report := reporter.GenerateReport(scorer, absPath, version)
 
-	// Display results
 	if format == "json" {
 		fmt.Println(reporter.Format(report))
 	} else {
 		fmt.Println(reporter.Format(report))
 	}
+	return report
+}
 
-	// Exit with error code if violations found
-	if report.HasViolations {
-		os.Exit(1)
+func handleTrendAnalysis(absPath string, report *StructuralReport, verbose bool) {
+	trendAnalyzer := NewTrendAnalyzer(absPath)
+	if err := trendAnalyzer.LoadHistory(); err != nil && verbose {
+		fmt.Printf("Warning: could not load history: %v\n", err)
+	}
+	
+	if verbose {
+		fmt.Println()
+		fmt.Println(trendAnalyzer.GetTrendSummary(report.Score.TotalScore))
+	}
+	
+	if err := trendAnalyzer.AppendScore(report.Score.TotalScore); err != nil && verbose {
+		fmt.Printf("Warning: could not save to history: %v\n", err)
 	}
 }
 
