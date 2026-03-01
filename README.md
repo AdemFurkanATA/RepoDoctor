@@ -190,13 +190,96 @@ RepoDoctor enforces engineering discipline through:
 - ✅ Text and JSON output formats
 - ✅ Comprehensive test suite (13 tests)
 
-### v0.3 — Advanced Analysis (Planned)
+### v0.3 — Advanced Analysis (Current)
 
-- File/function size thresholds
-- God object detection
-- Custom rule configuration
-- GitHub Actions integration
-- Trend analysis over time
+- ✅ File/function size thresholds
+- ✅ God object detection
+- ✅ Custom rule configuration
+- ✅ GitHub Actions integration
+- ✅ Trend analysis over time
+
+---
+
+## 🚀 GitHub Actions Integration
+
+RepoDoctor can be easily integrated into your CI/CD pipeline using GitHub Actions.
+
+### Basic Workflow
+
+Create `.github/workflows/repodoctor.yml`:
+
+```yaml
+name: RepoDoctor Analysis
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  repodoctor:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Build RepoDoctor
+        run: go build -o repodoctor
+
+      - name: Run RepoDoctor analysis
+        run: ./repodoctor analyze -path . -format text
+```
+
+### Exit Codes
+
+RepoDoctor uses exit codes to indicate analysis results:
+
+- `0` → No critical violations (success)
+- `1` → Critical violations detected (failure)
+
+This allows your CI pipeline to fail automatically when architectural violations are found.
+
+### Advanced Configuration
+
+For custom thresholds and rule configuration, create `.repodoctor/config.yaml`:
+
+```yaml
+size:
+  max_file_lines: 500
+  max_function_lines: 80
+
+god_object:
+  max_fields: 15
+  max_methods: 10
+
+rules:
+  enable_size_rule: true
+  enable_god_object_rule: true
+```
+
+### JSON Output for Further Processing
+
+```yaml
+- name: Run RepoDoctor (JSON)
+  run: ./repodoctor analyze -path . -format json -verbose
+  
+- name: Upload analysis results
+  uses: actions/upload-artifact@v4
+  with:
+    name: repodoctor-report
+    path: repodoctor-report.json
+```
 
 ---
 
