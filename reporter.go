@@ -20,7 +20,7 @@ type StructuralReport struct {
 	Score         *StructuralScore
 	Circular      []CycleViolation
 	Layer         []LayerViolation
-	Size          []SizeViolation
+	GodObject     []GodObjectViolation
 	HasViolations bool
 }
 
@@ -46,8 +46,8 @@ func (r *Reporter) GenerateReport(scorer *StructuralScorer, path, version string
 		Score:    scorer.CalculateScore(),
 		Circular: violations.Circular,
 		Layer:    violations.Layer,
-		Size:     violations.Size,
-		HasViolations: len(violations.Circular) > 0 || len(violations.Layer) > 0 || len(violations.Size) > 0,
+		GodObject: violations.GodObject,
+		HasViolations: len(violations.Circular) > 0 || len(violations.Layer) > 0 || len(violations.GodObject) > 0,
 	}
 }
 
@@ -94,7 +94,7 @@ func (r *Reporter) formatText(report *StructuralReport) string {
 	sb.WriteString(fmt.Sprintf("Total Violations: %d\n", report.Score.ViolationCount))
 	sb.WriteString(fmt.Sprintf("  - Circular Dependencies: %d\n", report.Score.CircularCount))
 	sb.WriteString(fmt.Sprintf("  - Layer Violations: %d\n", report.Score.LayerCount))
-	sb.WriteString(fmt.Sprintf("  - Size Violations: %d\n\n", report.Score.SizeCount))
+	sb.WriteString(fmt.Sprintf("  - God Objects: %d\n\n", report.Score.GodObjectCount))
 
 	// Circular dependencies
 	if len(report.Circular) > 0 {
@@ -122,20 +122,15 @@ func (r *Reporter) formatText(report *StructuralReport) string {
 		sb.WriteString("\n")
 	}
 
-	// Size violations
-	if len(report.Size) > 0 {
+	// God object violations
+	if len(report.GodObject) > 0 {
 		sb.WriteString("┌───────────────────────────────────────────────────────────┐\n")
-		sb.WriteString("│  SIZE VIOLATIONS [LOW]                                    │\n")
+		sb.WriteString("│  GOD OBJECT VIOLATIONS [MEDIUM]                           │\n")
 		sb.WriteString("└───────────────────────────────────────────────────────────┘\n")
 		
-		for i, v := range report.Size {
-			if v.Function != "" {
-				sb.WriteString(fmt.Sprintf("[%d] Function '%s' in %s: %d lines (threshold: %d)\n", 
-					i+1, v.Function, v.File, v.Lines, v.Threshold))
-			} else {
-				sb.WriteString(fmt.Sprintf("[%d] File %s: %d lines (threshold: %d)\n", 
-					i+1, v.File, v.Lines, v.Threshold))
-			}
+		for i, v := range report.GodObject {
+			sb.WriteString(fmt.Sprintf("[%d] Struct '%s' in %s: %d fields, %d methods\n",
+				i+1, v.StructName, v.File, v.FieldCount, v.MethodCount))
 		}
 		sb.WriteString("\n")
 	}
@@ -150,8 +145,8 @@ func (r *Reporter) formatText(report *StructuralReport) string {
 			report.Score.CircularPenalty, report.Score.CircularCount))
 		sb.WriteString(fmt.Sprintf("Layer Penalty:        -%.1f (%d violations x 5.0)\n", 
 			report.Score.LayerPenalty, report.Score.LayerCount))
-		sb.WriteString(fmt.Sprintf("Size Penalty:         -%.1f (%d violations x 3.0)\n", 
-			report.Score.SizePenalty, report.Score.SizeCount))
+		sb.WriteString(fmt.Sprintf("God Object Penalty:   -%.1f (%d violations x 5.0)\n", 
+			report.Score.GodObjectPenalty, report.Score.GodObjectCount))
 		sb.WriteString(fmt.Sprintf("─────────────────────────────────────────────────\n"))
 		sb.WriteString(fmt.Sprintf("Final Score:          %.1f\n\n", report.Score.TotalScore))
 	}
@@ -194,12 +189,12 @@ func (r *Reporter) formatJSON(report *StructuralReport) string {
 	sb.WriteString(fmt.Sprintf("    \"max\": %.2f,\n", report.Score.MaxScore))
 	sb.WriteString(fmt.Sprintf("    \"circularPenalty\": %.2f,\n", report.Score.CircularPenalty))
 	sb.WriteString(fmt.Sprintf("    \"layerPenalty\": %.2f,\n", report.Score.LayerPenalty))
-	sb.WriteString(fmt.Sprintf("    \"sizePenalty\": %.2f\n", report.Score.SizePenalty))
+	sb.WriteString(fmt.Sprintf("    \"godObjectPenalty\": %.2f\n", report.Score.GodObjectPenalty))
 	sb.WriteString("  },\n")
 	sb.WriteString("  \"violations\": {\n")
 	sb.WriteString(fmt.Sprintf("    \"circular\": %d,\n", report.Score.CircularCount))
 	sb.WriteString(fmt.Sprintf("    \"layer\": %d,\n", report.Score.LayerCount))
-	sb.WriteString(fmt.Sprintf("    \"size\": %d\n", report.Score.SizeCount))
+	sb.WriteString(fmt.Sprintf("    \"godObject\": %d\n", report.Score.GodObjectCount))
 	sb.WriteString("  },\n")
 	
 	// Circular violations
@@ -231,16 +226,16 @@ func (r *Reporter) formatJSON(report *StructuralReport) string {
 	}
 	sb.WriteString("  ],\n")
 	
-	// Size violations
-	sb.WriteString("  \"sizeViolations\": [\n")
-	for i, v := range report.Size {
+	// God object violations
+	sb.WriteString("  \"godObjectViolations\": [\n")
+	for i, v := range report.GodObject {
 		sb.WriteString("    {\n")
+		sb.WriteString(fmt.Sprintf("      \"structName\": \"%s\",\n", v.StructName))
 		sb.WriteString(fmt.Sprintf("      \"file\": \"%s\",\n", v.File))
-		sb.WriteString(fmt.Sprintf("      \"function\": \"%s\",\n", v.Function))
-		sb.WriteString(fmt.Sprintf("      \"lines\": %d,\n", v.Lines))
-		sb.WriteString(fmt.Sprintf("      \"threshold\": %d\n", v.Threshold))
+		sb.WriteString(fmt.Sprintf("      \"fieldCount\": %d,\n", v.FieldCount))
+		sb.WriteString(fmt.Sprintf("      \"methodCount\": %d\n", v.MethodCount))
 		sb.WriteString("    }")
-		if i < len(report.Size)-1 {
+		if i < len(report.GodObject)-1 {
 			sb.WriteString(",")
 		}
 		sb.WriteString("\n")
