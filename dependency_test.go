@@ -260,7 +260,7 @@ func TestStructuralScoringDeterministic(t *testing.T) {
 	graph.AddEdge("B", "C")
 	graph.AddEdge("C", "A")
 
-	weights := DefaultScoringWeights()
+	config := (&ConfigLoader{}).getDefaultConfig()
 
 	// Run scoring multiple times
 	var scores []*StructuralScore

@@ -74,13 +74,18 @@ func (s *StructuralScorer) CalculateScore() *StructuralScore {
 	s.circularRule.Check()
 	circularViolations := s.circularRule.Violations()
 	s.score.CircularCount = len(circularViolations)
-	s.score.CircularPenalty = float64(len(circularViolations)) * s.weights.CircularDependencyPenalty
+	s.score.CircularPenalty = float64(len(circularViolations)) * 10.0
 
 	// Check layer violations
 	s.layerRule.Check()
 	layerViolations := s.layerRule.Violations()
 	s.score.LayerCount = len(layerViolations)
-	s.score.LayerPenalty = float64(len(layerViolations)) * s.weights.LayerViolationPenalty
+	s.score.LayerPenalty = float64(len(layerViolations)) * 5.0
+
+	// Check god object violations
+	godObjectViolations := s.godObjectRule.Violations()
+	s.score.GodObjectCount = len(godObjectViolations)
+	s.score.GodObjectPenalty = float64(len(godObjectViolations)) * s.weights.GodObjectPenalty
 
 	// Check size violations
 	sizeViolations := s.sizeRule.Violations()
