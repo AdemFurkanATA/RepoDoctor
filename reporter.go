@@ -21,6 +21,7 @@ type StructuralReport struct {
 	Circular      []CycleViolation
 	Layer         []LayerViolation
 	Size          []SizeViolation
+	GodObject     []GodObjectViolation
 	HasViolations bool
 }
 
@@ -47,7 +48,8 @@ func (r *Reporter) GenerateReport(scorer *StructuralScorer, path, version string
 		Circular: violations.Circular,
 		Layer:    violations.Layer,
 		Size:     violations.Size,
-		HasViolations: len(violations.Circular) > 0 || len(violations.Layer) > 0 || len(violations.Size) > 0,
+		GodObject: violations.GodObject,
+		HasViolations: len(violations.Circular) > 0 || len(violations.Layer) > 0 || len(violations.Size) > 0 || len(violations.GodObject) > 0,
 	}
 }
 
@@ -65,101 +67,14 @@ func (r *Reporter) Format(report *StructuralReport) string {
 func (r *Reporter) formatText(report *StructuralReport) string {
 	var sb strings.Builder
 
-	sb.WriteString("╔═══════════════════════════════════════════════════════════╗\n")
-	sb.WriteString("║          RepoDoctor Structural Analysis Report           ║\n")
-	sb.WriteString("╚═══════════════════════════════════════════════════════════╝\n\n")
-
-	sb.WriteString(fmt.Sprintf("Version: %s\n", report.Version))
-	sb.WriteString(fmt.Sprintf("Path: %s\n\n", report.Path))
-
-	// Score section
-	sb.WriteString("┌───────────────────────────────────────────────────────────┐\n")
-	sb.WriteString("│  STRUCTURAL HEALTH SCORE                                  │\n")
-	sb.WriteString("└───────────────────────────────────────────────────────────┘\n")
+	r.writeHeader(&sb)
+	r.writeScoreSection(&sb, report)
+	r.writeViolationsSummary(&sb, report)
+	r.writeCircularViolations(&sb, report)
+	r.writeLayerViolations(&sb, report)
+	r.writeSizeViolations(&sb, report)
+	r.writeScoreBreakdown(&sb, report)
 	
-	scoreIndicator := "✓"
-	if report.Score.TotalScore < 70 {
-		scoreIndicator = "⚠"
-	}
-	if report.Score.TotalScore < 50 {
-		scoreIndicator = "✗"
-	}
-
-	sb.WriteString(fmt.Sprintf("%s Score: %.1f / 100.0\n\n", scoreIndicator, report.Score.TotalScore))
-
-	// Violations summary
-	sb.WriteString("┌───────────────────────────────────────────────────────────┐\n")
-	sb.WriteString("│  VIOLATIONS SUMMARY                                       │\n")
-	sb.WriteString("└───────────────────────────────────────────────────────────┘\n")
-	sb.WriteString(fmt.Sprintf("Total Violations: %d\n", report.Score.ViolationCount))
-	sb.WriteString(fmt.Sprintf("  - Circular Dependencies: %d\n", report.Score.CircularCount))
-	sb.WriteString(fmt.Sprintf("  - Layer Violations: %d\n", report.Score.LayerCount))
-	sb.WriteString(fmt.Sprintf("  - Size Violations: %d\n\n", report.Score.SizeCount))
-
-	// Circular dependencies
-	if len(report.Circular) > 0 {
-		sb.WriteString("┌───────────────────────────────────────────────────────────┐\n")
-		sb.WriteString("│  CIRCULAR DEPENDENCIES [CRITICAL]                         │\n")
-		sb.WriteString("└───────────────────────────────────────────────────────────┘\n")
-		
-		for i, v := range report.Circular {
-			sb.WriteString(fmt.Sprintf("[%d] ", i+1))
-			sb.WriteString(formatCyclePath(v.Path))
-			sb.WriteString("\n")
-		}
-		sb.WriteString("\n")
-	}
-
-	// Layer violations
-	if len(report.Layer) > 0 {
-		sb.WriteString("┌───────────────────────────────────────────────────────────┐\n")
-		sb.WriteString("│  LAYER VIOLATIONS [HIGH]                                  │\n")
-		sb.WriteString("└───────────────────────────────────────────────────────────┘\n")
-		
-		for i, v := range report.Layer {
-			sb.WriteString(fmt.Sprintf("[%d] %s\n", i+1, v.Message))
-		}
-		sb.WriteString("\n")
-	}
-
-	// Size violations
-	if len(report.Size) > 0 {
-		sb.WriteString("┌───────────────────────────────────────────────────────────┐\n")
-		sb.WriteString("│  SIZE VIOLATIONS [LOW]                                    │\n")
-		sb.WriteString("└───────────────────────────────────────────────────────────┘\n")
-		
-		for i, v := range report.Size {
-			if v.Function != "" {
-				sb.WriteString(fmt.Sprintf("[%d] Function '%s' in %s: %d lines (threshold: %d)\n", 
-					i+1, v.Function, v.File, v.Lines, v.Threshold))
-			} else {
-				sb.WriteString(fmt.Sprintf("[%d] File %s: %d lines (threshold: %d)\n", 
-					i+1, v.File, v.Lines, v.Threshold))
-			}
-		}
-		sb.WriteString("\n")
-	}
-
-	// Score breakdown
-	if report.HasViolations {
-		sb.WriteString("┌───────────────────────────────────────────────────────────┐\n")
-		sb.WriteString("│  SCORE BREAKDOWN                                          │\n")
-		sb.WriteString("└───────────────────────────────────────────────────────────┘\n")
-		sb.WriteString(fmt.Sprintf("Base Score:           100.0\n"))
-		sb.WriteString(fmt.Sprintf("Circular Penalty:     -%.1f (%d violations x 10.0)\n", 
-			report.Score.CircularPenalty, report.Score.CircularCount))
-		sb.WriteString(fmt.Sprintf("Layer Penalty:        -%.1f (%d violations x 5.0)\n", 
-			report.Score.LayerPenalty, report.Score.LayerCount))
-		sb.WriteString(fmt.Sprintf("Size Penalty:         -%.1f (%d violations x 3.0)\n", 
-			report.Score.SizePenalty, report.Score.SizeCount))
-		sb.WriteString(fmt.Sprintf("─────────────────────────────────────────────────\n"))
-		sb.WriteString(fmt.Sprintf("Final Score:          %.1f\n\n", report.Score.TotalScore))
-	}
-
-	if !report.HasViolations {
-		sb.WriteString("✨ No structural violations detected! Your architecture is clean.\n\n")
-	}
-
 	return sb.String()
 }
 
