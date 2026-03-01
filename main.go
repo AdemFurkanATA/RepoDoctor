@@ -141,6 +141,27 @@ func runAnalyze(path, format string, verbose bool) {
 		fmt.Println(reporter.Format(report))
 	}
 
+	// Trend analysis
+	trendAnalyzer := NewTrendAnalyzer(absPath)
+	if err := trendAnalyzer.LoadHistory(); err != nil {
+		if verbose {
+			fmt.Printf("Warning: could not load history: %v\n", err)
+		}
+	}
+	
+	// Display trend summary
+	if verbose {
+		fmt.Println()
+		fmt.Println(trendAnalyzer.GetTrendSummary(report.Score.TotalScore))
+	}
+	
+	// Append current score to history
+	if err := trendAnalyzer.AppendScore(report.Score.TotalScore); err != nil {
+		if verbose {
+			fmt.Printf("Warning: could not save to history: %v\n", err)
+		}
+	}
+
 	// Exit with error code if violations found
 	if report.HasViolations {
 		os.Exit(1)
