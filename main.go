@@ -141,8 +141,9 @@ func runAnalyze(path, format string, verbose bool) {
 		fmt.Println(reporter.Format(report))
 	}
 
-	// Exit with error code if violations found
-	if report.HasViolations {
+	// Exit with error code if critical violations found (circular dependencies)
+	// Per Spec 11: Exit code 1 only for critical violations
+	if report.Score.CircularCount > 0 {
 		os.Exit(1)
 	}
 }
