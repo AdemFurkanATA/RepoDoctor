@@ -4,13 +4,13 @@ import "fmt"
 
 // StructuralScore represents the overall structural health score
 type StructuralScore struct {
-	TotalScore       float64
-	CircularPenalty  float64
-	LayerPenalty     float64
-	ViolationCount   int
-	CircularCount    int
-	LayerCount       int
-	MaxScore         float64
+	TotalScore      float64
+	CircularPenalty float64
+	LayerPenalty    float64
+	ViolationCount  int
+	CircularCount   int
+	LayerCount      int
+	MaxScore        float64
 }
 
 // ScoringWeights defines penalty weights for different violation types
@@ -29,26 +29,28 @@ func DefaultScoringWeights() *ScoringWeights {
 
 // StructuralScorer calculates structural health scores
 type StructuralScorer struct {
-	weights        *ScoringWeights
-	circularRule   *CircularDependencyRule
-	layerRule      *LayerValidationRule
-	score          *StructuralScore
+	config       *Config
+	circularRule *CircularDependencyRule
+	layerRule    *LayerValidationRule
+	score        *StructuralScore
 }
 
-// NewStructuralScorer creates a new structural scorer
-func NewStructuralScorer(graph Graph, weights *ScoringWeights) *StructuralScorer {
-	if weights == nil {
-		weights = DefaultScoringWeights()
+// NewStructuralScorer creates a new structural scorer with configuration
+func NewStructuralScorer(graph Graph, config *Config, dirPath string) *StructuralScorer {
+	if config == nil {
+		config = (&ConfigLoader{}).getDefaultConfig()
 	}
 
-	return &StructuralScorer{
-		weights:      weights,
+	scorer := &StructuralScorer{
+		config:       config,
 		circularRule: NewCircularDependencyRule(graph),
 		layerRule:    NewLayerValidationRule(graph),
 		score: &StructuralScore{
 			MaxScore: 100.0,
 		},
 	}
+
+	return scorer
 }
 
 // CalculateScore computes the structural health score
@@ -61,13 +63,13 @@ func (s *StructuralScorer) CalculateScore() *StructuralScore {
 	s.circularRule.Check()
 	circularViolations := s.circularRule.Violations()
 	s.score.CircularCount = len(circularViolations)
-	s.score.CircularPenalty = float64(len(circularViolations)) * s.weights.CircularDependencyPenalty
+	s.score.CircularPenalty = float64(len(circularViolations)) * 10.0
 
 	// Check layer violations
 	s.layerRule.Check()
 	layerViolations := s.layerRule.Violations()
 	s.score.LayerCount = len(layerViolations)
-	s.score.LayerPenalty = float64(len(layerViolations)) * s.weights.LayerViolationPenalty
+	s.score.LayerPenalty = float64(len(layerViolations)) * 5.0
 
 	// Calculate total violations and penalty
 	s.score.ViolationCount = s.score.CircularCount + s.score.LayerCount
@@ -102,10 +104,10 @@ func (s *StructuralScorer) GetScoreExplanation() string {
 	explanation := "Structural Score Breakdown:\n"
 	explanation += "=========================\n"
 	explanation += fmt.Sprintf("Base Score: %.1f\n", s.score.MaxScore)
-	explanation += fmt.Sprintf("Circular Dependencies: %d violation(s) x %.1f penalty = %.1f\n",
-		s.score.CircularCount, s.weights.CircularDependencyPenalty, s.score.CircularPenalty)
-	explanation += fmt.Sprintf("Layer Violations: %d violation(s) x %.1f penalty = %.1f\n",
-		s.score.LayerCount, s.weights.LayerViolationPenalty, s.score.LayerPenalty)
+	explanation += fmt.Sprintf("Circular Dependencies: %d violation(s) x 10.0 penalty = %.1f\n",
+		s.score.CircularCount, s.score.CircularPenalty)
+	explanation += fmt.Sprintf("Layer Violations: %d violation(s) x 5.0 penalty = %.1f\n",
+		s.score.LayerCount, s.score.LayerPenalty)
 	explanation += fmt.Sprintf("Total Penalty: %.1f\n", s.score.CircularPenalty+s.score.LayerPenalty)
 	explanation += fmt.Sprintf("Final Score: %.1f / %.1f\n", s.score.TotalScore, s.score.MaxScore)
 
