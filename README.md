@@ -7,10 +7,7 @@ RepoDoctor is a CLI tool that analyzes your Go repository's architectural health
 ![Version](https://img.shields.io/badge/version-v0.3.0--dev-blue)
 [![Go Version](https://img.shields.io/badge/go-1.25+-00ADD8)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-
-[Go Version](https://go.dev/)
-[License](LICENSE)
-[Status](../../tree/main)
+[![Status](https://img.shields.io/badge/status-dev-yellow)](../../tree/main)
 
 ---
 
@@ -56,17 +53,17 @@ Most static analysis tools focus on **code style** and **formatting**. RepoDocto
 
 ### Implemented Capabilities
 
-- ✅ **Import Extraction** — AST-based Go import analysis with AST parsing
+- ✅ **Import Extraction** — AST-based Go import analysis
 - ✅ **Dependency Graph** — Graph-based dependency mapping with cycle detection
 - ✅ **Circular Dependency Detection** — DFS-based import cycle identification (critical severity)
 - ✅ **Layer Validation** — Enforce handler → service → repo architecture (high severity)
 - ✅ **Structural Scoring** — Maintainability score (0-100) with penalty weights
 - ✅ **Size Threshold Analysis** — Detect oversized files (>500 lines) and functions (>80 lines)
 - ✅ **God Object Detection** — Identify structs with too many fields (>15) or methods (>10)
-- ✅ **Custom Configuration** — YAML-based config for rule thresholds and enable/disable states
+- ✅ **Custom Configuration** — YAML-based config (`.repodoctor/config.yaml`) for rule thresholds
 - ✅ **GitHub Actions Integration** — CI/CD workflow with automatic analysis and exit codes
-- ✅ **Trend Analysis** — Track maintainability score evolution over time
-- ✅ **CLI Reports** — Beautiful text output and JSON export for CI integration
+- ✅ **Trend Analysis** — Historical score tracking with `.repodoctor/history.json`
+- ✅ **CLI Reports** — Text output and JSON export for CI integration
 - ✅ **35+ Unit Tests** — Comprehensive test coverage for all core components
 
 ---
@@ -208,7 +205,6 @@ RepoDoctor enforces engineering discipline through:
 
 1. **Import Extraction** — AST-based parsing of Go files
 2. **Dependency Graph** — Adjacency list representation with DFS traversal
-3. **Rule Engine** — Pluggable rule interface (CircularDependency, LayerValidation)
 3. **Rule Engine** — Pluggable rule interface (CircularDependency, LayerValidation, SizeRule, GodObjectRule)
 4. **Configuration System** — YAML-based config with graceful defaults
 5. **Scoring System** — Weighted penalty calculation (circular: 10pts, layer: 5pts, size: 3pts, god object: 5pts)
@@ -219,29 +215,87 @@ RepoDoctor enforces engineering discipline through:
 
 ## 🗺️ Roadmap
 
-### v0.1 — Core Engine ✅ (Completed)
+### ✅ v0.1 — Core Engine (Completed)
 
-- ✅ Project initialization
-- ✅ CLI argument parsing
-- ✅ Import extraction with AST
-- ✅ Dependency graph construction
+**Goal:** Establish the analysis foundation.
 
-### v0.2 — Rule Engine ✅ (Completed)
+- ✅ Project scaffolding
+- ✅ Repository scanner
+- ✅ Basic metrics collector
+- ✅ Initial rule system
+- ✅ Rule execution pipeline
+- ✅ Basic scoring engine
+- ✅ CLI command structure (`analyze`)
+- ✅ Human-readable CLI output
 
-- ✅ Circular import detection (DFS-based)
-- ✅ Layer violation rules (handler → service → repo)
-- ✅ Structural scoring system
-- ✅ Text and JSON output formats
-- ✅ Comprehensive test suite (13 tests)
+### ✅ v0.2 — Dependency Intelligence (Completed)
 
-### v0.3 — Advanced Analysis ✅ (Completed)
+**Goal:** Structural awareness of the repository.
 
-- ✅ File/function size thresholds (500/80 lines default)
-- ✅ God object detection (15 fields/10 methods default)
-- ✅ Custom rule configuration (YAML-based)
-- ✅ GitHub Actions integration (CI/CD ready)
-- ✅ Trend analysis over time (historical tracking)
-- ✅ 35+ comprehensive tests
+- ✅ Import graph builder (Go)
+- ✅ Circular dependency detection
+- ✅ Layer validation rules
+- ✅ Structural scoring adjustments
+- ✅ Improved CLI reporting
+
+### ✅ v0.3 — Advanced Analysis & Automation (Completed)
+
+**Goal:** Introduce deeper analysis and automation capabilities.
+
+- ✅ File size threshold detection
+- ✅ Function size threshold detection
+- ✅ God object detection heuristics
+- ✅ Custom rule configuration (`.repodoctor/config.yaml`)
+- ✅ GitHub Actions integration
+- ✅ Trend analysis with historical scoring
+- ✅ Internal state management (`.repodoctor/history.json`)
+
+### 🚧 v0.4 — Rule Engine Evolution (Planned)
+
+**Goal:** Transform the rule system into a scalable analysis engine.
+
+- Rule interface standardization
+- Rule registry system
+- Rule categories
+- Rule execution pipeline
+- Standardized violation model
+- Migration of existing rules to the new engine
+
+### 🔮 v0.5 — Multi-Language Foundation (Planned)
+
+**Goal:** Prepare RepoDoctor for multi-language analysis.
+
+- Language abstraction layer
+- Python repository scanner
+- Python import dependency graph
+- Python rule implementations
+- Shared rule interface across languages
+- Language-aware analysis pipeline
+
+### 🔮 v0.6 — Cross-Language Analysis (Planned)
+
+**Goal:** Expand the rule ecosystem across languages.
+
+- JavaScript / TypeScript analysis
+- Cross-language rule compatibility
+- Unified dependency graph abstraction
+- Shared rule categories across languages
+- Expanded maintainability heuristics
+
+### 🎯 v1.0 — Extensible Platform (Planned)
+
+**Goal:** Product maturity and extensibility.
+
+- Plugin-based rule system
+- External rule packages
+- Configurable architecture profiles
+- Stable public API
+- Official documentation
+- Production-ready release
+
+---
+
+**Long-Term Vision:** RepoDoctor aims to become a structural quality gate for repositories, a CI-integrated architecture evaluator, and a developer tool used to maintain engineering discipline across multiple programming languages.
 
 ---
 
