@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-const version = "0.3.0-dev"
+const version = "0.5.0-dev"
 
 func main() {
 	// Command flags
@@ -16,12 +16,26 @@ func main() {
 	analyzePath := analyzeCmd.String("path", ".", "Path to analyze")
 	analyzeFormat := analyzeCmd.String("format", "text", "Output format (text, json)")
 	analyzeVerbose := analyzeCmd.Bool("verbose", false, "Enable verbose output")
+	analyzeJSON := analyzeCmd.Bool("json", false, "Output in JSON format")
 
 	// Extract imports command
 	extractCmd := flag.NewFlagSet("extract", flag.ExitOnError)
 	extractPath := extractCmd.String("path", ".", "Path to extract imports from")
 	extractModule := extractCmd.String("module", "RepoDoctor", "Module path for normalization")
+	extractVerbose := extractCmd.Bool("verbose", false, "Enable verbose output")
+	extractJSON := extractCmd.Bool("json", false, "Output in JSON format")
 
+	// Report command - display existing report
+	reportCmd := flag.NewFlagSet("report", flag.ExitOnError)
+	reportPath := reportCmd.String("path", "repodoctor-report.json", "Path to report file")
+	reportFormat := reportCmd.String("format", "text", "Output format (text, json)")
+	reportJSON := reportCmd.Bool("json", false, "Output in JSON format")
+
+	// History command - show score history
+	historyCmd := flag.NewFlagSet("history", flag.ExitOnError)
+	historyPath := historyCmd.String("path", ".", "Path to repository")
+
+	// Version command
 	versionCmd := flag.NewFlagSet("version", flag.ExitOnError)
 
 	// Main command
@@ -33,10 +47,24 @@ func main() {
 	switch os.Args[1] {
 	case "analyze":
 		analyzeCmd.Parse(os.Args[2:])
-		runAnalyze(*analyzePath, *analyzeFormat, *analyzeVerbose)
+		format := *analyzeFormat
+		if *analyzeJSON {
+			format = "json"
+		}
+		runAnalyze(*analyzePath, format, *analyzeVerbose)
 	case "extract":
 		extractCmd.Parse(os.Args[2:])
-		runExtract(*extractPath, *extractModule, *analyzeVerbose)
+		runExtract(*extractPath, *extractModule, *extractVerbose, *extractJSON)
+	case "report":
+		reportCmd.Parse(os.Args[2:])
+		format := *reportFormat
+		if *reportJSON {
+			format = "json"
+		}
+		runReport(*reportPath, format)
+	case "history":
+		historyCmd.Parse(os.Args[2:])
+		runHistory(*historyPath)
 	case "version":
 		versionCmd.Parse(os.Args[2:])
 		fmt.Printf("RepoDoctor v%s\n", version)
@@ -58,6 +86,8 @@ Usage:
 Commands:
   analyze    Analyze repository architecture and health
   extract    Extract Go package imports from source files
+  report     Display existing analysis report
+  history    Show score trend history
   version    Show version information
   help       Show this help message
 
@@ -72,11 +102,21 @@ Arguments:
     -module    Module path for import normalization (default: RepoDoctor)
     -verbose   Enable verbose output
 
+  report [options]
+    -path      Path to JSON report file (default: repodoctor-report.json)
+    -format    Output format: text, json (default: text)
+
+  history [options]
+    -path      Path to repository (default: current directory)
+
 Examples:
   repodoctor analyze .
   repodoctor analyze -path ./myproject -format json
+  repodoctor analyze -path . --json
   repodoctor extract .
   repodoctor extract -path ./src -module github.com/myorg/myrepo
+  repodoctor report -path ./report.json
+  repodoctor history -path .
   repodoctor version`)
 }
 
@@ -104,10 +144,29 @@ func runAnalyze(path, format string, verbose bool) {
 	// Trend analysis
 	handleTrendAnalysis(absPath, report, verbose)
 
-	// Exit with error code if critical violations found
-	if report.HasViolations {
-		os.Exit(1)
+	// Exit with appropriate code based on violations
+	exitCode := determineExitCode(report)
+	if exitCode != 0 {
+		os.Exit(exitCode)
 	}
+}
+
+// determineExitCode returns the appropriate exit code based on report
+// 0 = success (no violations)
+// 1 = warnings (low/medium severity violations)
+// 2 = critical violations (circular dependencies or layer violations)
+func determineExitCode(report *StructuralReport) int {
+	if !report.HasViolations {
+		return 0
+	}
+
+	// Critical violations: circular dependencies or layer violations
+	if len(report.Circular) > 0 || len(report.Layer) > 0 {
+		return 2
+	}
+
+	// Warnings: size or god object violations
+	return 1
 }
 
 func validatePath(path string) string {
@@ -252,7 +311,52 @@ func scanDirectory(path string, verbose bool) (totalFiles, goFiles, totalLines i
 	return
 }
 
-func runExtract(path, module string, verbose bool) {
+func runReport(reportPath, format string) {
+	// Read report file
+	data, err := os.ReadFile(reportPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error reading report file: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Parse report based on format
+	if format == "json" {
+		// Output JSON as-is
+		fmt.Println(string(data))
+	} else {
+		// For text format, parse JSON and format
+		fmt.Println("📊 RepoDoctor Analysis Report")
+		fmt.Println(strings.Repeat("─", 60))
+		fmt.Println(string(data))
+		fmt.Println(strings.Repeat("─", 60))
+		fmt.Println("✨ Report displayed successfully")
+	}
+}
+
+func runHistory(repoPath string) {
+	// Resolve path
+	absPath, err := filepath.Abs(repoPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error resolving path: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Load trend history
+	trendAnalyzer := NewTrendAnalyzer(absPath)
+	if err := trendAnalyzer.LoadHistory(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading history: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Display history
+	fmt.Println("📈 Score Trend History")
+	fmt.Println(strings.Repeat("─", 60))
+	fmt.Println(trendAnalyzer.GetTrendSummary(0))
+	fmt.Println(strings.Repeat("─", 60))
+	fmt.Println("✨ History retrieved successfully")
+}
+
+func runExtract(path, module string, verbose bool, jsonOutput bool) {
 	// Resolve to absolute path
 	absPath, err := filepath.Abs(path)
 	if err != nil {

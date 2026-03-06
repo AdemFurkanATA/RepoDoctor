@@ -34,7 +34,7 @@ func (r *GodObjectRule) ID() string {
 
 // Category returns the category for this rule
 func (r *GodObjectRule) Category() string {
-	return CategoryMaintainability
+	return string(CategoryMaintainability)
 }
 
 // Severity returns the severity level for this rule
