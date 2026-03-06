@@ -156,7 +156,7 @@ func (l *ConfigLoader) getDefaultConfig() *Config {
 		},
 		GodObject: &GodObjectConfig{
 			MaxFields:  15,
-			MaxMethods: 10,
+			MaxMethods: 15,
 			Enabled:    &enableGodObject,
 			Severity:   "warning",
 		},
