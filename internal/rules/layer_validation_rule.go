@@ -1,10 +1,6 @@
 package rules
 
-import (
-	"strings"
-
-	"RepoDoctor/internal/model"
-)
+import "RepoDoctor/internal/model"
 
 // LayerConvention represents the allowed dependency direction
 type LayerConvention string
@@ -37,7 +33,7 @@ func (r *LayerValidationRule) ID() string {
 
 // Category returns the category for this rule
 func (r *LayerValidationRule) Category() string {
-	return CategoryArchitecture
+	return string(CategoryArchitecture)
 }
 
 // Severity returns the severity level for this rule

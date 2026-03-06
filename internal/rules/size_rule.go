@@ -32,7 +32,7 @@ func (r *SizeRule) ID() string {
 
 // Category returns the category for this rule
 func (r *SizeRule) Category() string {
-	return CategorySize
+	return string(CategorySize)
 }
 
 // Severity returns the severity level for this rule
