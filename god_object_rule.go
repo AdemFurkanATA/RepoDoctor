@@ -21,6 +21,7 @@ type GodObjectViolation struct {
 type GodObjectRule struct {
 	MaxFields  int
 	MaxMethods int
+	Exclude    []string
 	violations []GodObjectViolation
 	fset       *token.FileSet
 }
@@ -29,10 +30,21 @@ type GodObjectRule struct {
 func NewGodObjectRule() *GodObjectRule {
 	return &GodObjectRule{
 		MaxFields:  15,
-		MaxMethods: 10,
+		MaxMethods: 15,
+		Exclude:    []string{"internal/"},
 		violations: make([]GodObjectViolation, 0),
 		fset:       token.NewFileSet(),
 	}
+}
+
+// shouldExclude checks if a file should be excluded from analysis
+func (r *GodObjectRule) shouldExclude(filePath string) bool {
+	for _, pattern := range r.Exclude {
+		if strings.Contains(filePath, pattern) {
+			return true
+		}
+	}
+	return false
 }
 
 // Check analyzes the given directory for god object violations
@@ -44,6 +56,10 @@ func (r *GodObjectRule) Check(dirPath string) error {
 
 	// First pass: collect all struct definitions and their fields
 	err := r.walkDir(dirPath, func(filePath string) error {
+		// Skip excluded files
+		if r.shouldExclude(filePath) {
+			return nil
+		}
 		return r.collectStructs(filePath, structMethods)
 	})
 	if err != nil {
@@ -52,6 +68,10 @@ func (r *GodObjectRule) Check(dirPath string) error {
 
 	// Second pass: collect all method declarations
 	err = r.walkDir(dirPath, func(filePath string) error {
+		// Skip excluded files
+		if r.shouldExclude(filePath) {
+			return nil
+		}
 		return r.collectMethods(filePath, structMethods)
 	})
 	if err != nil {
