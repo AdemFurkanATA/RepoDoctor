@@ -105,6 +105,21 @@ func (r *Reporter) formatJSON(report *StructuralReport) string {
 	sb.WriteString("{\n")
 	sb.WriteString(fmt.Sprintf("  \"version\": \"%s\",\n", report.Version))
 	sb.WriteString(fmt.Sprintf("  \"path\": \"%s\",\n", report.Path))
+	
+	r.formatScoreSection(&sb, report)
+	r.formatViolationsSection(&sb, report)
+	r.formatCircularViolations(&sb, report)
+	r.formatLayerViolations(&sb, report)
+	r.formatSizeViolations(&sb, report)
+	r.formatGodObjectViolations(&sb, report)
+	
+	sb.WriteString("}\n")
+
+	return sb.String()
+}
+
+// formatScoreSection formats the score section of JSON output
+func (r *Reporter) formatScoreSection(sb *strings.Builder, report *StructuralReport) {
 	sb.WriteString("  \"score\": {\n")
 	sb.WriteString(fmt.Sprintf("    \"total\": %.2f,\n", report.Score.TotalScore))
 	sb.WriteString(fmt.Sprintf("    \"max\": %.2f,\n", report.Score.MaxScore))
@@ -113,14 +128,20 @@ func (r *Reporter) formatJSON(report *StructuralReport) string {
 	sb.WriteString(fmt.Sprintf("    \"sizePenalty\": %.2f,\n", report.Score.SizePenalty))
 	sb.WriteString(fmt.Sprintf("    \"godObjectPenalty\": %.2f\n", report.Score.GodObjectPenalty))
 	sb.WriteString("  },\n")
+}
+
+// formatViolationsSection formats the violations summary section
+func (r *Reporter) formatViolationsSection(sb *strings.Builder, report *StructuralReport) {
 	sb.WriteString("  \"violations\": {\n")
 	sb.WriteString(fmt.Sprintf("    \"circular\": %d,\n", report.Score.CircularCount))
 	sb.WriteString(fmt.Sprintf("    \"layer\": %d,\n", report.Score.LayerCount))
 	sb.WriteString(fmt.Sprintf("    \"size\": %d,\n", report.Score.SizeCount))
 	sb.WriteString(fmt.Sprintf("    \"godObject\": %d\n", report.Score.GodObjectCount))
 	sb.WriteString("  },\n")
+}
 
-	// Circular violations
+// formatCircularViolations formats circular dependency violations
+func (r *Reporter) formatCircularViolations(sb *strings.Builder, report *StructuralReport) {
 	sb.WriteString("  \"circularViolations\": [\n")
 	for i, v := range report.Circular {
 		sb.WriteString("    {\n")
@@ -133,8 +154,10 @@ func (r *Reporter) formatJSON(report *StructuralReport) string {
 		sb.WriteString("\n")
 	}
 	sb.WriteString("  ],\n")
+}
 
-	// Layer violations
+// formatLayerViolations formats layer violations
+func (r *Reporter) formatLayerViolations(sb *strings.Builder, report *StructuralReport) {
 	sb.WriteString("  \"layerViolations\": [\n")
 	for i, v := range report.Layer {
 		sb.WriteString("    {\n")
@@ -148,8 +171,10 @@ func (r *Reporter) formatJSON(report *StructuralReport) string {
 		sb.WriteString("\n")
 	}
 	sb.WriteString("  ],\n")
+}
 
-	// Size violations
+// formatSizeViolations formats size violations
+func (r *Reporter) formatSizeViolations(sb *strings.Builder, report *StructuralReport) {
 	sb.WriteString("  \"sizeViolations\": [\n")
 	for i, v := range report.Size {
 		sb.WriteString("    {\n")
@@ -164,8 +189,10 @@ func (r *Reporter) formatJSON(report *StructuralReport) string {
 		sb.WriteString("\n")
 	}
 	sb.WriteString("  ],\n")
+}
 
-	// God Object violations
+// formatGodObjectViolations formats god object violations
+func (r *Reporter) formatGodObjectViolations(sb *strings.Builder, report *StructuralReport) {
 	sb.WriteString("  \"godObjectViolations\": [\n")
 	for i, v := range report.GodObject {
 		sb.WriteString("    {\n")
@@ -180,9 +207,6 @@ func (r *Reporter) formatJSON(report *StructuralReport) string {
 		sb.WriteString("\n")
 	}
 	sb.WriteString("  ]\n")
-	sb.WriteString("}\n")
-
-	return sb.String()
 }
 
 // formatStringArray formats a string array as JSON

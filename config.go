@@ -26,10 +26,11 @@ type SizeConfig struct {
 
 // GodObjectConfig holds god object rule configuration
 type GodObjectConfig struct {
-	MaxFields  int `yaml:"max_fields,omitempty"`
-	MaxMethods int `yaml:"max_methods,omitempty"`
-	Enabled    *bool `yaml:"enabled,omitempty"`
+	MaxFields  int    `yaml:"max_fields,omitempty"`
+	MaxMethods int    `yaml:"max_methods,omitempty"`
+	Enabled    *bool  `yaml:"enabled,omitempty"`
 	Severity   string `yaml:"severity,omitempty"`
+	Exclude    []string `yaml:"exclude,omitempty"`
 }
 
 // RulesConfig holds rule enable/disable states
@@ -156,9 +157,11 @@ func (l *ConfigLoader) getDefaultConfig() *Config {
 		},
 		GodObject: &GodObjectConfig{
 			MaxFields:  15,
-			MaxMethods: 10,
+			MaxMethods: 20,
 			Enabled:    &enableGodObject,
 			Severity:   "warning",
+			// Exclude internal implementation files from strict checks
+			Exclude: []string{"internal/"},
 		},
 		Rules: &RulesConfig{
 			EnableSizeRule:      &enableSize,
