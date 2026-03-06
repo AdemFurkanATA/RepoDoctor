@@ -4,6 +4,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -36,7 +37,7 @@ func (a *GoAdapter) FileExtensions() []string {
 func (a *GoAdapter) DetectFiles(repoPath string) ([]string, error) {
 	var goFiles []string
 
-	err := filepath.Walk(repoPath, func(path string, info interface{ IsDir() bool }, err error) error {
+	err := filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -100,6 +101,9 @@ func (a *GoAdapter) collectFileMetrics(path string) (*model.FileMetrics, error) 
 		fm.Lines = file.LineCount()
 	}
 
+	// Create metrics collector for this file
+	metrics := model.NewRepositoryMetrics()
+
 	// Walk AST to collect function and struct metrics
 	ast.Inspect(node, func(n ast.Node) bool {
 		switch x := n.(type) {
@@ -116,6 +120,9 @@ func (a *GoAdapter) collectFileMetrics(path string) (*model.FileMetrics, error) 
 		}
 		return true
 	})
+
+	// Update function count
+	fm.Functions = len(metrics.Functions)
 
 	return fm, nil
 }
