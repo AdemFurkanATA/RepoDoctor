@@ -4,10 +4,10 @@
 
 RepoDoctor is a CLI tool that analyzes your Go repository's architectural health by evaluating structure, dependency patterns, and maintainability signals. It doesn't lint your syntax—it inspects your engineering decisions.
 
-![Version](https://img.shields.io/badge/version-v0.4.0--dev-blue)
+![Version](https://img.shields.io/badge/version-v0.5.0-blue)
 [![Go Version](https://img.shields.io/badge/go-1.25+-00ADD8)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Status](https://img.shields.io/badge/status-dev-yellow)](../../tree/main)
+[![Status](https://img.shields.io/badge/status-stable-green)](../../tree/main)
 
 ---
 
@@ -49,7 +49,7 @@ Most static analysis tools focus on **code style** and **formatting**. RepoDocto
 
 ---
 
-## 🎯 Core Features (v0.4)
+## 🎯 Core Features (v0.5)
 
 ### Implemented Capabilities
 
@@ -59,13 +59,15 @@ Most static analysis tools focus on **code style** and **formatting**. RepoDocto
 - ✅ **Layer Validation** — Enforce handler → service → repo architecture (high severity)
 - ✅ **Structural Scoring** — Maintainability score (0-100) with penalty weights
 - ✅ **Size Threshold Analysis** — Detect oversized files (>500 lines) and functions (>80 lines)
-- ✅ **God Object Detection** — Identify structs with too many fields (>15) or methods (>10)
+- ✅ **God Object Detection** — Identify structs with too many fields (>15) or methods (>20)
 - ✅ **Custom Configuration** — YAML-based config (`.repodoctor/config.yaml`) for rule thresholds
 - ✅ **GitHub Actions Integration** — CI/CD workflow with automatic analysis and exit codes
 - ✅ **Trend Analysis** — Historical score tracking with `.repodoctor/history.json`
 - ✅ **CLI Reports** — Text output and JSON export for CI integration
 - ✅ **Rule Engine v2** — Scalable, pluggable rule architecture with standardized violation model
-- ✅ **50+ Unit Tests** — Comprehensive test coverage for all core components
+- ✅ **Plugin System** — Extensible plugin architecture for custom rules
+- ✅ **Multi-Language Foundation** — Language Adapter architecture with Python support
+- ✅ **60+ Unit Tests** — Comprehensive test coverage for all core components
 
 ---
 
@@ -123,7 +125,7 @@ repodoctor extract -path . -module RepoDoctor
 ║          RepoDoctor Structural Analysis Report           ║
 ╚═══════════════════════════════════════════════════════════╝
 
-Version: v0.4.0-dev
+Version: v0.5.0
 Path: C:\project
 
 ┌───────────────────────────────────────────────────────────┐
@@ -262,7 +264,21 @@ RepoDoctor enforces engineering discipline through:
 - ✅ Standardized violation model
 - ✅ Migration of existing rules to Rule Engine v2
 
-### 🚧 v0.5 — CLI Improvements & DX (Planned)
+### ✅ v0.5 — Multi-Language Foundation (Completed)
+
+**Goal:** Prepare RepoDoctor for multi-language analysis and extensibility.
+
+- ✅ Language Adapter architecture
+- ✅ Python language support (imports, metrics, dependency graph)
+- ✅ Language detection system
+- ✅ Plugin system for custom rules
+- ✅ Advanced configuration system (severity, weights, validation)
+- ✅ CLI improvements (new commands: report, history)
+- ✅ Deterministic exit codes (0/1/2)
+- ✅ JSON output mode for all commands
+- ✅ Internal code exclusion from rules
+
+### 🚧 v0.6 — CLI Improvements & DX (Current)
 
 **Goal:** Enhance CLI experience and developer workflow.
 
@@ -273,18 +289,7 @@ RepoDoctor enforces engineering discipline through:
 - Custom rule templates generation
 - Better error messages and suggestions
 
-### 🔮 v0.6 — Multi-Language Foundation (Planned)
-
-**Goal:** Prepare RepoDoctor for multi-language analysis.
-
-- Language abstraction layer
-- Python repository scanner
-- Python import dependency graph
-- Python rule implementations
-- Shared rule interface across languages
-- Language-aware analysis pipeline
-
-### 🔮 v0.6 — Cross-Language Analysis (Planned)
+### 🔮 v0.7 — Cross-Language Analysis (Planned)
 
 **Goal:** Expand the rule ecosystem across languages.
 
@@ -298,8 +303,7 @@ RepoDoctor enforces engineering discipline through:
 
 **Goal:** Product maturity and extensibility.
 
-- Plugin-based rule system
-- External rule packages
+- Plugin-based rule system (external packages)
 - Configurable architecture profiles
 - Stable public API
 - Official documentation
@@ -441,13 +445,16 @@ RepoDoctor/
 ├── reporter.go             # Output formatter (text, JSON)
 ├── registry.go             # Rule registry and engine v2
 ├── reporter_methods.go     # Reporter method implementations
-├── dependency_test.go      # Comprehensive test suite (50+ tests)
+├── dependency_test.go      # Comprehensive test suite (60+ tests)
 ├── docs/                   # Documentation
-│   ├── specs/              # Feature specifications (v0.1-v0.5)
+│   ├── specs/              # Feature specifications (v0.1-v0.6)
 │   ├── architecture.md     # Architecture overview
 │   └── roadmap.md          # Development roadmap
 ├── internal/               # Internal packages
-│   └── rule/               # Rule engine v2 core
+│   ├── rules/              # Rule engine v2 (interface, registry, plugins)
+│   ├── model/              # Data models (metrics, dependency graph, violations)
+│   ├── languages/          # Language adapters (Go, Python)
+│   └── engine/             # Rule execution engine
 ├── go.mod                  # Go module definition
 └── README.md               # This file
 ```
@@ -504,5 +511,5 @@ PASS
 ok      RepoDoctor      0.892s
 ```
 
-All 50+ tests pass with deterministic output across all v0.4 features.
+All 60+ tests pass with deterministic output across all v0.5 features.
 
