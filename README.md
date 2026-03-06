@@ -4,7 +4,7 @@
 
 RepoDoctor is a CLI tool that analyzes your Go repository's architectural health by evaluating structure, dependency patterns, and maintainability signals. It doesn't lint your syntax—it inspects your engineering decisions.
 
-![Version](https://img.shields.io/badge/version-v0.3.0--dev-blue)
+![Version](https://img.shields.io/badge/version-v0.4.0--dev-blue)
 [![Go Version](https://img.shields.io/badge/go-1.25+-00ADD8)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Status](https://img.shields.io/badge/status-dev-yellow)](../../tree/main)
@@ -49,7 +49,7 @@ Most static analysis tools focus on **code style** and **formatting**. RepoDocto
 
 ---
 
-## 🎯 Core Features (v0.3)
+## 🎯 Core Features (v0.4)
 
 ### Implemented Capabilities
 
@@ -64,7 +64,8 @@ Most static analysis tools focus on **code style** and **formatting**. RepoDocto
 - ✅ **GitHub Actions Integration** — CI/CD workflow with automatic analysis and exit codes
 - ✅ **Trend Analysis** — Historical score tracking with `.repodoctor/history.json`
 - ✅ **CLI Reports** — Text output and JSON export for CI integration
-- ✅ **35+ Unit Tests** — Comprehensive test coverage for all core components
+- ✅ **Rule Engine v2** — Scalable, pluggable rule architecture with standardized violation model
+- ✅ **50+ Unit Tests** — Comprehensive test coverage for all core components
 
 ---
 
@@ -122,7 +123,7 @@ repodoctor extract -path . -module RepoDoctor
 ║          RepoDoctor Structural Analysis Report           ║
 ╚═══════════════════════════════════════════════════════════╝
 
-Version: v0.3.0-dev
+Version: v0.4.0-dev
 Path: C:\project
 
 ┌───────────────────────────────────────────────────────────┐
@@ -205,7 +206,7 @@ RepoDoctor enforces engineering discipline through:
 
 1. **Import Extraction** — AST-based parsing of Go files
 2. **Dependency Graph** — Adjacency list representation with DFS traversal
-3. **Rule Engine** — Pluggable rule interface (CircularDependency, LayerValidation, SizeRule, GodObjectRule)
+3. **Rule Engine v2** — Scalable, pluggable rule architecture with registry system
 4. **Configuration System** — YAML-based config with graceful defaults
 5. **Scoring System** — Weighted penalty calculation (circular: 10pts, layer: 5pts, size: 3pts, god object: 5pts)
 6. **Trend Analysis** — Historical score tracking with delta calculation
@@ -250,18 +251,29 @@ RepoDoctor enforces engineering discipline through:
 - ✅ Trend analysis with historical scoring
 - ✅ Internal state management (`.repodoctor/history.json`)
 
-### 🚧 v0.4 — Rule Engine Evolution (Planned)
+### ✅ v0.4 — Rule Engine Evolution (Completed)
 
 **Goal:** Transform the rule system into a scalable analysis engine.
 
-- Rule interface standardization
-- Rule registry system
-- Rule categories
-- Rule execution pipeline
-- Standardized violation model
-- Migration of existing rules to the new engine
+- ✅ Rule interface standardization
+- ✅ Rule registry system
+- ✅ Rule categories (Critical, High, Medium, Low)
+- ✅ Rule execution pipeline
+- ✅ Standardized violation model
+- ✅ Migration of existing rules to Rule Engine v2
 
-### 🔮 v0.5 — Multi-Language Foundation (Planned)
+### 🚧 v0.5 — CLI Improvements & DX (Planned)
+
+**Goal:** Enhance CLI experience and developer workflow.
+
+- Interactive mode for analysis
+- Progress bars for long-running operations
+- Colored output and improved formatting
+- Watch mode for continuous analysis
+- Custom rule templates generation
+- Better error messages and suggestions
+
+### 🔮 v0.6 — Multi-Language Foundation (Planned)
 
 **Goal:** Prepare RepoDoctor for multi-language analysis.
 
@@ -427,11 +439,15 @@ RepoDoctor/
 ├── trend_analyzer.go       # Historical score tracking
 ├── scoring.go              # Structural scoring system
 ├── reporter.go             # Output formatter (text, JSON)
-├── dependency_test.go      # Comprehensive test suite (35+ tests)
+├── registry.go             # Rule registry and engine v2
+├── reporter_methods.go     # Reporter method implementations
+├── dependency_test.go      # Comprehensive test suite (50+ tests)
 ├── docs/                   # Documentation
-│   ├── specs/              # Feature specifications
+│   ├── specs/              # Feature specifications (v0.1-v0.5)
 │   ├── architecture.md     # Architecture overview
 │   └── roadmap.md          # Development roadmap
+├── internal/               # Internal packages
+│   └── rule/               # Rule engine v2 core
 ├── go.mod                  # Go module definition
 └── README.md               # This file
 ```
@@ -488,5 +504,5 @@ PASS
 ok      RepoDoctor      0.892s
 ```
 
-All 35+ tests pass with deterministic output across all v0.3 features.
+All 50+ tests pass with deterministic output across all v0.4 features.
 
