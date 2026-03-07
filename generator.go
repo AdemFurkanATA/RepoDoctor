@@ -127,11 +127,7 @@ type Violation struct {
 	return builder.String()
 }
 
-// generateSimpleTemplate creates a simpler template if template rendering fails
-func (g *RuleTemplateGenerator) generateSimpleTemplate(ruleName, typeName string) string {
-	ruleID := strings.ReplaceAll(ruleName, "-", "_")
-	
-	return fmt.Sprintf(`package rules
+const simpleRuleTemplate = `package rules
 
 import (
 	"RepoDoctor/internal"
@@ -206,9 +202,27 @@ type Violation struct {
 	Severity string
 	Line     int
 }
-`, typeName, ruleName, typeName, typeName, typeName, typeName, typeName, typeName, 
-	typeName, ruleID, typeName, typeName, typeName, typeName, typeName, typeName, 
-	typeName, ruleName, typeName)
+`
+
+// generateSimpleTemplate creates a simpler template if template rendering fails
+func (g *RuleTemplateGenerator) generateSimpleTemplate(ruleName, typeName string) string {
+	ruleID := strings.ReplaceAll(ruleName, "-", "_")
+
+	return fmt.Sprintf(
+		simpleRuleTemplate,
+		typeName, ruleName, typeName,
+		typeName, typeName, typeName, typeName, typeName, typeName,
+		typeName, ruleID,
+		typeName, ruleName,
+		typeName, ruleName,
+		typeName,
+		typeName,
+		typeName,
+		typeName,
+		typeName,
+		ruleName,
+		typeName,
+	)
 }
 
 // GenerateWithTest generates both rule template and test file
