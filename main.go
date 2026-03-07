@@ -38,6 +38,9 @@ func main() {
 	// Version command
 	versionCmd := flag.NewFlagSet("version", flag.ExitOnError)
 
+	// Interactive command
+	interactiveCmd := flag.NewFlagSet("interactive", flag.ExitOnError)
+
 	// Main command
 	if len(os.Args) < 2 {
 		printUsage()
@@ -65,6 +68,9 @@ func main() {
 	case "history":
 		historyCmd.Parse(os.Args[2:])
 		runHistory(*historyPath)
+	case "interactive":
+		interactiveCmd.Parse(os.Args[2:])
+		runInteractive()
 	case "version":
 		versionCmd.Parse(os.Args[2:])
 		fmt.Printf("RepoDoctor v%s\n", version)
@@ -84,12 +90,13 @@ Usage:
   repodoctor <command> [options]
 
 Commands:
-  analyze    Analyze repository architecture and health
-  extract    Extract Go package imports from source files
-  report     Display existing analysis report
-  history    Show score trend history
-  version    Show version information
-  help       Show this help message
+  analyze      Analyze repository architecture and health
+  extract      Extract Go package imports from source files
+  report       Display existing analysis report
+  history      Show score trend history
+  interactive  Start interactive mode for guided analysis
+  version      Show version information
+  help         Show this help message
 
 Arguments:
   analyze [options]
@@ -419,4 +426,9 @@ func runExtract(path, module string, verbose bool, jsonOutput bool) {
 	fmt.Printf("📥 Total unique imports: %d\n", totalImports)
 	fmt.Println("✨ Import extraction completed successfully")
 	fmt.Println()
+}
+
+func runInteractive() {
+	interactive := NewInteractiveMode()
+	interactive.Run()
 }
