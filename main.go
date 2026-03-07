@@ -38,6 +38,12 @@ func main() {
 	// Version command
 	versionCmd := flag.NewFlagSet("version", flag.ExitOnError)
 
+	// Interactive command
+	interactiveCmd := flag.NewFlagSet("interactive", flag.ExitOnError)
+
+	// Generate command
+	generateCmd := flag.NewFlagSet("generate", flag.ExitOnError)
+
 	// Main command
 	if len(os.Args) < 2 {
 		printUsage()
@@ -65,6 +71,12 @@ func main() {
 	case "history":
 		historyCmd.Parse(os.Args[2:])
 		runHistory(*historyPath)
+	case "interactive":
+		interactiveCmd.Parse(os.Args[2:])
+		runInteractive()
+	case "generate":
+		generateCmd.Parse(os.Args[2:])
+		runGenerate(generateCmd.Args())
 	case "version":
 		versionCmd.Parse(os.Args[2:])
 		fmt.Printf("RepoDoctor v%s\n", version)
@@ -84,12 +96,14 @@ Usage:
   repodoctor <command> [options]
 
 Commands:
-  analyze    Analyze repository architecture and health
-  extract    Extract Go package imports from source files
-  report     Display existing analysis report
-  history    Show score trend history
-  version    Show version information
-  help       Show this help message
+  analyze      Analyze repository architecture and health
+  extract      Extract Go package imports from source files
+  report       Display existing analysis report
+  history      Show score trend history
+  interactive  Start interactive mode for guided analysis
+  generate     Generate rule templates and other files
+  version      Show version information
+  help         Show this help message
 
 Arguments:
   analyze [options]
@@ -419,4 +433,26 @@ func runExtract(path, module string, verbose bool, jsonOutput bool) {
 	fmt.Printf("📥 Total unique imports: %d\n", totalImports)
 	fmt.Println("✨ Import extraction completed successfully")
 	fmt.Println()
+}
+
+func runGenerate(args []string) {
+	if len(args) < 2 {
+		fmt.Println("Usage: repodoctor generate rule <rule-name>")
+		fmt.Println("\nExample: repodoctor generate rule large-interface")
+		os.Exit(1)
+	}
+
+	if args[0] != "rule" {
+		fmt.Printf("Unknown generate type: %s\n", args[0])
+		fmt.Println("Available types: rule")
+		os.Exit(1)
+	}
+
+	ruleName := args[1]
+	generator := NewRuleTemplateGenerator("rules")
+
+	if err := generator.Generate(ruleName); err != nil {
+		fmt.Fprintf(os.Stderr, "Error generating rule: %v\n", err)
+		os.Exit(1)
+	}
 }
