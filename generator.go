@@ -57,31 +57,46 @@ func (g *RuleTemplateGenerator) Generate(ruleName string) error {
 func (g *RuleTemplateGenerator) generateTemplate(ruleName string) string {
 	typeName := strings.Title(strings.ReplaceAll(ruleName, "-", "_"))
 	typeName = strings.ReplaceAll(typeName, "_", "")
-	
+
 	tmpl := `package rules
 
-import (
-	"fmt"
-	"RepoDoctor/internal"
-)
+import "fmt"
 
-// {{.TypeName}}Rule detects {{.RuleName}} violations
+// {{.TypeName}}Rule detects {{.RuleName}} violations.
 type {{.TypeName}}Rule struct {
 	enabled bool
 }
 
-// New{{.TypeName}}Rule creates a new {{.TypeName}}Rule instance
+// New{{.TypeName}}Rule creates a new {{.TypeName}}Rule instance.
 func New{{.TypeName}}Rule() *{{.TypeName}}Rule {
 	return &{{.TypeName}}Rule{
 		enabled: true,
 	}
 }
 
-// ID returns the unique identifier for this rule
+// ID returns the unique identifier for this rule.
 func (r *{{.TypeName}}Rule) ID() string {
 	return "{{.RuleID}}"
 }
 
+// Name returns the human-readable name of the rule.
+func (r *{{.TypeName}}Rule) Name() string {
+	return "{{.RuleName}}"
+}
+
+// Enabled indicates whether this rule is enabled by default.
+func (r *{{.TypeName}}Rule) Enabled() bool {
+	return r.enabled
+}
+
+// Evaluate runs the rule's logic.
+//
+// TODO: Implement the actual evaluation logic for this rule.
+func (r *{{.TypeName}}Rule) Evaluate() error {
+	fmt.Println("Evaluating rule:", r.Name())
+	return nil
+}
+`
 // Name returns the human-readable name of the rule
 func (r *{{.TypeName}}Rule) Name() string {
 	return "{{.TypeName}} Rule"
