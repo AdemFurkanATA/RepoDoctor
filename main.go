@@ -208,6 +208,8 @@ func determineExitCode(report *StructuralReport) int {
 func validatePath(path string) string {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
+		err := HandleInvalidPathError(path, err)
+		err.Display()
 		fmt.Fprintf(os.Stderr, ColorError(fmt.Sprintf("Error: Could not resolve path: %v\n", err)))
 		fmt.Fprintf(os.Stderr, ColorInfo("Suggestion: Use an absolute or valid relative path\n"))
 		os.Exit(1)
@@ -215,12 +217,21 @@ func validatePath(path string) string {
 
 	info, err := os.Stat(absPath)
 	if err != nil {
+		err := HandleFileNotFoundError(absPath, err)
+		err.Display()
 		fmt.Fprintf(os.Stderr, ColorError(fmt.Sprintf("Error: Path does not exist: %s\n", absPath)))
 		fmt.Fprintf(os.Stderr, ColorInfo("Suggestion: Check if the path is correct and accessible\n"))
 		os.Exit(1)
 	}
 
 	if !info.IsDir() {
+		err := NewCLIError(
+			ErrorInvalidArgument,
+			fmt.Sprintf("Path is not a directory: %s", absPath),
+			"Provide a directory path instead of a file",
+			nil,
+		)
+		err.Display()
 		fmt.Fprintf(os.Stderr, ColorError(fmt.Sprintf("Error: Path is not a directory: %s\n", absPath)))
 		fmt.Fprintf(os.Stderr, ColorInfo("Suggestion: Provide a directory path instead of a file\n"))
 		os.Exit(1)
