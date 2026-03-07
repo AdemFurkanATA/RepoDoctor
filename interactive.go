@@ -138,3 +138,9 @@ func (i *InteractiveMode) confirm(prompt string) bool {
 	response := i.readString(prompt + " (y/n): ")
 	return strings.ToLower(response) == "y" || strings.ToLower(response) == "yes"
 }
+
+// runInteractive starts the interactive mode
+func runInteractive() {
+	interactive := NewInteractiveMode()
+	interactive.Run()
+}

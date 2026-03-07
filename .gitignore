@@ -27,3 +27,6 @@ go.work.sum
 # Environment
 .env
 .env.local
+
+# Generated rules (optional)
+rules/
