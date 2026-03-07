@@ -93,7 +93,7 @@ func (w *Watcher) watchLoop() {
 			if !ok {
 				return
 			}
-			fmt.Printf("Watcher error: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Watcher error: %v\n", err)
 
 		case <-w.stopChan:
 			return
