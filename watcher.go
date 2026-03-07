@@ -149,7 +149,7 @@ func (w *Watcher) runAnalysis(changedFile string) {
 	fmt.Println(strings.Repeat("=", 60))
 
 	// Run analysis
-	runAnalyze(w.path, "text", false)
+	runAnalyze(w.path, "text", false, true)
 }
 
 // Stop stops the watcher
@@ -181,7 +181,7 @@ func WatchAndAnalyze(path string) error {
 	// Run initial analysis
 	fmt.Println("Running initial analysis...")
 	fmt.Println()
-	runAnalyze(path, "text", false)
+	runAnalyze(path, "text", false, true)
 
 	// Start watching
 	if err := watcher.Start(); err != nil {

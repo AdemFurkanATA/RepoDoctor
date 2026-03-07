@@ -62,9 +62,8 @@ func main() {
 		if *analyzeWatch {
 			runWatch(*analyzePath)
 		} else {
-			runAnalyze(*analyzePath, format, *analyzeVerbose)
+			runAnalyze(*analyzePath, format, *analyzeVerbose, !*analyzeNoColor)
 		}
-		runAnalyze(*analyzePath, format, *analyzeVerbose, !*analyzeNoColor)
 	case "extract":
 		extractCmd.Parse(os.Args[2:])
 		runExtract(*extractPath, *extractModule, *extractVerbose, *extractJSON)
@@ -181,7 +180,7 @@ func runAnalyze(path, format string, verbose bool, colorEnabled bool) {
 	progress.Update()
 
 	// Generate and display report
-	report := generateReport(scorer, absPath, format, verbose)
+	report := generateReport(scorer, absPath, format, verbose, colorEnabled)
 	progress.Complete()
 
 	// Trend analysis
@@ -508,12 +507,11 @@ func runGenerate(args []string) {
 		fmt.Fprintf(os.Stderr, "Error generating rule: %v\n", err)
 		os.Exit(1)
 	}
+}
+
 func runWatch(path string) {
 	if err := WatchAndAnalyze(path); err != nil {
 		fmt.Fprintf(os.Stderr, "Error in watch mode: %v\n", err)
 		os.Exit(1)
 	}
-func runInteractive() {
-	interactive := NewInteractiveMode()
-	interactive.Run()
 }
