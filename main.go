@@ -39,6 +39,9 @@ func main() {
 	// Version command
 	versionCmd := flag.NewFlagSet("version", flag.ExitOnError)
 
+	// Interactive command
+	interactiveCmd := flag.NewFlagSet("interactive", flag.ExitOnError)
+
 	// Main command
 	if len(os.Args) < 2 {
 		printUsage()
@@ -66,6 +69,9 @@ func main() {
 	case "history":
 		historyCmd.Parse(os.Args[2:])
 		runHistory(*historyPath)
+	case "interactive":
+		interactiveCmd.Parse(os.Args[2:])
+		runInteractive()
 	case "version":
 		versionCmd.Parse(os.Args[2:])
 		fmt.Printf("RepoDoctor v%s\n", version)
@@ -85,12 +91,13 @@ Usage:
   repodoctor <command> [options]
 
 Commands:
-  analyze    Analyze repository architecture and health
-  extract    Extract Go package imports from source files
-  report     Display existing analysis report
-  history    Show score trend history
-  version    Show version information
-  help       Show this help message
+  analyze      Analyze repository architecture and health
+  extract      Extract Go package imports from source files
+  report       Display existing analysis report
+  history      Show score trend history
+  interactive  Start interactive mode for guided analysis
+  version      Show version information
+  help         Show this help message
 
 Arguments:
   analyze [options]
@@ -130,21 +137,38 @@ func runAnalyze(path, format string, verbose bool, colorEnabled bool) {
 	InitColorFormatter(colorEnabled)
 
 	// Extract imports and build dependency graph
+	// Create progress reporter (enabled when not verbose)
+	progress := NewProgressReporter(!verbose)
+
+	// Stage 1: Repository scanning
+	progress.Start("Scanning repository", 10)
 	if verbose {
 		fmt.Printf(ColorInfo("Extracting imports from: ") + "%s\n", absPath)
 	}
 
+	// Stage 2: Import extraction and dependency graph
 	imports := extractImports(absPath, verbose)
+	progress.SetProgress(5)
+	
 	graph := buildDependencyGraph(imports, verbose)
+	progress.SetProgress(10)
+	progress.Complete()
+
+	// Stage 3: Dependency graph building
+	progress.Start("Building dependency graph", 10)
+	progress.Complete()
 
 	// Load configuration
 	config := loadConfiguration(absPath, verbose)
 
 	// Create scorer and run analysis
+	progress.Start("Running rules", 4)
 	scorer := NewStructuralScorer(graph, config, absPath)
+	progress.Update()
 
 	// Generate and display report
-	report := generateReport(scorer, absPath, format, verbose, colorEnabled)
+	report := generateReport(scorer, absPath, format, verbose)
+	progress.Complete()
 
 	// Trend analysis
 	handleTrendAnalysis(absPath, report, verbose)
@@ -437,4 +461,9 @@ func runExtract(path, module string, verbose bool, jsonOutput bool) {
 	fmt.Printf("📥 Total unique imports: %d\n", totalImports)
 	fmt.Println("✨ Import extraction completed successfully")
 	fmt.Println()
+}
+
+func runInteractive() {
+	interactive := NewInteractiveMode()
+	interactive.Run()
 }
