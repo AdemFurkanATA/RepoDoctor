@@ -89,67 +89,10 @@ func (r *{{.TypeName}}Rule) Enabled() bool {
 	return r.enabled
 }
 
-// Evaluate runs the rule's logic.
-//
-// TODO: Implement the actual evaluation logic for this rule.
-func (r *{{.TypeName}}Rule) Evaluate() error {
-	fmt.Println("Evaluating rule:", r.Name())
-	return nil
-}
-`
-// Name returns the human-readable name of the rule
-func (r *{{.TypeName}}Rule) Name() string {
-	return "{{.TypeName}} Rule"
-}
-
-// Description returns a detailed description of what the rule checks
-func (r *{{.TypeName}}Rule) Description() string {
-	return "TODO: Add description for {{.RuleName}} rule"
-}
-
-// Category returns the category of this rule
-func (r *{{.TypeName}}Rule) Category() string {
-	return "TODO" // e.g., "architecture", "style", "performance"
-}
-
-// Severity returns the severity level of violations
-func (r *{{.TypeName}}Rule) Severity() string {
-	return "warning" // or "error", "info"
-}
-
-// Enabled returns whether the rule is enabled
-func (r *{{.TypeName}}Rule) Enabled() bool {
-	return r.enabled
-}
-
-// SetEnabled enables or disables the rule
-func (r *{{.TypeName}}Rule) SetEnabled(enabled bool) {
-	r.enabled = enabled
-}
-
-// Configure sets rule-specific configuration
-func (r *{{.TypeName}}Rule) Configure(config map[string]interface{}) error {
-	// TODO: Add configuration handling if needed
-	return nil
-}
-
 // Evaluate checks for {{.RuleName}} violations in the repository
 func (r *{{.TypeName}}Rule) Evaluate(graph internal.DependencyGraph, rootPath string) ([]Violation, error) {
 	var violations []Violation
-
 	// TODO: Implement rule evaluation logic
-	// Example:
-	// for file, imports := range graph.GetAllImports() {
-	//     if hasViolation(imports) {
-	//         violations = append(violations, Violation{
-	//             RuleID:   r.ID(),
-	//             File:     file,
-	//             Message:  fmt.Sprintf("{{.RuleName}} violation detected"),
-	//             Severity: r.Severity(),
-	//         })
-	//     }
-	// }
-
 	return violations, nil
 }
 
