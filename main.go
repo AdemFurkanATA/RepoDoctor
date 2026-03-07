@@ -17,6 +17,7 @@ func main() {
 	analyzeFormat := analyzeCmd.String("format", "text", "Output format (text, json)")
 	analyzeVerbose := analyzeCmd.Bool("verbose", false, "Enable verbose output")
 	analyzeJSON := analyzeCmd.Bool("json", false, "Output in JSON format")
+	analyzeWatch := analyzeCmd.Bool("watch", false, "Enable watch mode for continuous analysis")
 	analyzeNoColor := analyzeCmd.Bool("no-color", false, "Disable colored output")
 
 	// Extract imports command
@@ -54,6 +55,11 @@ func main() {
 		format := *analyzeFormat
 		if *analyzeJSON {
 			format = "json"
+		}
+		if *analyzeWatch {
+			runWatch(*analyzePath)
+		} else {
+			runAnalyze(*analyzePath, format, *analyzeVerbose)
 		}
 		runAnalyze(*analyzePath, format, *analyzeVerbose, !*analyzeNoColor)
 	case "extract":
@@ -104,6 +110,7 @@ Arguments:
     -path      Directory path to analyze (default: current directory)
     -format    Output format: text, json (default: text)
     -verbose   Enable verbose output
+    -watch     Enable watch mode for continuous analysis
     -no-color  Disable colored output (default: enabled)
 
   extract [options]
@@ -463,6 +470,11 @@ func runExtract(path, module string, verbose bool, jsonOutput bool) {
 	fmt.Println()
 }
 
+func runWatch(path string) {
+	if err := WatchAndAnalyze(path); err != nil {
+		fmt.Fprintf(os.Stderr, "Error in watch mode: %v\n", err)
+		os.Exit(1)
+	}
 func runInteractive() {
 	interactive := NewInteractiveMode()
 	interactive.Run()
