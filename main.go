@@ -17,6 +17,7 @@ func main() {
 	analyzeFormat := analyzeCmd.String("format", "text", "Output format (text, json)")
 	analyzeVerbose := analyzeCmd.Bool("verbose", false, "Enable verbose output")
 	analyzeJSON := analyzeCmd.Bool("json", false, "Output in JSON format")
+	analyzeWatch := analyzeCmd.Bool("watch", false, "Enable watch mode for continuous analysis")
 
 	// Extract imports command
 	extractCmd := flag.NewFlagSet("extract", flag.ExitOnError)
@@ -51,7 +52,11 @@ func main() {
 		if *analyzeJSON {
 			format = "json"
 		}
-		runAnalyze(*analyzePath, format, *analyzeVerbose)
+		if *analyzeWatch {
+			runWatch(*analyzePath)
+		} else {
+			runAnalyze(*analyzePath, format, *analyzeVerbose)
+		}
 	case "extract":
 		extractCmd.Parse(os.Args[2:])
 		runExtract(*extractPath, *extractModule, *extractVerbose, *extractJSON)
@@ -96,6 +101,7 @@ Arguments:
     -path      Directory path to analyze (default: current directory)
     -format    Output format: text, json (default: text)
     -verbose   Enable verbose output
+    -watch     Enable watch mode for continuous analysis
 
   extract [options]
     -path      Directory path to extract imports from (default: current directory)
@@ -419,4 +425,11 @@ func runExtract(path, module string, verbose bool, jsonOutput bool) {
 	fmt.Printf("📥 Total unique imports: %d\n", totalImports)
 	fmt.Println("✨ Import extraction completed successfully")
 	fmt.Println()
+}
+
+func runWatch(path string) {
+	if err := WatchAndAnalyze(path); err != nil {
+		fmt.Fprintf(os.Stderr, "Error in watch mode: %v\n", err)
+		os.Exit(1)
+	}
 }
