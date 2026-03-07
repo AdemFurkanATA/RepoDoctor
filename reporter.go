@@ -13,6 +13,20 @@ const (
 	FormatJSON OutputFormat = "json"
 )
 
+// ColoredReporter extends Reporter with colored output support
+type ColoredReporter struct {
+	*Reporter
+	formatter *ColorFormatter
+}
+
+// NewColoredReporter creates a new reporter with colored output
+func NewColoredReporter(format OutputFormat, colorEnabled bool) *ColoredReporter {
+	return &ColoredReporter{
+		Reporter:  NewReporter(format),
+		formatter: NewColorFormatter(colorEnabled),
+	}
+}
+
 // StructuralReport represents the complete analysis report
 type StructuralReport struct {
 	Version       string
