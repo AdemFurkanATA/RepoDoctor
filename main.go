@@ -131,22 +131,38 @@ func runAnalyze(path, format string, verbose bool) {
 	// Validate and resolve path
 	absPath := validatePath(path)
 
-	// Extract imports and build dependency graph
+	// Create progress reporter (enabled when not verbose)
+	progress := NewProgressReporter(!verbose)
+
+	// Stage 1: Repository scanning
+	progress.Start("Scanning repository", 10)
 	if verbose {
 		fmt.Printf("Extracting imports from: %s\n", absPath)
 	}
 
+	// Stage 2: Import extraction and dependency graph
 	imports := extractImports(absPath, verbose)
+	progress.SetProgress(5)
+	
 	graph := buildDependencyGraph(imports, verbose)
+	progress.SetProgress(10)
+	progress.Complete()
+
+	// Stage 3: Dependency graph building
+	progress.Start("Building dependency graph", 10)
+	progress.Complete()
 
 	// Load configuration
 	config := loadConfiguration(absPath, verbose)
 
 	// Create scorer and run analysis
+	progress.Start("Running rules", 4)
 	scorer := NewStructuralScorer(graph, config, absPath)
+	progress.Update()
 
 	// Generate and display report
 	report := generateReport(scorer, absPath, format, verbose)
+	progress.Complete()
 
 	// Trend analysis
 	handleTrendAnalysis(absPath, report, verbose)
