@@ -4,8 +4,8 @@
 
 RepoDoctor is a CLI tool that analyzes your Go repository's architectural health by evaluating structure, dependency patterns, and maintainability signals. It doesn't lint your syntax—it inspects your engineering decisions.
 
-![Version](https://img.shields.io/badge/version-v0.5.0-blue)
-[![Go Version](https://img.shields.io/badge/go-1.25+-00ADD8)](https://go.dev/)
+![Version](https://img.shields.io/badge/version-v0.6.0-blue)
+[![Go Version](https://img.shields.io/badge/go-1.21+-00ADD8)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Status](https://img.shields.io/badge/status-stable-green)](../../tree/main)
 
@@ -49,7 +49,7 @@ Most static analysis tools focus on **code style** and **formatting**. RepoDocto
 
 ---
 
-## 🎯 Core Features (v0.5)
+## 🎯 Core Features (v0.6)
 
 ### Implemented Capabilities
 
@@ -68,6 +68,12 @@ Most static analysis tools focus on **code style** and **formatting**. RepoDocto
 - ✅ **Plugin System** — Extensible plugin architecture for custom rules
 - ✅ **Multi-Language Foundation** — Language Adapter architecture with Python support
 - ✅ **60+ Unit Tests** — Comprehensive test coverage for all core components
+- ✅ **Interactive Mode** — Prompt-based CLI for guided analysis workflows
+- ✅ **Progress Bars** — Visual progress indicators for long-running operations
+- ✅ **Colored Output** — Severity-based color coding (INFO/WARN/ERROR/SUCCESS)
+- ✅ **Watch Mode** — Continuous analysis with filesystem monitoring
+- ✅ **Rule Template Generator** — CLI command for generating custom rule templates
+- ✅ **Enhanced Error Handling** — Structured error system with actionable suggestions
 
 ---
 
@@ -87,8 +93,30 @@ repodoctor analyze -path ./my-project -format json
 # Verbose mode (shows trend analysis)
 repodoctor analyze -path . -verbose
 
-# With custom config
-repodoctor analyze -path . -verbose
+# Watch mode (continuous analysis)
+repodoctor analyze -path . -watch
+
+# Disable colored output
+repodoctor analyze -path . -no-color
+```
+
+### Interactive Mode
+
+Start an interactive CLI session for guided analysis:
+
+```bash
+repodoctor interactive
+```
+
+### Rule Template Generator
+
+Generate a new custom rule template:
+
+```bash
+# Generate a rule template
+repodoctor generate rule large-interface
+
+# Generated file: rules/large_interface_rule.go
 ```
 
 ### Configuration
@@ -121,52 +149,27 @@ repodoctor extract -path . -module RepoDoctor
 ### Example Text Output
 
 ```
+Scanning repository [████████████████████] 100%
+Building dependency graph [████████████████████] 100%
+Running rules [████████████████████] 100%
+
 ╔═══════════════════════════════════════════════════════════╗
 ║          RepoDoctor Structural Analysis Report           ║
 ╚═══════════════════════════════════════════════════════════╝
 
-Version: v0.5.0
+Version: v0.6.0
 Path: C:\project
 
 ┌───────────────────────────────────────────────────────────┐
 │  STRUCTURAL HEALTH SCORE                                  │
 └───────────────────────────────────────────────────────────┘
-✓ Score: 78.0 / 100.0
+✓ Score: 100.0 / 100.0
 
 ┌───────────────────────────────────────────────────────────┐
 │  VIOLATIONS SUMMARY                                       │
 └───────────────────────────────────────────────────────────┘
-Total Violations: 5
-  - Circular Dependencies: 1
-  - Layer Violations: 2
-  - Size Violations: 2
-  - God Objects: 0
-
-┌───────────────────────────────────────────────────────────┐
-│  CIRCULAR DEPENDENCIES [CRITICAL]                         │
-└───────────────────────────────────────────────────────────┘
-[1] project/service → project/repo → project/service
-
-┌───────────────────────────────────────────────────────────┐
-│  LAYER VIOLATIONS [HIGH]                                  │
-└───────────────────────────────────────────────────────────┘
-[1] project/repo/user_repo.go (repo) -> project/service/user_service.go (service): upward import not allowed
-
-┌───────────────────────────────────────────────────────────┐
-│  SIZE VIOLATIONS [LOW]                                    │
-└───────────────────────────────────────────────────────────┘
-[1] Function 'largeFunction' in handler.go: 120 lines (threshold: 80)
-[2] File utils.go: 650 lines (threshold: 500)
-
-┌───────────────────────────────────────────────────────────┐
-│  SCORE BREAKDOWN                                          │
-└───────────────────────────────────────────────────────────┘
-Base Score:           100.0
-Circular Penalty:     -10.0 (1 violations x 10.0)
-Layer Penalty:        -10.0 (2 violations x 5.0)
-Size Penalty:         -6.0 (2 violations x 3.0)
-─────────────────────────────────────────────────
-Final Score:          74.0
+✓ No violations detected
+✨ No structural violations detected! Your architecture is clean.
 ```
 
 ### Example JSON Output
@@ -213,6 +216,9 @@ RepoDoctor enforces engineering discipline through:
 5. **Scoring System** — Weighted penalty calculation (circular: 10pts, layer: 5pts, size: 3pts, god object: 5pts)
 6. **Trend Analysis** — Historical score tracking with delta calculation
 7. **Reporter** — Multi-format output (text with ASCII borders, JSON)
+8. **Progress Reporter** — Visual progress tracking for long operations
+9. **Color Formatter** — Severity-based color coding for CLI output
+10. **Filesystem Watcher** — Continuous monitoring with debounced re-analysis
 
 ---
 
@@ -278,16 +284,16 @@ RepoDoctor enforces engineering discipline through:
 - ✅ JSON output mode for all commands
 - ✅ Internal code exclusion from rules
 
-### 🚧 v0.6 — CLI Improvements & DX (Current)
+### ✅ v0.6 — CLI Improvements & DX (Completed)
 
 **Goal:** Enhance CLI experience and developer workflow.
 
-- Interactive mode for analysis
-- Progress bars for long-running operations
-- Colored output and improved formatting
-- Watch mode for continuous analysis
-- Custom rule templates generation
-- Better error messages and suggestions
+- ✅ Interactive mode for analysis (`repodoctor interactive`)
+- ✅ Progress bars for long-running operations
+- ✅ Colored output and improved formatting (`--no-color` flag)
+- ✅ Watch mode for continuous analysis (`repodoctor analyze --watch`)
+- ✅ Custom rule templates generation (`repodoctor generate rule`)
+- ✅ Better error messages and suggestions (structured error system)
 
 ### 🔮 v0.7 — Cross-Language Analysis (Planned)
 
@@ -432,7 +438,7 @@ go test -v -cover ./...
 
 ```
 RepoDoctor/
-├── main.go                 # CLI entry point (analyze, extract, version commands)
+├── main.go                 # CLI entry point (analyze, extract, interactive, generate commands)
 ├── import_extractor.go     # AST-based import extraction
 ├── dependency_graph.go     # Graph data structure with cycle detection
 ├── circular_rule.go        # Circular dependency rule (critical severity)
@@ -443,6 +449,13 @@ RepoDoctor/
 ├── trend_analyzer.go       # Historical score tracking
 ├── scoring.go              # Structural scoring system
 ├── reporter.go             # Output formatter (text, JSON)
+├── color.go                # ANSI color codes and formatter (v0.6)
+├── colored_methods.go      # Colored report rendering methods (v0.6)
+├── progress.go             # Progress reporter for analysis stages (v0.6)
+├── watcher.go              # Filesystem watcher for watch mode (v0.6)
+├── generator.go            # Rule template generator (v0.6)
+├── interactive.go          # Interactive CLI mode (v0.6)
+├── errors.go               # Structured error system (v0.6)
 ├── registry.go             # Rule registry and engine v2
 ├── reporter_methods.go     # Reporter method implementations
 ├── dependency_test.go      # Comprehensive test suite (60+ tests)
@@ -455,6 +468,7 @@ RepoDoctor/
 │   ├── model/              # Data models (metrics, dependency graph, violations)
 │   ├── languages/          # Language adapters (Go, Python)
 │   └── engine/             # Rule execution engine
+├── rules/                  # Generated custom rules (gitignored)
 ├── go.mod                  # Go module definition
 └── README.md               # This file
 ```
