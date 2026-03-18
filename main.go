@@ -17,8 +17,7 @@ func main() {
 	}
 
 	if err := executeCommand(os.Args[1], os.Args[2:]); err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		os.Exit(1)
+		ExitWithError(err)
 	}
 }
 
@@ -41,7 +40,7 @@ func executeCommand(cmd string, args []string) error {
 		if *watch {
 			runWatch(*path)
 		} else {
-			runAnalyze(*path, outputFormat, *verbose, !*noColor)
+			runAnalyze(*path, outputFormat, *verbose, !*noColor, true)
 		}
 
 	case "extract":
@@ -51,7 +50,9 @@ func executeCommand(cmd string, args []string) error {
 		verbose := extractCmd.Bool("verbose", false, "Enable verbose output")
 		jsonOut := extractCmd.Bool("json", false, "Output in JSON format")
 		extractCmd.Parse(args)
-		runExtract(*path, *module, *verbose, *jsonOut)
+		if err := runExtract(*path, *module, *verbose, *jsonOut); err != nil {
+			return err
+		}
 
 	case "report":
 		reportCmd := flag.NewFlagSet("report", flag.ExitOnError)
@@ -64,13 +65,17 @@ func executeCommand(cmd string, args []string) error {
 		if *jsonOut {
 			outputFormat = "json"
 		}
-		runReport(*path, outputFormat)
+		if err := runReport(*path, outputFormat); err != nil {
+			return err
+		}
 
 	case "history":
 		historyCmd := flag.NewFlagSet("history", flag.ExitOnError)
 		path := historyCmd.String("path", ".", "Path to repository")
 		historyCmd.Parse(args)
-		runHistory(*path)
+		if err := runHistory(*path); err != nil {
+			return err
+		}
 
 	case "interactive":
 		runInteractive()
@@ -78,7 +83,9 @@ func executeCommand(cmd string, args []string) error {
 	case "generate":
 		generateCmd := flag.NewFlagSet("generate", flag.ExitOnError)
 		generateCmd.Parse(args)
-		runGenerate(generateCmd.Args())
+		if err := runGenerate(generateCmd.Args()); err != nil {
+			return err
+		}
 
 	case "version":
 		fmt.Printf("RepoDoctor v%s\n", version)
@@ -88,9 +95,37 @@ func executeCommand(cmd string, args []string) error {
 
 	default:
 		printUsage()
-		return fmt.Errorf("Unknown command: %s", cmd)
+		suggestion := getCommandSuggestion(cmd)
+		return NewCLIError(
+			ErrorCLIUsage,
+			fmt.Sprintf("Unknown command: %s", cmd),
+			suggestion,
+			nil,
+		)
 	}
 	return nil
+}
+
+func getCommandSuggestion(cmd string) string {
+	commands := []string{"analyze", "extract", "report", "history", "interactive", "generate", "version", "help"}
+	closest := ""
+	for _, candidate := range commands {
+		if strings.HasPrefix(candidate, strings.ToLower(cmd[:min(1, len(cmd))])) || strings.Contains(candidate, strings.ToLower(cmd)) {
+			closest = candidate
+			break
+		}
+	}
+	if closest != "" {
+		return fmt.Sprintf("Did you mean '%s'? Run 'repodoctor help' for available commands", closest)
+	}
+	return "Run 'repodoctor help' for available commands"
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func printUsage() {
@@ -140,7 +175,7 @@ Examples:
   repodoctor version`)
 }
 
-func runAnalyze(path, format string, verbose bool, colorEnabled bool) {
+func runAnalyze(path, format string, verbose bool, colorEnabled bool, exitOnViolation bool) int {
 	// Validate and resolve path
 	absPath := validatePath(path)
 
@@ -197,9 +232,11 @@ func runAnalyze(path, format string, verbose bool, colorEnabled bool) {
 
 	// Exit with appropriate code based on violations
 	exitCode := determineExitCode(report)
-	if exitCode != 0 {
+	if exitOnViolation && exitCode != 0 {
 		os.Exit(exitCode)
 	}
+
+	return exitCode
 }
 
 // determineExitCode returns the appropriate exit code based on report
@@ -386,12 +423,11 @@ func scanDirectory(path string, verbose bool) (totalFiles, goFiles, totalLines i
 	return
 }
 
-func runReport(reportPath, format string) {
+func runReport(reportPath, format string) error {
 	// Read report file
 	data, err := os.ReadFile(reportPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading report file: %v\n", err)
-		os.Exit(1)
+		return WrapError(err, ErrorAnalysis, fmt.Sprintf("Error reading report file: %s", reportPath), GetSuggestion(err.Error()))
 	}
 
 	// Parse report based on format
@@ -406,21 +442,21 @@ func runReport(reportPath, format string) {
 		fmt.Println(strings.Repeat("─", 60))
 		fmt.Println("✨ Report displayed successfully")
 	}
+
+	return nil
 }
 
-func runHistory(repoPath string) {
+func runHistory(repoPath string) error {
 	// Resolve path
 	absPath, err := filepath.Abs(repoPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error resolving path: %v\n", err)
-		os.Exit(1)
+		return HandleInvalidPathError(repoPath, err)
 	}
 
 	// Load trend history
 	trendAnalyzer := NewTrendAnalyzer(absPath)
 	if err := trendAnalyzer.LoadHistory(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading history: %v\n", err)
-		os.Exit(1)
+		return WrapError(err, ErrorRuntime, "Error loading history", GetSuggestion(err.Error()))
 	}
 
 	// Display history
@@ -429,26 +465,30 @@ func runHistory(repoPath string) {
 	fmt.Println(trendAnalyzer.GetTrendSummary(0))
 	fmt.Println(strings.Repeat("─", 60))
 	fmt.Println("✨ History retrieved successfully")
+
+	return nil
 }
 
-func runExtract(path, module string, verbose bool, jsonOutput bool) {
+func runExtract(path, module string, verbose bool, jsonOutput bool) error {
 	// Resolve to absolute path
 	absPath, err := filepath.Abs(path)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error resolving path: %v\n", err)
-		os.Exit(1)
+		return HandleInvalidPathError(path, err)
 	}
 
 	// Check if path exists
 	info, err := os.Stat(absPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: path does not exist: %s\n", absPath)
-		os.Exit(1)
+		return HandleFileNotFoundError(absPath, err)
 	}
 
 	if !info.IsDir() {
-		fmt.Fprintf(os.Stderr, "Error: path is not a directory: %s\n", absPath)
-		os.Exit(1)
+		return NewCLIError(
+			ErrorInvalidArgument,
+			fmt.Sprintf("Path is not a directory: %s", absPath),
+			"Provide a directory path instead of a file",
+			nil,
+		)
 	}
 
 	fmt.Printf("RepoDoctor v%s\n", version)
@@ -459,8 +499,7 @@ func runExtract(path, module string, verbose bool, jsonOutput bool) {
 	extractor := NewImportExtractor(module)
 	imports, err := extractor.ExtractFromDir(absPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error extracting imports: %v\n", err)
-		os.Exit(1)
+		return WrapError(err, ErrorAnalysis, "Error extracting imports", GetSuggestion(err.Error()))
 	}
 
 	// Display results
@@ -494,28 +533,33 @@ func runExtract(path, module string, verbose bool, jsonOutput bool) {
 	fmt.Printf("📥 Total unique imports: %d\n", totalImports)
 	fmt.Println("✨ Import extraction completed successfully")
 	fmt.Println()
+
+	_ = jsonOutput
+	return nil
 }
 
-func runGenerate(args []string) {
+func runGenerate(args []string) error {
 	if len(args) < 2 {
-		fmt.Println("Usage: repodoctor generate rule <rule-name>")
-		fmt.Println("\nExample: repodoctor generate rule large-interface")
-		os.Exit(1)
+		return HandleCLIUsageError("Usage: repodoctor generate rule <rule-name>", nil)
 	}
 
 	if args[0] != "rule" {
-		fmt.Printf("Unknown generate type: %s\n", args[0])
-		fmt.Println("Available types: rule")
-		os.Exit(1)
+		return NewCLIError(
+			ErrorInvalidArgument,
+			fmt.Sprintf("Unknown generate type: %s", args[0]),
+			"Available types: rule",
+			nil,
+		)
 	}
 
 	ruleName := args[1]
 	generator := NewRuleTemplateGenerator("rules")
 
 	if err := generator.Generate(ruleName); err != nil {
-		fmt.Fprintf(os.Stderr, "Error generating rule: %v\n", err)
-		os.Exit(1)
+		return WrapError(err, ErrorRuntime, "Error generating rule", GetSuggestion(err.Error()))
 	}
+
+	return nil
 }
 
 func runWatch(path string) {

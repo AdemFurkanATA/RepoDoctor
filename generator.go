@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"text/template"
 )
@@ -22,13 +23,18 @@ func NewRuleTemplateGenerator(rulesDir string) *RuleTemplateGenerator {
 
 // Generate creates a new rule template file
 func (g *RuleTemplateGenerator) Generate(ruleName string) error {
+	sanitized, err := sanitizeRuleName(ruleName)
+	if err != nil {
+		return err
+	}
+
 	// Create rules directory if it doesn't exist
 	if err := os.MkdirAll(g.rulesDir, 0755); err != nil {
 		return fmt.Errorf("failed to create rules directory: %w", err)
 	}
 
 	// Generate file name
-	fileName := strings.ToLower(ruleName) + "_rule.go"
+	fileName := strings.ReplaceAll(sanitized, "-", "_") + "_rule.go"
 	filePath := filepath.Join(g.rulesDir, fileName)
 
 	// Check if file already exists
@@ -37,7 +43,7 @@ func (g *RuleTemplateGenerator) Generate(ruleName string) error {
 	}
 
 	// Generate template content
-	content := g.generateTemplate(ruleName)
+	content := g.generateTemplate(sanitized)
 
 	// Write file
 	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
@@ -55,8 +61,7 @@ func (g *RuleTemplateGenerator) Generate(ruleName string) error {
 
 // generateTemplate creates the rule template content
 func (g *RuleTemplateGenerator) generateTemplate(ruleName string) string {
-	typeName := strings.Title(strings.ReplaceAll(ruleName, "-", "_"))
-	typeName = strings.ReplaceAll(typeName, "_", "")
+	typeName := ruleTypeName(ruleName)
 
 	tmpl := `package rules
 
@@ -84,13 +89,43 @@ func (r *{{.TypeName}}Rule) Name() string {
 	return "{{.RuleName}}"
 }
 
+// Description returns what this rule checks.
+func (r *{{.TypeName}}Rule) Description() string {
+	return "TODO: describe {{.RuleName}} rule behavior"
+}
+
+// Category returns the rule category.
+func (r *{{.TypeName}}Rule) Category() string {
+	return "maintainability"
+}
+
+// Severity returns the default severity.
+func (r *{{.TypeName}}Rule) Severity() string {
+	return "warning"
+}
+
 // Enabled indicates whether this rule is enabled by default.
 func (r *{{.TypeName}}Rule) Enabled() bool {
 	return r.enabled
 }
 
+// SetEnabled toggles the rule state.
+func (r *{{.TypeName}}Rule) SetEnabled(enabled bool) {
+	r.enabled = enabled
+}
+
+// Configure validates and applies optional settings.
+func (r *{{.TypeName}}Rule) Configure(config map[string]interface{}) error {
+	_ = config
+	return nil
+}
+
 // Evaluate checks for {{.RuleName}} violations in the repository
-func (r *{{.TypeName}}Rule) Evaluate(graph internal.DependencyGraph, rootPath string) ([]Violation, error) {
+func (r *{{.TypeName}}Rule) Evaluate(rootPath string) ([]Violation, error) {
+	if rootPath == "" {
+		return nil, fmt.Errorf("rootPath cannot be empty")
+	}
+
 	var violations []Violation
 	// TODO: Implement rule evaluation logic
 	return violations, nil
@@ -107,7 +142,7 @@ type Violation struct {
 `
 
 	t := template.Must(template.New("rule").Parse(tmpl))
-	
+
 	data := struct {
 		RuleName string
 		TypeName string
@@ -130,7 +165,7 @@ type Violation struct {
 const simpleRuleTemplate = `package rules
 
 import (
-	"RepoDoctor/internal"
+	"fmt"
 )
 
 // %sRule detects %s violations
@@ -182,11 +217,16 @@ func (r *%sRule) SetEnabled(enabled bool) {
 
 // Configure sets rule-specific configuration
 func (r *%sRule) Configure(config map[string]interface{}) error {
+	_ = config
 	return nil
 }
 
 // Evaluate checks for %s violations in the repository
-func (r *%sRule) Evaluate(graph internal.DependencyGraph, rootPath string) ([]Violation, error) {
+func (r *%sRule) Evaluate(rootPath string) ([]Violation, error) {
+	if rootPath == "" {
+		return nil, fmt.Errorf("rootPath cannot be empty")
+	}
+
 	var violations []Violation
 
 	// TODO: Implement rule evaluation logic
@@ -221,22 +261,26 @@ func (g *RuleTemplateGenerator) generateSimpleTemplate(ruleName, typeName string
 		typeName,
 		typeName,
 		ruleName,
-		typeName,
 	)
 }
 
 // GenerateWithTest generates both rule template and test file
 func (g *RuleTemplateGenerator) GenerateWithTest(ruleName string) error {
-	if err := g.Generate(ruleName); err != nil {
+	sanitized, err := sanitizeRuleName(ruleName)
+	if err != nil {
+		return err
+	}
+
+	if err := g.Generate(sanitized); err != nil {
 		return err
 	}
 
 	// Generate test file
-	testFileName := strings.ToLower(ruleName) + "_rule_test.go"
+	testFileName := strings.ReplaceAll(sanitized, "-", "_") + "_rule_test.go"
 	testFilePath := filepath.Join(g.rulesDir, testFileName)
-	
-	testContent := g.generateTestTemplate(ruleName)
-	
+
+	testContent := g.generateTestTemplate(sanitized)
+
 	if err := os.WriteFile(testFilePath, []byte(testContent), 0644); err != nil {
 		return fmt.Errorf("failed to write test file: %w", err)
 	}
@@ -248,9 +292,8 @@ func (g *RuleTemplateGenerator) GenerateWithTest(ruleName string) error {
 
 // generateTestTemplate creates a test template
 func (g *RuleTemplateGenerator) generateTestTemplate(ruleName string) string {
-	typeName := strings.Title(strings.ReplaceAll(ruleName, "-", "_"))
-	typeName = strings.ReplaceAll(typeName, "_", "")
-	
+	typeName := ruleTypeName(ruleName)
+
 	return fmt.Sprintf(`package rules
 
 import (
@@ -269,7 +312,7 @@ func Test%sRule_ID(t *testing.T) {
 func Test%sRule_Name(t *testing.T) {
 	rule := New%sRule()
 	
-	expected := "%s Rule"
+	expected := "%s"
 	if rule.Name() != expected {
 		t.Errorf("Expected Name %%s, got %%s", expected, rule.Name())
 	}
@@ -291,17 +334,57 @@ func Test%sRule_Enabled(t *testing.T) {
 func Test%sRule_Evaluate(t *testing.T) {
 	rule := New%sRule()
 	
-	// TODO: Add test cases for Evaluate method
-	//violations, err := rule.Evaluate(nil, "")
-	//if err != nil {
-	//	t.Fatalf("Unexpected error: %%v", err)
-	//}
+	if _, err := rule.Evaluate(""); err == nil {
+		t.Fatal("expected error for empty rootPath")
+	}
 	
-	// Add assertions based on expected behavior
-	_ = rule
+	if _, err := rule.Evaluate("."); err != nil {
+		t.Fatalf("unexpected error: %%v", err)
+	}
 }
-`, typeName, typeName, strings.ReplaceAll(ruleName, "-", "_"), 
-	typeName, typeName, typeName, 
-	typeName, typeName, 
-	typeName, typeName)
+`, typeName, typeName, strings.ReplaceAll(ruleName, "-", "_"),
+		typeName, typeName, ruleName,
+		typeName, typeName,
+		typeName, typeName)
+}
+
+func sanitizeRuleName(ruleName string) (string, error) {
+	trimmed := strings.TrimSpace(strings.ToLower(ruleName))
+	if trimmed == "" {
+		return "", fmt.Errorf("rule name cannot be empty")
+	}
+
+	normalized := strings.ReplaceAll(trimmed, " ", "-")
+	normalized = strings.ReplaceAll(normalized, "_", "-")
+	normalized = strings.Trim(normalized, "-")
+
+	validName := regexp.MustCompile(`^[a-z0-9-]+$`)
+	if !validName.MatchString(normalized) {
+		return "", fmt.Errorf("invalid rule name %q: use only letters, numbers, spaces, underscore or hyphen", ruleName)
+	}
+
+	return normalized, nil
+}
+
+func ruleTypeName(ruleName string) string {
+	parts := strings.FieldsFunc(ruleName, func(r rune) bool {
+		return r == '-' || r == '_'
+	})
+
+	var builder strings.Builder
+	for _, part := range parts {
+		if part == "" {
+			continue
+		}
+		builder.WriteString(strings.ToUpper(part[:1]))
+		if len(part) > 1 {
+			builder.WriteString(part[1:])
+		}
+	}
+
+	if builder.Len() == 0 {
+		return "Custom"
+	}
+
+	return builder.String()
 }
