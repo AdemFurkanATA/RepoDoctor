@@ -24,74 +24,28 @@ func main() {
 func executeCommand(cmd string, args []string) error {
 	switch cmd {
 	case "analyze":
-		analyzeCmd := flag.NewFlagSet("analyze", flag.ExitOnError)
-		path := analyzeCmd.String("path", ".", "Path to analyze")
-		format := analyzeCmd.String("format", "text", "Output format (text, json)")
-		verbose := analyzeCmd.Bool("verbose", false, "Enable verbose output")
-		jsonOut := analyzeCmd.Bool("json", false, "Output in JSON format")
-		watch := analyzeCmd.Bool("watch", false, "Enable watch mode for continuous analysis")
-		noColor := analyzeCmd.Bool("no-color", false, "Disable colored output")
-		analyzeCmd.Parse(args)
-
-		outputFormat := *format
-		if *jsonOut {
-			outputFormat = "json"
-		}
-		if *watch {
-			runWatch(*path)
-		} else {
-			runAnalyze(*path, outputFormat, *verbose, !*noColor, true)
-		}
+		return handleAnalyzeCommand(args)
 
 	case "extract":
-		extractCmd := flag.NewFlagSet("extract", flag.ExitOnError)
-		path := extractCmd.String("path", ".", "Path to extract imports from")
-		module := extractCmd.String("module", "RepoDoctor", "Module path for normalization")
-		verbose := extractCmd.Bool("verbose", false, "Enable verbose output")
-		jsonOut := extractCmd.Bool("json", false, "Output in JSON format")
-		extractCmd.Parse(args)
-		if err := runExtract(*path, *module, *verbose, *jsonOut); err != nil {
-			return err
-		}
+		return handleExtractCommand(args)
 
 	case "report":
-		reportCmd := flag.NewFlagSet("report", flag.ExitOnError)
-		path := reportCmd.String("path", "repodoctor-report.json", "Path to report file")
-		format := reportCmd.String("format", "text", "Output format (text, json)")
-		jsonOut := reportCmd.Bool("json", false, "Output in JSON format")
-		reportCmd.Parse(args)
-
-		outputFormat := *format
-		if *jsonOut {
-			outputFormat = "json"
-		}
-		if err := runReport(*path, outputFormat); err != nil {
-			return err
-		}
+		return handleReportCommand(args)
 
 	case "history":
-		historyCmd := flag.NewFlagSet("history", flag.ExitOnError)
-		path := historyCmd.String("path", ".", "Path to repository")
-		historyCmd.Parse(args)
-		if err := runHistory(*path); err != nil {
-			return err
-		}
+		return handleHistoryCommand(args)
 
 	case "interactive":
-		runInteractive()
+		return handleInteractiveCommand()
 
 	case "generate":
-		generateCmd := flag.NewFlagSet("generate", flag.ExitOnError)
-		generateCmd.Parse(args)
-		if err := runGenerate(generateCmd.Args()); err != nil {
-			return err
-		}
+		return handleGenerateCommand(args)
 
 	case "version":
-		fmt.Printf("RepoDoctor v%s\n", version)
+		return handleVersionCommand()
 
 	case "help", "-h", "--help":
-		printUsage()
+		return handleHelpCommand()
 
 	default:
 		printUsage()
@@ -103,6 +57,84 @@ func executeCommand(cmd string, args []string) error {
 			nil,
 		)
 	}
+}
+
+func handleAnalyzeCommand(args []string) error {
+	analyzeCmd := flag.NewFlagSet("analyze", flag.ExitOnError)
+	path := analyzeCmd.String("path", ".", "Path to analyze")
+	format := analyzeCmd.String("format", "text", "Output format (text, json)")
+	verbose := analyzeCmd.Bool("verbose", false, "Enable verbose output")
+	jsonOut := analyzeCmd.Bool("json", false, "Output in JSON format")
+	watch := analyzeCmd.Bool("watch", false, "Enable watch mode for continuous analysis")
+	noColor := analyzeCmd.Bool("no-color", false, "Disable colored output")
+	analyzeCmd.Parse(args)
+
+	outputFormat := *format
+	if *jsonOut {
+		outputFormat = "json"
+	}
+	if *watch {
+		runWatch(*path)
+		return nil
+	}
+
+	runAnalyze(*path, outputFormat, *verbose, !*noColor, true)
+	return nil
+}
+
+func handleExtractCommand(args []string) error {
+	extractCmd := flag.NewFlagSet("extract", flag.ExitOnError)
+	path := extractCmd.String("path", ".", "Path to extract imports from")
+	module := extractCmd.String("module", "RepoDoctor", "Module path for normalization")
+	verbose := extractCmd.Bool("verbose", false, "Enable verbose output")
+	jsonOut := extractCmd.Bool("json", false, "Output in JSON format")
+	extractCmd.Parse(args)
+
+	return runExtract(*path, *module, *verbose, *jsonOut)
+}
+
+func handleReportCommand(args []string) error {
+	reportCmd := flag.NewFlagSet("report", flag.ExitOnError)
+	path := reportCmd.String("path", "repodoctor-report.json", "Path to report file")
+	format := reportCmd.String("format", "text", "Output format (text, json)")
+	jsonOut := reportCmd.Bool("json", false, "Output in JSON format")
+	reportCmd.Parse(args)
+
+	outputFormat := *format
+	if *jsonOut {
+		outputFormat = "json"
+	}
+
+	return runReport(*path, outputFormat)
+}
+
+func handleHistoryCommand(args []string) error {
+	historyCmd := flag.NewFlagSet("history", flag.ExitOnError)
+	path := historyCmd.String("path", ".", "Path to repository")
+	historyCmd.Parse(args)
+
+	return runHistory(*path)
+}
+
+func handleInteractiveCommand() error {
+	runInteractive()
+	return nil
+}
+
+func handleGenerateCommand(args []string) error {
+	generateCmd := flag.NewFlagSet("generate", flag.ExitOnError)
+	generateCmd.Parse(args)
+
+	return runGenerate(generateCmd.Args())
+}
+
+func handleVersionCommand() error {
+	fmt.Printf("RepoDoctor v%s\n", version)
+	return nil
+}
+
+func handleHelpCommand() error {
+	printUsage()
 	return nil
 }
 
