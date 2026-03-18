@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -71,7 +73,7 @@ func (p *ProgressReporter) printProgress() {
 
 	percentage := float64(p.currentStep) / float64(p.totalSteps) * 100
 	bar := p.renderBar(percentage, 20)
-	
+
 	fmt.Printf("\r%s [%s] %3.0f%%", p.currentStage, bar, percentage)
 }
 
@@ -112,20 +114,39 @@ func getStageCount(stage string, repoPath string) int {
 
 // countFiles estimates the number of Go files to scan
 func countFiles(path string) int {
-	// Simplified - actual implementation would count files
-	// For now, return a reasonable default
-	return 50
+	count := 0
+	_ = filepath.Walk(path, func(current string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() {
+			if strings.HasPrefix(info.Name(), ".") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if strings.HasSuffix(info.Name(), ".go") {
+			count++
+		}
+		return nil
+	})
+
+	if count == 0 {
+		return 1
+	}
+
+	return count
 }
 
 // renderProgressBar renders a single-line progress bar
 func renderProgressBar(stage string, current, total int) string {
 	percentage := float64(current) / float64(total) * 100
 	width := 20
-	
+
 	filled := int(float64(width) * percentage / 100)
 	empty := width - filled
 
 	bar := strings.Repeat("█", filled) + strings.Repeat("░", empty)
-	
+
 	return fmt.Sprintf("%s [%s] %3.0f%%", stage, bar, percentage)
 }
