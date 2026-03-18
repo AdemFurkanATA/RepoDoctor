@@ -152,33 +152,44 @@ func runAnalyze(path, format string, verbose bool, colorEnabled bool) {
 	progress := NewProgressReporter(!verbose)
 
 	// Stage 1: Repository scanning
-	progress.Start("Scanning repository", 10)
+	progress.Start("Scanning repository", getStageCount("Scanning repository", absPath))
 	if verbose {
-		fmt.Printf(ColorInfo("Extracting imports from: ") + "%s\n", absPath)
+		fmt.Printf(ColorInfo("Extracting imports from: ")+"%s\n", absPath)
 	}
 
 	// Stage 2: Import extraction and dependency graph
 	imports := extractImports(absPath, verbose)
-	progress.SetProgress(5)
-	
+	progress.SetProgress(progress.totalSteps / 2)
+
 	graph := buildDependencyGraph(imports, verbose)
-	progress.SetProgress(10)
+	progress.SetProgress(progress.totalSteps)
+	progress.Complete()
+
+	// Stage 2: Metrics collection
+	progress.Start("Collecting metrics", getStageCount("Collecting metrics", absPath))
+	totalFiles, goFiles, totalLines := scanDirectory(absPath, false)
+	_ = totalFiles
+	_ = goFiles
+	_ = totalLines
+	progress.SetProgress(progress.totalSteps)
 	progress.Complete()
 
 	// Stage 3: Dependency graph building
-	progress.Start("Building dependency graph", 10)
+	progress.Start("Building dependency graph", getStageCount("Building dependency graph", absPath))
+	progress.SetProgress(progress.totalSteps)
 	progress.Complete()
 
 	// Load configuration
 	config := loadConfiguration(absPath, verbose)
 
 	// Create scorer and run analysis
-	progress.Start("Running rules", 4)
+	progress.Start("Running rules", getStageCount("Running rules", absPath))
 	scorer := NewStructuralScorer(graph, config, absPath)
-	progress.Update()
+	progress.SetProgress(progress.totalSteps / 2)
 
 	// Generate and display report
 	report := generateReport(scorer, absPath, format, verbose, colorEnabled)
+	progress.SetProgress(progress.totalSteps)
 	progress.Complete()
 
 	// Trend analysis
