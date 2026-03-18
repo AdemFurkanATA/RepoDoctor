@@ -13,14 +13,31 @@ import (
 
 // InteractiveMode provides an interactive CLI experience
 type InteractiveMode struct {
+	io               *interactiveIO
+	configController *InteractiveConfigController
+}
+
+type interactiveIO struct {
 	reader *bufio.Reader
+}
+
+// InteractiveConfigController handles rule configuration workflows.
+type InteractiveConfigController struct {
+	io *interactiveIO
 }
 
 // NewInteractiveMode creates a new interactive mode instance
 func NewInteractiveMode() *InteractiveMode {
+	io := &interactiveIO{reader: bufio.NewReader(os.Stdin)}
+
 	return &InteractiveMode{
-		reader: bufio.NewReader(os.Stdin),
+		io:               io,
+		configController: NewInteractiveConfigController(io),
 	}
+}
+
+func NewInteractiveConfigController(io *interactiveIO) *InteractiveConfigController {
+	return &InteractiveConfigController{io: io}
 }
 
 // Run starts the interactive mode session
@@ -32,7 +49,7 @@ func (i *InteractiveMode) Run() {
 	for {
 		i.showMainMenu()
 
-		choice := i.readChoice()
+		choice := i.io.readChoice()
 
 		switch choice {
 		case 1:
@@ -40,7 +57,7 @@ func (i *InteractiveMode) Run() {
 		case 2:
 			i.viewHistory()
 		case 3:
-			i.configureRules()
+			i.configController.configureRules()
 		case 4:
 			fmt.Println("\nExiting RepoDoctor Interactive Mode...")
 			return
@@ -60,22 +77,6 @@ func (i *InteractiveMode) showMainMenu() {
 	fmt.Print("\n> ")
 }
 
-// readChoice reads and validates user choice
-func (i *InteractiveMode) readChoice() int {
-	input, err := i.reader.ReadString('\n')
-	if err != nil {
-		return -1
-	}
-
-	input = strings.TrimSpace(input)
-	choice, err := strconv.Atoi(input)
-	if err != nil {
-		return -1
-	}
-
-	return choice
-}
-
 // analyzeMenu handles the analyze submenu
 func (i *InteractiveMode) analyzeMenu() {
 	fmt.Println("\nSelect analysis scope:")
@@ -84,20 +85,14 @@ func (i *InteractiveMode) analyzeMenu() {
 	fmt.Println("  3. Back to main menu")
 	fmt.Print("\n> ")
 
-	choice := i.readChoice()
+	choice := i.io.readChoice()
 
 	switch choice {
 	case 1:
 		fmt.Println("\nAnalyzing current repository...")
 		runAnalyze(".", "text", false, true, true)
 	case 2:
-		fmt.Print("\nEnter path to analyze: ")
-		path, err := i.reader.ReadString('\n')
-		if err != nil {
-			fmt.Println("Error reading path")
-			return
-		}
-		path = strings.TrimSpace(path)
+		path := i.io.readString("\nEnter path to analyze: ")
 		if path == "" {
 			fmt.Println("Path cannot be empty")
 			return
@@ -118,7 +113,7 @@ func (i *InteractiveMode) viewHistory() {
 }
 
 // configureRules handles rule configuration
-func (i *InteractiveMode) configureRules() {
+func (c *InteractiveConfigController) configureRules() {
 	absPath, err := filepath.Abs(".")
 	if err != nil {
 		fmt.Printf("\nError resolving repository path: %v\n\n", err)
@@ -133,18 +128,18 @@ func (i *InteractiveMode) configureRules() {
 	}
 
 	for {
-		i.showConfigMenu(config)
-		choice := i.readChoice()
+		c.showConfigMenu(config)
+		choice := c.io.readChoice()
 
 		switch choice {
 		case 1:
-			i.toggleSizeRule(config)
+			c.toggleSizeRule(config)
 		case 2:
-			i.toggleGodObjectRule(config)
+			c.toggleGodObjectRule(config)
 		case 3:
-			i.setMaxFileLines(config)
+			c.setMaxFileLines(config)
 		case 4:
-			i.setMaxFunctionLines(config)
+			c.setMaxFunctionLines(config)
 		case 5:
 			if err := saveConfig(absPath, config); err != nil {
 				fmt.Printf("\nError saving configuration: %v\n\n", err)
@@ -159,7 +154,7 @@ func (i *InteractiveMode) configureRules() {
 	}
 }
 
-func (i *InteractiveMode) showConfigMenu(config *Config) {
+func (c *InteractiveConfigController) showConfigMenu(config *Config) {
 	fmt.Println("\nRule Configuration")
 	fmt.Println(strings.Repeat("─", 50))
 	fmt.Printf("Current settings:\n")
@@ -177,7 +172,7 @@ func (i *InteractiveMode) showConfigMenu(config *Config) {
 	fmt.Print("\n> ")
 }
 
-func (i *InteractiveMode) toggleSizeRule(config *Config) {
+func (c *InteractiveConfigController) toggleSizeRule(config *Config) {
 	current := *config.Rules.EnableSizeRule
 	next := !current
 	config.Rules.EnableSizeRule = &next
@@ -187,7 +182,7 @@ func (i *InteractiveMode) toggleSizeRule(config *Config) {
 	fmt.Printf("\nSize Rule is now %s.\n\n", boolLabel(next))
 }
 
-func (i *InteractiveMode) toggleGodObjectRule(config *Config) {
+func (c *InteractiveConfigController) toggleGodObjectRule(config *Config) {
 	current := *config.Rules.EnableGodObjectRule
 	next := !current
 	config.Rules.EnableGodObjectRule = &next
@@ -197,8 +192,8 @@ func (i *InteractiveMode) toggleGodObjectRule(config *Config) {
 	fmt.Printf("\nGod Object Rule is now %s.\n\n", boolLabel(next))
 }
 
-func (i *InteractiveMode) setMaxFileLines(config *Config) {
-	value, ok := i.readPositiveInt("Enter max file lines")
+func (c *InteractiveConfigController) setMaxFileLines(config *Config) {
+	value, ok := c.io.readPositiveInt("Enter max file lines")
 	if !ok {
 		fmt.Print("\nInvalid value. Please enter a positive number.\n\n")
 		return
@@ -207,8 +202,8 @@ func (i *InteractiveMode) setMaxFileLines(config *Config) {
 	fmt.Printf("\nMax file lines set to %d.\n\n", value)
 }
 
-func (i *InteractiveMode) setMaxFunctionLines(config *Config) {
-	value, ok := i.readPositiveInt("Enter max function lines")
+func (c *InteractiveConfigController) setMaxFunctionLines(config *Config) {
+	value, ok := c.io.readPositiveInt("Enter max function lines")
 	if !ok {
 		fmt.Print("\nInvalid value. Please enter a positive number.\n\n")
 		return
@@ -217,8 +212,24 @@ func (i *InteractiveMode) setMaxFunctionLines(config *Config) {
 	fmt.Printf("\nMax function lines set to %d.\n\n", value)
 }
 
-func (i *InteractiveMode) readPositiveInt(prompt string) (int, bool) {
-	input := i.readString(prompt + ": ")
+// readChoice reads and validates user choice
+func (io *interactiveIO) readChoice() int {
+	input, err := io.reader.ReadString('\n')
+	if err != nil {
+		return -1
+	}
+
+	input = strings.TrimSpace(input)
+	choice, err := strconv.Atoi(input)
+	if err != nil {
+		return -1
+	}
+
+	return choice
+}
+
+func (io *interactiveIO) readPositiveInt(prompt string) (int, bool) {
+	input := io.readString(prompt + ": ")
 	value, err := strconv.Atoi(strings.TrimSpace(input))
 	if err != nil || value <= 0 {
 		return 0, false
@@ -247,9 +258,9 @@ func boolLabel(value bool) string {
 }
 
 // readString reads a string input from user
-func (i *InteractiveMode) readString(prompt string) string {
+func (io *interactiveIO) readString(prompt string) string {
 	fmt.Print(prompt)
-	input, err := i.reader.ReadString('\n')
+	input, err := io.reader.ReadString('\n')
 	if err != nil {
 		return ""
 	}
@@ -257,8 +268,8 @@ func (i *InteractiveMode) readString(prompt string) string {
 }
 
 // confirm asks for yes/no confirmation
-func (i *InteractiveMode) confirm(prompt string) bool {
-	response := i.readString(prompt + " (y/n): ")
+func (io *interactiveIO) confirm(prompt string) bool {
+	response := io.readString(prompt + " (y/n): ")
 	return strings.ToLower(response) == "y" || strings.ToLower(response) == "yes"
 }
 
