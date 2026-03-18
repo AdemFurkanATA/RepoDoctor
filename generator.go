@@ -107,7 +107,7 @@ type Violation struct {
 `
 
 	t := template.Must(template.New("rule").Parse(tmpl))
-	
+
 	data := struct {
 		RuleName string
 		TypeName string
@@ -221,7 +221,6 @@ func (g *RuleTemplateGenerator) generateSimpleTemplate(ruleName, typeName string
 		typeName,
 		typeName,
 		ruleName,
-		typeName,
 	)
 }
 
@@ -234,9 +233,9 @@ func (g *RuleTemplateGenerator) GenerateWithTest(ruleName string) error {
 	// Generate test file
 	testFileName := strings.ToLower(ruleName) + "_rule_test.go"
 	testFilePath := filepath.Join(g.rulesDir, testFileName)
-	
+
 	testContent := g.generateTestTemplate(ruleName)
-	
+
 	if err := os.WriteFile(testFilePath, []byte(testContent), 0644); err != nil {
 		return fmt.Errorf("failed to write test file: %w", err)
 	}
@@ -250,7 +249,7 @@ func (g *RuleTemplateGenerator) GenerateWithTest(ruleName string) error {
 func (g *RuleTemplateGenerator) generateTestTemplate(ruleName string) string {
 	typeName := strings.Title(strings.ReplaceAll(ruleName, "-", "_"))
 	typeName = strings.ReplaceAll(typeName, "_", "")
-	
+
 	return fmt.Sprintf(`package rules
 
 import (
@@ -300,8 +299,8 @@ func Test%sRule_Evaluate(t *testing.T) {
 	// Add assertions based on expected behavior
 	_ = rule
 }
-`, typeName, typeName, strings.ReplaceAll(ruleName, "-", "_"), 
-	typeName, typeName, typeName, 
-	typeName, typeName, 
-	typeName, typeName)
+`, typeName, typeName, strings.ReplaceAll(ruleName, "-", "_"),
+		typeName, typeName, typeName,
+		typeName, typeName,
+		typeName, typeName)
 }
