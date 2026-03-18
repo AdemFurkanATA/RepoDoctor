@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 )
 
@@ -31,9 +32,25 @@ func NewColorFormatter(enabled bool) *ColorFormatter {
 
 // isTerminal checks if the output is a terminal
 func isTerminal() bool {
-	// Simple check - on Windows, go-colorable would be needed for full support
-	// For now, we assume terminal support
-	return true
+	if os.Getenv("NO_COLOR") != "" {
+		return false
+	}
+
+	if term := strings.ToLower(os.Getenv("TERM")); term == "dumb" {
+		return false
+	}
+
+	if runtime.GOOS == "windows" {
+		if os.Getenv("WT_SESSION") != "" || os.Getenv("ANSICON") != "" || os.Getenv("ConEmuANSI") == "ON" {
+			return true
+		}
+	}
+
+	if fileInfo, err := os.Stdout.Stat(); err == nil {
+		return (fileInfo.Mode() & os.ModeCharDevice) != 0
+	}
+
+	return false
 }
 
 // Color applies a color to text if colors are enabled
