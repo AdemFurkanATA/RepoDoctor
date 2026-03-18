@@ -41,7 +41,7 @@ func executeCommand(cmd string, args []string) error {
 		if *watch {
 			runWatch(*path)
 		} else {
-			runAnalyze(*path, outputFormat, *verbose, !*noColor)
+			runAnalyze(*path, outputFormat, *verbose, !*noColor, true)
 		}
 
 	case "extract":
@@ -140,7 +140,7 @@ Examples:
   repodoctor version`)
 }
 
-func runAnalyze(path, format string, verbose bool, colorEnabled bool) {
+func runAnalyze(path, format string, verbose bool, colorEnabled bool, exitOnViolation bool) int {
 	// Validate and resolve path
 	absPath := validatePath(path)
 
@@ -154,13 +154,13 @@ func runAnalyze(path, format string, verbose bool, colorEnabled bool) {
 	// Stage 1: Repository scanning
 	progress.Start("Scanning repository", 10)
 	if verbose {
-		fmt.Printf(ColorInfo("Extracting imports from: ") + "%s\n", absPath)
+		fmt.Printf(ColorInfo("Extracting imports from: ")+"%s\n", absPath)
 	}
 
 	// Stage 2: Import extraction and dependency graph
 	imports := extractImports(absPath, verbose)
 	progress.SetProgress(5)
-	
+
 	graph := buildDependencyGraph(imports, verbose)
 	progress.SetProgress(10)
 	progress.Complete()
@@ -186,9 +186,11 @@ func runAnalyze(path, format string, verbose bool, colorEnabled bool) {
 
 	// Exit with appropriate code based on violations
 	exitCode := determineExitCode(report)
-	if exitCode != 0 {
+	if exitOnViolation && exitCode != 0 {
 		os.Exit(exitCode)
 	}
+
+	return exitCode
 }
 
 // determineExitCode returns the appropriate exit code based on report
