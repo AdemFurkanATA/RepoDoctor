@@ -28,9 +28,9 @@ func (i *InteractiveMode) Run() {
 
 	for {
 		i.showMainMenu()
-		
+
 		choice := i.readChoice()
-		
+
 		switch choice {
 		case 1:
 			i.analyzeMenu()
@@ -86,7 +86,7 @@ func (i *InteractiveMode) analyzeMenu() {
 	switch choice {
 	case 1:
 		fmt.Println("\nAnalyzing current repository...")
-		runAnalyze(".", "text", false, true)
+		runAnalyze(".", "text", false, true, true)
 	case 2:
 		fmt.Print("\nEnter path to analyze: ")
 		path, err := i.reader.ReadString('\n')
@@ -100,7 +100,7 @@ func (i *InteractiveMode) analyzeMenu() {
 			return
 		}
 		fmt.Printf("\nAnalyzing repository: %s\n", path)
-		runAnalyze(path, "text", false, true)
+		runAnalyze(path, "text", false, true, true)
 	case 3:
 		return
 	default:

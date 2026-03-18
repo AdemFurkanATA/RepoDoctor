@@ -40,7 +40,7 @@ func executeCommand(cmd string, args []string) error {
 		if *watch {
 			runWatch(*path)
 		} else {
-			runAnalyze(*path, outputFormat, *verbose, !*noColor)
+			runAnalyze(*path, outputFormat, *verbose, !*noColor, true)
 		}
 
 	case "extract":
@@ -175,7 +175,7 @@ Examples:
   repodoctor version`)
 }
 
-func runAnalyze(path, format string, verbose bool, colorEnabled bool) {
+func runAnalyze(path, format string, verbose bool, colorEnabled bool, exitOnViolation bool) int {
 	// Validate and resolve path
 	absPath := validatePath(path)
 
@@ -221,9 +221,11 @@ func runAnalyze(path, format string, verbose bool, colorEnabled bool) {
 
 	// Exit with appropriate code based on violations
 	exitCode := determineExitCode(report)
-	if exitCode != 0 {
+	if exitOnViolation && exitCode != 0 {
 		os.Exit(exitCode)
 	}
+
+	return exitCode
 }
 
 // determineExitCode returns the appropriate exit code based on report

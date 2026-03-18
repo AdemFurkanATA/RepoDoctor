@@ -103,6 +103,10 @@ func (w *Watcher) watchLoop() {
 
 // handleEvent processes a filesystem event
 func (w *Watcher) handleEvent(event fsnotify.Event) {
+	if event.Op&fsnotify.Create == fsnotify.Create {
+		w.addDirectoryIfNeeded(event.Name)
+	}
+
 	// Only process Go files
 	if !strings.HasSuffix(event.Name, ".go") {
 		return
@@ -149,7 +153,39 @@ func (w *Watcher) runAnalysis(changedFile string) {
 	fmt.Println(strings.Repeat("=", 60))
 
 	// Run analysis
-	runAnalyze(w.path, "text", false, true)
+	if code := runAnalyze(w.path, "text", false, true, false); code != 0 {
+		fmt.Printf("Analysis finished with exit code %d (watch continues).\n", code)
+	}
+}
+
+func (w *Watcher) addDirectoryIfNeeded(path string) {
+	info, err := os.Stat(path)
+	if err != nil || !info.IsDir() {
+		return
+	}
+
+	if err := filepath.Walk(path, func(current string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return nil
+		}
+		if !info.IsDir() {
+			return nil
+		}
+		if strings.HasPrefix(info.Name(), ".") {
+			if current == path {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		switch info.Name() {
+		case "node_modules", "vendor", "dist", "build", "bin", "obj":
+			return filepath.SkipDir
+		}
+		_ = w.watcher.Add(current)
+		return nil
+	}); err != nil {
+		fmt.Fprintf(os.Stderr, "Watcher add directory error: %v\n", err)
+	}
 }
 
 // Stop stops the watcher
@@ -181,7 +217,9 @@ func WatchAndAnalyze(path string) error {
 	// Run initial analysis
 	fmt.Println("Running initial analysis...")
 	fmt.Println()
-	runAnalyze(path, "text", false, true)
+	if code := runAnalyze(path, "text", false, true, false); code != 0 {
+		fmt.Printf("Initial analysis finished with exit code %d (watch continues).\n", code)
+	}
 
 	// Start watching
 	if err := watcher.Start(); err != nil {
