@@ -18,18 +18,18 @@ type Config struct {
 
 // SizeConfig holds size rule configuration
 type SizeConfig struct {
-	MaxFileLines     int `yaml:"max_file_lines,omitempty"`
-	MaxFunctionLines int `yaml:"max_function_lines,omitempty"`
-	Enabled          *bool `yaml:"enabled,omitempty"`
+	MaxFileLines     int    `yaml:"max_file_lines,omitempty"`
+	MaxFunctionLines int    `yaml:"max_function_lines,omitempty"`
+	Enabled          *bool  `yaml:"enabled,omitempty"`
 	Severity         string `yaml:"severity,omitempty"`
 }
 
 // GodObjectConfig holds god object rule configuration
 type GodObjectConfig struct {
-	MaxFields  int    `yaml:"max_fields,omitempty"`
-	MaxMethods int    `yaml:"max_methods,omitempty"`
-	Enabled    *bool  `yaml:"enabled,omitempty"`
-	Severity   string `yaml:"severity,omitempty"`
+	MaxFields  int      `yaml:"max_fields,omitempty"`
+	MaxMethods int      `yaml:"max_methods,omitempty"`
+	Enabled    *bool    `yaml:"enabled,omitempty"`
+	Severity   string   `yaml:"severity,omitempty"`
 	Exclude    []string `yaml:"exclude,omitempty"`
 }
 
@@ -104,10 +104,10 @@ func (l *ConfigLoader) GetConfig() *Config {
 func (l *ConfigLoader) validate(cfg *Config) error {
 	// Validate severity values if provided
 	validSeverities := map[string]bool{
-		"info":      true,
-		"warning":   true,
-		"error":     true,
-		"critical":  true,
+		"info":     true,
+		"warning":  true,
+		"error":    true,
+		"critical": true,
 	}
 
 	if cfg.Size != nil && cfg.Size.Severity != "" {
@@ -157,7 +157,7 @@ func (l *ConfigLoader) getDefaultConfig() *Config {
 		},
 		GodObject: &GodObjectConfig{
 			MaxFields:  15,
-			MaxMethods: 20,
+			MaxMethods: 10,
 			Enabled:    &enableGodObject,
 			Severity:   "warning",
 			// Exclude internal implementation files from strict checks

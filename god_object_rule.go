@@ -30,7 +30,7 @@ type GodObjectRule struct {
 func NewGodObjectRule() *GodObjectRule {
 	return &GodObjectRule{
 		MaxFields:  15,
-		MaxMethods: 15,
+		MaxMethods: 10,
 		Exclude:    []string{"internal/"},
 		violations: make([]GodObjectViolation, 0),
 		fset:       token.NewFileSet(),

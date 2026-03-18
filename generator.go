@@ -293,6 +293,8 @@ func (g *RuleTemplateGenerator) GenerateWithTest(ruleName string) error {
 // generateTestTemplate creates a test template
 func (g *RuleTemplateGenerator) generateTestTemplate(ruleName string) string {
 	typeName := ruleTypeName(ruleName)
+	typeName := strings.Title(strings.ReplaceAll(ruleName, "-", "_"))
+	typeName = strings.ReplaceAll(typeName, "_", "")
 
 	return fmt.Sprintf(`package rules
 
@@ -387,4 +389,8 @@ func ruleTypeName(ruleName string) string {
 	}
 
 	return builder.String()
+`, typeName, typeName, strings.ReplaceAll(ruleName, "-", "_"),
+		typeName, typeName, typeName,
+		typeName, typeName,
+		typeName, typeName)
 }
