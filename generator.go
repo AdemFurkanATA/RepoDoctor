@@ -9,6 +9,12 @@ import (
 	"text/template"
 )
 
+type ruleTemplateData struct {
+	RuleName string
+	TypeName string
+	RuleID   string
+}
+
 // RuleTemplateGenerator generates rule templates
 type RuleTemplateGenerator struct {
 	rulesDir string
@@ -62,8 +68,40 @@ func (g *RuleTemplateGenerator) Generate(ruleName string) error {
 // generateTemplate creates the rule template content
 func (g *RuleTemplateGenerator) generateTemplate(ruleName string) string {
 	typeName := ruleTypeName(ruleName)
+	data := g.buildRuleTemplateData(ruleName, typeName)
 
-	tmpl := `package rules
+	content, err := g.renderRuleTemplate(data)
+	if err != nil {
+		return g.generateSimpleTemplate(ruleName, typeName)
+	}
+
+	return content
+}
+
+func (g *RuleTemplateGenerator) buildRuleTemplateData(ruleName, typeName string) ruleTemplateData {
+	return ruleTemplateData{
+		RuleName: ruleName,
+		TypeName: typeName,
+		RuleID:   strings.ReplaceAll(ruleName, "-", "_"),
+	}
+}
+
+func (g *RuleTemplateGenerator) renderRuleTemplate(data ruleTemplateData) (string, error) {
+	t, err := template.New("rule").Parse(g.ruleTemplateText())
+	if err != nil {
+		return "", err
+	}
+
+	var builder strings.Builder
+	if err := t.Execute(&builder, data); err != nil {
+		return "", err
+	}
+
+	return builder.String(), nil
+}
+
+func (g *RuleTemplateGenerator) ruleTemplateText() string {
+	return `package rules
 
 import "fmt"
 
@@ -140,26 +178,6 @@ type Violation struct {
 	Line     int
 }
 `
-
-	t := template.Must(template.New("rule").Parse(tmpl))
-
-	data := struct {
-		RuleName string
-		TypeName string
-		RuleID   string
-	}{
-		RuleName: ruleName,
-		TypeName: typeName,
-		RuleID:   strings.ReplaceAll(ruleName, "-", "_"),
-	}
-
-	var builder strings.Builder
-	if err := t.Execute(&builder, data); err != nil {
-		// Fallback to simple template if template fails
-		return g.generateSimpleTemplate(ruleName, typeName)
-	}
-
-	return builder.String()
 }
 
 const simpleRuleTemplate = `package rules
