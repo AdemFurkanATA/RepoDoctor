@@ -33,8 +33,8 @@ func TestPythonAdapter_DetectFiles(t *testing.T) {
 	testFiles := []string{
 		"module1.py",
 		"module2.py",
-		"test_module.py",  // Should be skipped
-		"readme.md",       // Should be skipped
+		"test_module.py", // Should be skipped
+		"readme.md",      // Should be skipped
 	}
 
 	for _, file := range testFiles {
@@ -144,8 +144,8 @@ func TestPythonAdapter_IsStdlibPackage(t *testing.T) {
 		{"sys", true},
 		{"json", true},
 		{"collections", true},
-		{"requests", false},  // Third-party
-		{"flask", false},     // Third-party
+		{"requests", false}, // Third-party
+		{"flask", false},    // Third-party
 	}
 
 	for _, test := range tests {
@@ -242,5 +242,24 @@ from collections import defaultdict
 
 	if graph.NodeCount() < 1 {
 		t.Errorf("expected at least 1 node, got %d", graph.NodeCount())
+	}
+}
+
+func TestPythonAdapter_ExtractImports_RejectsLargeFile(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "python-large-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	path := filepath.Join(tmpDir, "large.py")
+	large := make([]byte, maxPythonFileBytes+1)
+	if err := os.WriteFile(path, large, 0644); err != nil {
+		t.Fatalf("failed to create large file: %v", err)
+	}
+
+	adapter := NewPythonAdapter()
+	if _, _, err := adapter.extractImports(path); err == nil {
+		t.Fatal("expected extractImports to reject oversized file")
 	}
 }
