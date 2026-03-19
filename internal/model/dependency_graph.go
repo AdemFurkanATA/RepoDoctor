@@ -2,14 +2,15 @@ package model
 
 import "sync"
 
-// DependencyGraph represents a language-agnostic dependency graph
+// DependencyGraph represents a language-agnostic dependency graph.
 // Nodes represent files or modules, edges represent import/dependency relationships.
+// Cycle detection and topology queries live in separate types (GraphCycleDetector,
+// FindRoots, FindLeaves) to keep this struct focused on storage and traversal.
 type DependencyGraph struct {
 	mu      sync.RWMutex
 	nodes   map[string]*Node
 	edges   map[string][]string // adjacency list: node -> [dependencies]
 	reverse map[string][]string // reverse adjacency: node -> [dependents]
-	cycles  [][]string          // detected cycles
 }
 
 // Node represents a node in the dependency graph
@@ -28,7 +29,6 @@ func NewDependencyGraph() *DependencyGraph {
 		nodes:   make(map[string]*Node),
 		edges:   make(map[string][]string),
 		reverse: make(map[string][]string),
-		cycles:  make([][]string, 0),
 	}
 }
 
@@ -143,102 +143,8 @@ func (g *DependencyGraph) EdgeCount() int {
 	return count
 }
 
-// DetectCycles performs cycle detection using DFS
+// DetectCycles is a convenience delegate to GraphCycleDetector.
+// Prefer using NewGraphCycleDetector(g).DetectCycles() for new code.
 func (g *DependencyGraph) DetectCycles() [][]string {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
-	g.cycles = make([][]string, 0)
-	visited := make(map[string]bool)
-	recStack := make(map[string]bool)
-	path := make([]string, 0)
-
-	var dfs func(node string) bool
-	dfs = func(node string) bool {
-		visited[node] = true
-		recStack[node] = true
-		path = append(path, node)
-
-		for _, neighbor := range g.edges[node] {
-			if !visited[neighbor] {
-				if dfs(neighbor) {
-					return true
-				}
-			} else if recStack[neighbor] {
-				// Found a cycle
-				cycleStart := -1
-				for i, n := range path {
-					if n == neighbor {
-						cycleStart = i
-						break
-					}
-				}
-				if cycleStart != -1 {
-					cycle := append([]string{}, path[cycleStart:]...)
-					g.cycles = append(g.cycles, cycle)
-				}
-			}
-		}
-
-		path = path[:len(path)-1]
-		recStack[node] = false
-		return false
-	}
-
-	for node := range g.nodes {
-		if !visited[node] {
-			dfs(node)
-		}
-	}
-
-	return g.cycles
-}
-
-// GetCycles returns detected cycles
-func (g *DependencyGraph) GetCycles() [][]string {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	return g.cycles
-}
-
-// HasCycles returns true if the graph contains cycles
-func (g *DependencyGraph) HasCycles() bool {
-	if len(g.cycles) == 0 {
-		g.DetectCycles()
-	}
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	return len(g.cycles) > 0
-}
-
-// GetRoots returns nodes with no incoming edges (root packages)
-func (g *DependencyGraph) GetRoots() []*Node {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-
-	roots := make([]*Node, 0)
-	for id, dependents := range g.reverse {
-		if len(dependents) == 0 {
-			if node, ok := g.nodes[id]; ok {
-				roots = append(roots, node)
-			}
-		}
-	}
-	return roots
-}
-
-// GetLeaves returns nodes with no outgoing edges (leaf packages)
-func (g *DependencyGraph) GetLeaves() []*Node {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-
-	leaves := make([]*Node, 0)
-	for id, deps := range g.edges {
-		if len(deps) == 0 {
-			if node, ok := g.nodes[id]; ok {
-				leaves = append(leaves, node)
-			}
-		}
-	}
-	return leaves
+	return NewGraphCycleDetector(g).DetectCycles()
 }

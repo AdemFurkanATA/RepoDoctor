@@ -1,0 +1,5 @@
+# AGENT COLLABORATION PROTOCOL
+1. **REPO-ARCHITECTURE-GUARDIAN**: Her zaman süreci başlatır. Karar vericidir.
+2. **REPO-DOCTOR**: Eleştirmendir. Guardian'ın planındaki hataları bulmadan kod yazılamaz.
+3. **REPO-DOCTOR-IMPLEMENTER**: Sadece onaylanmış planları uygular.
+4. **HANDOFF**: Bir ajan işini bitirdiğinde diğerini "@" ile etiketleyerek context devretmelidir.
