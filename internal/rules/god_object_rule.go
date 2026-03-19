@@ -47,7 +47,9 @@ func (r *GodObjectRule) Severity() string {
 func (r *GodObjectRule) Evaluate(context AnalysisContext) []model.Violation {
 	var violations []model.Violation
 
-	// Map to track methods per struct (struct name -> method count)
+	// Map to track methods per struct (package-qualified key -> info)
+	// Keys are Dir(filePath)+"#"+structName to prevent cross-package
+	// name collisions (e.g. main.DependencyGraph vs model.DependencyGraph).
 	structMethods := make(map[string]*structInfo)
 
 	// First pass: collect all struct definitions and their fields
@@ -61,7 +63,7 @@ func (r *GodObjectRule) Evaluate(context AnalysisContext) []model.Violation {
 	}
 
 	// Check for violations
-	for structName, info := range structMethods {
+	for _, info := range structMethods {
 		fieldCount := info.FieldCount
 		methodCount := info.MethodCount
 
@@ -70,7 +72,7 @@ func (r *GodObjectRule) Evaluate(context AnalysisContext) []model.Violation {
 			violations = append(violations, model.Violation{
 				RuleID:      r.ID(),
 				Severity:    model.SeverityWarning,
-				Message:     structName + " has " + strconv.Itoa(fieldCount) + " fields (threshold: " + strconv.Itoa(r.MaxFields) + ")",
+				Message:     info.Name + " has " + strconv.Itoa(fieldCount) + " fields (threshold: " + strconv.Itoa(r.MaxFields) + ")",
 				File:        info.File,
 				Line:        0,
 				ScoreImpact: -5.0,
@@ -82,7 +84,7 @@ func (r *GodObjectRule) Evaluate(context AnalysisContext) []model.Violation {
 			violations = append(violations, model.Violation{
 				RuleID:      r.ID(),
 				Severity:    model.SeverityWarning,
-				Message:     structName + " has " + strconv.Itoa(methodCount) + " methods (threshold: " + strconv.Itoa(r.MaxMethods) + ")",
+				Message:     info.Name + " has " + strconv.Itoa(methodCount) + " methods (threshold: " + strconv.Itoa(r.MaxMethods) + ")",
 				File:        info.File,
 				Line:        0,
 				ScoreImpact: -5.0,
@@ -95,9 +97,17 @@ func (r *GodObjectRule) Evaluate(context AnalysisContext) []model.Violation {
 
 // structInfo holds information about a struct
 type structInfo struct {
+	Name        string // bare struct name for display
 	File        string
 	FieldCount  int
 	MethodCount int
+}
+
+// structKey returns a package-qualified key for a struct to avoid
+// cross-package name collisions. Go requires methods to reside in the
+// same package (directory) as their receiver type, so Dir+Name is unique.
+func structKey(filePath, structName string) string {
+	return filepath.Dir(filePath) + "#" + structName
 }
 
 // collectStructs collects all struct definitions and their field counts
@@ -126,7 +136,9 @@ func (r *GodObjectRule) collectStructs(file RepositoryFile, structMethods map[st
 		}
 
 		structName := typeSpec.Name.Name
-		structMethods[structName] = &structInfo{
+		key := structKey(file.Path, structName)
+		structMethods[key] = &structInfo{
+			Name:        structName,
 			File:        file.Path,
 			FieldCount:  fieldCount,
 			MethodCount: 0,
@@ -164,10 +176,10 @@ func (r *GodObjectRule) collectMethods(file RepositoryFile, structMethods map[st
 				recvType = starExpr.X
 			}
 
-			// Get the type name
+			// Get the type name and look up with package-qualified key
 			if ident, ok := recvType.(*ast.Ident); ok {
-				structName := ident.Name
-				if info, exists := structMethods[structName]; exists {
+				key := structKey(file.Path, ident.Name)
+				if info, exists := structMethods[key]; exists {
 					info.MethodCount++
 				}
 			}
