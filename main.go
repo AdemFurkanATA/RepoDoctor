@@ -1,6 +1,9 @@
 package main
 
 import (
+	"RepoDoctor/internal/analysis"
+	"RepoDoctor/internal/languages"
+	"RepoDoctor/internal/model"
 	"flag"
 	"fmt"
 	"os"
@@ -248,11 +251,23 @@ func runAnalyze(path, format string, verbose bool, colorEnabled bool, exitOnViol
 		fmt.Printf(ColorInfo("Extracting imports from: ")+"%s\n", absPath)
 	}
 
-	// Stage 2: Import extraction and dependency graph
-	imports := extractImports(absPath, verbose)
+	// Stage 2: Language adapter pipeline
+	analysisResult, err := runAdapterPipeline(absPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, ColorError(fmt.Sprintf("Error: analysis pipeline failed: %v\n", err)))
+		if exitOnViolation {
+			os.Exit(1)
+		}
+		return 1
+	}
+
+	if verbose {
+		fmt.Printf(ColorInfo("Selected adapter: ")+"%s\n", analysisResult.AdapterName)
+	}
+
 	progress.SetProgress(progress.totalSteps / 2)
 
-	graph := buildDependencyGraph(imports, verbose)
+	graph := buildDependencyGraphFromModel(analysisResult.Graph, verbose)
 	progress.SetProgress(progress.totalSteps)
 	progress.Complete()
 
@@ -405,6 +420,36 @@ func extractImports(absPath string, verbose bool) map[string]*ImportMetadata {
 		fmt.Fprintf(os.Stderr, ColorWarn(fmt.Sprintf("Warning: error extracting imports: %v\n", err)))
 	}
 	return imports
+}
+
+func runAdapterPipeline(absPath string) (*analysis.Result, error) {
+	detector := languages.NewRepositoryLanguageDetector()
+	detector.RegisterAdapter(languages.NewGoAdapter())
+	detector.RegisterAdapter(languages.NewPythonAdapter())
+
+	orchestrator := analysis.NewOrchestrator(detector)
+	return orchestrator.Analyze(absPath)
+}
+
+func buildDependencyGraphFromModel(languageGraph *model.DependencyGraph, verbose bool) Graph {
+	graph := NewDependencyGraph()
+	if languageGraph == nil {
+		return graph
+	}
+
+	for _, node := range languageGraph.GetNodes() {
+		graph.AddNode(node.ID)
+		for _, dep := range languageGraph.GetDependencies(node.ID) {
+			graph.AddEdge(node.ID, dep)
+		}
+	}
+
+	if verbose {
+		fmt.Printf(ColorInfo(fmt.Sprintf("Built dependency graph with %d nodes and %d edges\n",
+			graph.GetNodeCount(), graph.GetEdgeCount())))
+	}
+
+	return graph
 }
 
 func buildDependencyGraph(imports map[string]*ImportMetadata, verbose bool) Graph {

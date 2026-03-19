@@ -5,11 +5,11 @@ import "sync"
 // DependencyGraph represents a language-agnostic dependency graph
 // Nodes represent files or modules, edges represent import/dependency relationships.
 type DependencyGraph struct {
-	mu         sync.RWMutex
-	nodes      map[string]*Node
-	edges      map[string][]string // adjacency list: node -> [dependencies]
-	reverse    map[string][]string // reverse adjacency: node -> [dependents]
-	cycles     [][]string          // detected cycles
+	mu      sync.RWMutex
+	nodes   map[string]*Node
+	edges   map[string][]string // adjacency list: node -> [dependencies]
+	reverse map[string][]string // reverse adjacency: node -> [dependents]
+	cycles  [][]string          // detected cycles
 }
 
 // Node represents a node in the dependency graph
@@ -36,6 +36,11 @@ func NewDependencyGraph() *DependencyGraph {
 func (g *DependencyGraph) AddNode(id string, path, pkg string) *Node {
 	g.mu.Lock()
 	defer g.mu.Unlock()
+
+	return g.addNodeLocked(id, path, pkg)
+}
+
+func (g *DependencyGraph) addNodeLocked(id string, path, pkg string) *Node {
 
 	if existing, ok := g.nodes[id]; ok {
 		return existing
@@ -64,10 +69,10 @@ func (g *DependencyGraph) AddEdge(source, target string) {
 
 	// Ensure both nodes exist
 	if _, exists := g.nodes[source]; !exists {
-		g.AddNode(source, source, source)
+		g.addNodeLocked(source, source, source)
 	}
 	if _, exists := g.nodes[target]; !exists {
-		g.AddNode(target, target, target)
+		g.addNodeLocked(target, target, target)
 	}
 
 	// Check if edge already exists
