@@ -26,6 +26,20 @@ func TestResolveAnalyzePathArg_UsesPathEqualsSyntax(t *testing.T) {
 	}
 }
 
+func TestResolveAnalyzePathArg_UsesLongPathFlagWhenProvided(t *testing.T) {
+	resolved := resolveAnalyzePathArg([]string{"./a", "--path", "./b"}, "./b", []string{"./a"})
+	if resolved != "./b" {
+		t.Fatalf("expected --path to win, got %q", resolved)
+	}
+}
+
+func TestResolveAnalyzePathArg_UsesLongPathEqualsSyntax(t *testing.T) {
+	resolved := resolveAnalyzePathArg([]string{"./a", "--path=./b"}, "./b", []string{"./a"})
+	if resolved != "./b" {
+		t.Fatalf("expected --path= to win, got %q", resolved)
+	}
+}
+
 func TestIsWithinRoot(t *testing.T) {
 	root := t.TempDir()
 	inside := filepath.Join(root, "sub")

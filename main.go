@@ -101,7 +101,7 @@ func resolveAnalyzePathArg(rawArgs []string, pathFlag string, positional []strin
 
 func hasExplicitPathFlag(rawArgs []string) bool {
 	for _, arg := range rawArgs {
-		if arg == "-path" || strings.HasPrefix(arg, "-path=") {
+		if arg == "-path" || arg == "--path" || strings.HasPrefix(arg, "-path=") || strings.HasPrefix(arg, "--path=") {
 			return true
 		}
 	}
