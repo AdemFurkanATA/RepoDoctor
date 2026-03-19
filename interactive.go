@@ -129,15 +129,19 @@ func (c *InteractiveConfigController) configureRules() {
 		case 4:
 			c.setMaxFunctionLines(config)
 		case 5:
+			c.setMaxFields(config)
+		case 6:
+			c.setMaxMethods(config)
+		case 7:
 			if err := saveConfig(absPath, config); err != nil {
 				fmt.Printf("\nError saving configuration: %v\n\n", err)
 			} else {
 				fmt.Print("\nConfiguration saved successfully.\n\n")
 			}
-		case 6:
+		case 8:
 			return
 		default:
-			fmt.Print("\nInvalid choice. Please enter a number between 1 and 6.\n\n")
+			fmt.Print("\nInvalid choice. Please enter a number between 1 and 8.\n\n")
 		}
 	}
 }
@@ -150,13 +154,17 @@ func (c *InteractiveConfigController) showConfigMenu(config *Config) {
 	fmt.Printf("  God Object Rule: %s\n", boolLabel(*config.Rules.EnableGodObjectRule))
 	fmt.Printf("  Max File Lines: %d\n", config.Size.MaxFileLines)
 	fmt.Printf("  Max Function Lines: %d\n", config.Size.MaxFunctionLines)
+	fmt.Printf("  Max Fields: %d\n", config.GodObject.MaxFields)
+	fmt.Printf("  Max Methods: %d\n", config.GodObject.MaxMethods)
 	fmt.Println()
 	fmt.Println("  1. Toggle Size Rule")
 	fmt.Println("  2. Toggle God Object Rule")
 	fmt.Println("  3. Set Max File Lines")
 	fmt.Println("  4. Set Max Function Lines")
-	fmt.Println("  5. Save Configuration")
-	fmt.Println("  6. Back to main menu")
+	fmt.Println("  5. Set Max Fields (God Object)")
+	fmt.Println("  6. Set Max Methods (God Object)")
+	fmt.Println("  7. Save Configuration")
+	fmt.Println("  8. Back to main menu")
 	fmt.Print("\n> ")
 }
 
@@ -198,6 +206,26 @@ func (c *InteractiveConfigController) setMaxFunctionLines(config *Config) {
 	}
 	config.Size.MaxFunctionLines = value
 	fmt.Printf("\nMax function lines set to %d.\n\n", value)
+}
+
+func (c *InteractiveConfigController) setMaxFields(config *Config) {
+	value, ok := c.io.readPositiveInt("Enter max fields (god object)")
+	if !ok {
+		fmt.Print("\nInvalid value. Please enter a positive number.\n\n")
+		return
+	}
+	config.GodObject.MaxFields = value
+	fmt.Printf("\nMax fields set to %d.\n\n", value)
+}
+
+func (c *InteractiveConfigController) setMaxMethods(config *Config) {
+	value, ok := c.io.readPositiveInt("Enter max methods (god object)")
+	if !ok {
+		fmt.Print("\nInvalid value. Please enter a positive number.\n\n")
+		return
+	}
+	config.GodObject.MaxMethods = value
+	fmt.Printf("\nMax methods set to %d.\n\n", value)
 }
 
 // readChoice reads and validates user choice
