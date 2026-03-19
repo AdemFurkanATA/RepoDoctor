@@ -288,52 +288,12 @@ func validatePath(path string) string {
 		os.Exit(1)
 	}
 
-	cwd, err := filepath.Abs(".")
-	if err != nil {
-		cliErr := HandleInvalidPathError(".", err)
-		cliErr.Display()
-		os.Exit(1)
-	}
-
-	canonicalCwd := cwd
-	if resolvedRoot, resolveErr := filepath.EvalSymlinks(cwd); resolveErr == nil {
-		canonicalCwd = resolvedRoot
-	}
-
 	canonicalPath := absPath
 	if resolvedPath, resolveErr := filepath.EvalSymlinks(absPath); resolveErr == nil {
 		canonicalPath = resolvedPath
 	}
 
-	if !isWithinRoot(canonicalCwd, canonicalPath) {
-		cliErr := NewCLIError(
-			ErrorInvalidArgument,
-			fmt.Sprintf("Path escapes repository root: %s", canonicalPath),
-			"Provide a path inside the current repository",
-			nil,
-		)
-		cliErr.Display()
-		os.Exit(1)
-	}
-
 	return canonicalPath
-}
-
-func isWithinRoot(rootPath, targetPath string) bool {
-	rel, err := filepath.Rel(rootPath, targetPath)
-	if err != nil {
-		return false
-	}
-
-	if rel == "." {
-		return true
-	}
-
-	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return false
-	}
-
-	return !filepath.IsAbs(rel)
 }
 
 func extractImports(absPath string, verbose bool) map[string]*ImportMetadata {
