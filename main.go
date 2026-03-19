@@ -288,13 +288,13 @@ func runAnalyze(path, format string, verbose bool, colorEnabled bool, exitOnViol
 	// Load configuration
 	config := loadConfiguration(absPath, verbose)
 
-	// Create scorer and run analysis
+	// Run internal rule pipeline
 	progress.Start("Running rules", getStageCount("Running rules", absPath))
-	scorer := NewStructuralScorer(graph, config, absPath)
+	ruleSummary := runInternalRulePipeline(absPath, graph)
 	progress.SetProgress(progress.totalSteps / 2)
 
 	// Generate and display report
-	report := generateReport(scorer, absPath, format, verbose, colorEnabled)
+	report := generateRuleEngineReport(absPath, format, verbose, colorEnabled, config, ruleSummary)
 	progress.SetProgress(progress.totalSteps)
 	progress.Complete()
 
@@ -504,6 +504,33 @@ func generateReport(scorer *StructuralScorer, absPath, format string, verbose bo
 		writeScoreBreakdownWithColor(&sb, report, reporter.formatter)
 		fmt.Println(sb.String())
 	}
+	return report
+}
+
+func generateRuleEngineReport(absPath, format string, verbose bool, colorEnabled bool, cfg *Config, summary *runtimeRuleSummary) *StructuralReport {
+	report := buildReportFromRuleViolations(absPath, version, cfg, summary.result.Violations)
+
+	if verbose {
+		fmt.Printf(ColorInfo("Rules in registry: ")+"%d\n", summary.rulesInScope)
+		fmt.Printf(ColorInfo("Rules executed: ")+"%d\n", summary.result.RulesExecuted)
+	}
+
+	reporter := NewColoredReporter(OutputFormat(format), colorEnabled)
+	if format == "json" {
+		fmt.Println(reporter.Format(report))
+	} else {
+		var sb strings.Builder
+		writeHeaderWithColor(&sb, reporter.formatter)
+		writeScoreSectionWithColor(&sb, report, reporter.formatter)
+		writeViolationsSummaryWithColor(&sb, report, reporter.formatter)
+		writeCircularViolationsWithColor(&sb, report, reporter.formatter)
+		writeLayerViolationsWithColor(&sb, report, reporter.formatter)
+		writeSizeViolationsWithColor(&sb, report, reporter.formatter)
+		writeGodObjectViolationsWithColor(&sb, report, reporter.formatter)
+		writeScoreBreakdownWithColor(&sb, report, reporter.formatter)
+		fmt.Println(sb.String())
+	}
+
 	return report
 }
 
