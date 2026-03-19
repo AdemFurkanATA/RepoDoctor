@@ -34,6 +34,20 @@ type LanguageAdapter interface {
 	// IsStdlibPackage determines if a package/module is part of the standard library
 	// This helps filter out external dependencies from internal code analysis
 	IsStdlibPackage(importPath string) bool
+
+	// Capabilities returns adapter-specific runtime capabilities.
+	// Core pipeline must branch on these capabilities instead of language name switches.
+	Capabilities() AdapterCapabilities
+
+	// NormalizeImport converts raw language import tokens into canonical dependency identifiers.
+	NormalizeImport(importPath string) string
+}
+
+// AdapterCapabilities declares optional, stable extension points for adapters.
+type AdapterCapabilities struct {
+	SupportsDependencyGraph bool
+	SupportsMetrics         bool
+	UsesASTParsing          bool
 }
 
 // LanguageDetector is responsible for detecting the primary language of a repository

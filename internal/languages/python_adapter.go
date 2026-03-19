@@ -358,6 +358,24 @@ func (a *PythonAdapter) IsStdlibPackage(importPath string) bool {
 	return stdlibModules[baseModule]
 }
 
+// Capabilities returns Python adapter capabilities.
+func (a *PythonAdapter) Capabilities() AdapterCapabilities {
+	return AdapterCapabilities{
+		SupportsDependencyGraph: true,
+		SupportsMetrics:         true,
+		UsesASTParsing:          false,
+	}
+}
+
+// NormalizeImport normalizes Python import module names.
+func (a *PythonAdapter) NormalizeImport(importPath string) string {
+	trimmed := strings.TrimSpace(importPath)
+	if trimmed == "" {
+		return ""
+	}
+	return strings.Split(trimmed, ".")[0]
+}
+
 // GetPythonVersion attempts to detect Python version from the repository
 func (a *PythonAdapter) GetPythonVersion(repoPath string) (string, error) {
 	// Check for .python-version file
