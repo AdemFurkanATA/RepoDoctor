@@ -24,13 +24,13 @@ jobs:
         run: go mod download
 
       - name: Build RepoDoctor
-        run: go build -o repodoctor
+        run: go build .
 
       - name: Run RepoDoctor analysis
-        run: ./repodoctor analyze -path . -format text || ./repodoctor analyze -path . -format text
+        run: ./RepoDoctor analyze -path . -format text || ./RepoDoctor analyze -path . -format text
 
       - name: Run RepoDoctor analysis (JSON output)
-        run: ./repodoctor analyze -path . -format json -verbose || true
+        run: ./RepoDoctor analyze -path . -format json -verbose || true
         if: always()
 
       - name: Upload analysis results

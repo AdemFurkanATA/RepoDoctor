@@ -20,13 +20,13 @@ git clone https://github.com/AdemFurkanATA/RepoDoctor.git
 cd RepoDoctor
 
 # Build
-go build -o repodoctor
+go build .
 
 # Run analysis on any repository
-./repodoctor analyze -path /path/to/your/project
+./RepoDoctor analyze -path /path/to/your/project
 
 # Run analysis on current directory
-./repodoctor analyze -path .
+./RepoDoctor analyze -path .
 ```
 
 ### What You Get
@@ -346,10 +346,10 @@ jobs:
         run: go mod download
 
       - name: Build RepoDoctor
-        run: go build -o repodoctor
+        run: go build .
 
       - name: Run structural analysis
-        run: ./repodoctor analyze -path . -format text
+        run: ./RepoDoctor analyze -path . -format text
 ```
 
 ### Exit Codes
@@ -401,7 +401,7 @@ The score starts at 100 and decreases with each violation. A score of **100** me
 ```bash
 git clone https://github.com/AdemFurkanATA/RepoDoctor.git
 cd RepoDoctor
-go build -o repodoctor
+go build .
 ```
 
 ### Run Tests
