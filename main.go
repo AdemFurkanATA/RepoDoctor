@@ -1,6 +1,9 @@
 package main
 
 import (
+	"RepoDoctor/internal/analysis"
+	"RepoDoctor/internal/languages"
+	"RepoDoctor/internal/model"
 	"flag"
 	"fmt"
 	"os"
@@ -69,17 +72,41 @@ func handleAnalyzeCommand(args []string) error {
 	noColor := analyzeCmd.Bool("no-color", false, "Disable colored output")
 	analyzeCmd.Parse(args)
 
+	resolvedPath := resolveAnalyzePathArg(args, *path, analyzeCmd.Args())
+
 	outputFormat := *format
 	if *jsonOut {
 		outputFormat = "json"
 	}
 	if *watch {
-		runWatch(*path)
+		runWatch(resolvedPath)
 		return nil
 	}
 
-	runAnalyze(*path, outputFormat, *verbose, !*noColor, true)
+	runAnalyze(resolvedPath, outputFormat, *verbose, !*noColor, true)
 	return nil
+}
+
+func resolveAnalyzePathArg(rawArgs []string, pathFlag string, positional []string) string {
+	if hasExplicitPathFlag(rawArgs) {
+		return pathFlag
+	}
+
+	if len(positional) > 0 {
+		return positional[0]
+	}
+
+	return pathFlag
+}
+
+func hasExplicitPathFlag(rawArgs []string) bool {
+	for _, arg := range rawArgs {
+		if arg == "-path" || arg == "--path" || strings.HasPrefix(arg, "-path=") || strings.HasPrefix(arg, "--path=") {
+			return true
+		}
+	}
+
+	return false
 }
 
 func handleExtractCommand(args []string) error {
@@ -208,72 +235,18 @@ Examples:
 }
 
 func runAnalyze(path, format string, verbose bool, colorEnabled bool, exitOnViolation bool) int {
-	// Validate and resolve path
-	absPath := validatePath(path)
-
-	// Initialize color formatter
-	InitColorFormatter(colorEnabled)
-
-	// Extract imports and build dependency graph
-	// Create progress reporter (enabled when not verbose)
-	progress := NewProgressReporter(!verbose)
-
-	// Stage 1: Repository scanning
-	progress.Start("Scanning repository", getStageCount("Scanning repository", absPath))
-	if verbose {
-		fmt.Printf(ColorInfo("Extracting imports from: ")+"%s\n", absPath)
-	}
-
-	// Stage 2: Import extraction and dependency graph
-	imports := extractImports(absPath, verbose)
-	progress.SetProgress(progress.totalSteps / 2)
-
-	graph := buildDependencyGraph(imports, verbose)
-	progress.SetProgress(progress.totalSteps)
-	progress.Complete()
-
-	// Stage 2: Metrics collection
-	progress.Start("Collecting metrics", getStageCount("Collecting metrics", absPath))
-	totalFiles, goFiles, totalLines := scanDirectory(absPath, false)
-	_ = totalFiles
-	_ = goFiles
-	_ = totalLines
-	progress.SetProgress(progress.totalSteps)
-	progress.Complete()
-
-	// Stage 3: Dependency graph building
-	progress.Start("Building dependency graph", getStageCount("Building dependency graph", absPath))
-	progress.SetProgress(progress.totalSteps)
-	progress.Complete()
-
-	// Load configuration
-	config := loadConfiguration(absPath, verbose)
-
-	// Create scorer and run analysis
-	progress.Start("Running rules", getStageCount("Running rules", absPath))
-	scorer := NewStructuralScorer(graph, config, absPath)
-	progress.SetProgress(progress.totalSteps / 2)
-
-	// Generate and display report
-	report := generateReport(scorer, absPath, format, verbose, colorEnabled)
-	progress.SetProgress(progress.totalSteps)
-	progress.Complete()
-
-	// Trend analysis
-	handleTrendAnalysis(absPath, report, verbose)
-
-	// Exit with appropriate code based on violations
-	exitCode := determineExitCode(report)
-	if exitOnViolation && exitCode != 0 {
-		os.Exit(exitCode)
-	}
-
-	return exitCode
+	service := NewAnalysisService()
+	return service.Run(AnalyzeRequest{
+		Path:            path,
+		Format:          format,
+		Verbose:         verbose,
+		ColorEnabled:    colorEnabled,
+		ExitOnViolation: exitOnViolation,
+	})
 }
 
 // determineExitCode returns the appropriate exit code based on report
 // 0 = success (no violations)
-// 1 = warnings (low/medium severity violations)
 // 2 = critical violations (circular dependencies or layer violations)
 func determineExitCode(report *StructuralReport) int {
 	if !report.HasViolations {
@@ -285,8 +258,8 @@ func determineExitCode(report *StructuralReport) int {
 		return 2
 	}
 
-	// Warnings: size or god object violations
-	return 1
+	// Non-critical warnings (size/god-object) should not fail CI pipelines.
+	return 0
 }
 
 func validatePath(path string) string {
@@ -321,7 +294,56 @@ func validatePath(path string) string {
 		os.Exit(1)
 	}
 
-	return absPath
+	cwd, err := filepath.Abs(".")
+	if err != nil {
+		err := HandleInvalidPathError(".", err)
+		err.Display()
+		fmt.Fprintf(os.Stderr, ColorError(fmt.Sprintf("Error: Could not resolve repository root: %v\n", err)))
+		fmt.Fprintf(os.Stderr, ColorInfo("Suggestion: Run the command from a valid repository directory\n"))
+		os.Exit(1)
+	}
+
+	canonicalCwd := cwd
+	if resolvedRoot, resolveErr := filepath.EvalSymlinks(cwd); resolveErr == nil {
+		canonicalCwd = resolvedRoot
+	}
+
+	canonicalPath := absPath
+	if resolvedPath, resolveErr := filepath.EvalSymlinks(absPath); resolveErr == nil {
+		canonicalPath = resolvedPath
+	}
+
+	if !isWithinRoot(canonicalCwd, canonicalPath) {
+		err := NewCLIError(
+			ErrorInvalidArgument,
+			fmt.Sprintf("Path escapes repository root: %s", canonicalPath),
+			"Provide a path inside the current repository",
+			nil,
+		)
+		err.Display()
+		fmt.Fprintf(os.Stderr, ColorError(fmt.Sprintf("Error: Path escapes repository root: %s\n", canonicalPath)))
+		fmt.Fprintf(os.Stderr, ColorInfo("Suggestion: Provide a path inside the current repository\n"))
+		os.Exit(1)
+	}
+
+	return canonicalPath
+}
+
+func isWithinRoot(rootPath, targetPath string) bool {
+	rel, err := filepath.Rel(rootPath, targetPath)
+	if err != nil {
+		return false
+	}
+
+	if rel == "." {
+		return true
+	}
+
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return false
+	}
+
+	return !filepath.IsAbs(rel)
 }
 
 func extractImports(absPath string, verbose bool) map[string]*ImportMetadata {
@@ -332,6 +354,36 @@ func extractImports(absPath string, verbose bool) map[string]*ImportMetadata {
 		fmt.Fprintf(os.Stderr, ColorWarn(fmt.Sprintf("Warning: error extracting imports: %v\n", err)))
 	}
 	return imports
+}
+
+func runAdapterPipeline(absPath string) (*analysis.Result, error) {
+	detector := languages.NewRepositoryLanguageDetector()
+	detector.RegisterAdapter(languages.NewGoAdapter())
+	detector.RegisterAdapter(languages.NewPythonAdapter())
+
+	orchestrator := analysis.NewOrchestrator(detector)
+	return orchestrator.Analyze(absPath)
+}
+
+func buildDependencyGraphFromModel(languageGraph *model.DependencyGraph, verbose bool) Graph {
+	graph := NewDependencyGraph()
+	if languageGraph == nil {
+		return graph
+	}
+
+	for _, node := range languageGraph.GetNodes() {
+		graph.AddNode(node.ID)
+		for _, dep := range languageGraph.GetDependencies(node.ID) {
+			graph.AddEdge(node.ID, dep)
+		}
+	}
+
+	if verbose {
+		fmt.Printf(ColorInfo(fmt.Sprintf("Built dependency graph with %d nodes and %d edges\n",
+			graph.GetNodeCount(), graph.GetEdgeCount())))
+	}
+
+	return graph
 }
 
 func buildDependencyGraph(imports map[string]*ImportMetadata, verbose bool) Graph {
@@ -386,6 +438,33 @@ func generateReport(scorer *StructuralScorer, absPath, format string, verbose bo
 		writeScoreBreakdownWithColor(&sb, report, reporter.formatter)
 		fmt.Println(sb.String())
 	}
+	return report
+}
+
+func generateRuleEngineReport(absPath, format string, verbose bool, colorEnabled bool, cfg *Config, summary *runtimeRuleSummary) *StructuralReport {
+	report := buildReportFromRuleViolations(absPath, version, cfg, summary.result.Violations)
+
+	if verbose {
+		fmt.Printf(ColorInfo("Rules in registry: ")+"%d\n", summary.rulesInScope)
+		fmt.Printf(ColorInfo("Rules executed: ")+"%d\n", summary.result.RulesExecuted)
+	}
+
+	reporter := NewColoredReporter(OutputFormat(format), colorEnabled)
+	if format == "json" {
+		fmt.Println(reporter.Format(report))
+	} else {
+		var sb strings.Builder
+		writeHeaderWithColor(&sb, reporter.formatter)
+		writeScoreSectionWithColor(&sb, report, reporter.formatter)
+		writeViolationsSummaryWithColor(&sb, report, reporter.formatter)
+		writeCircularViolationsWithColor(&sb, report, reporter.formatter)
+		writeLayerViolationsWithColor(&sb, report, reporter.formatter)
+		writeSizeViolationsWithColor(&sb, report, reporter.formatter)
+		writeGodObjectViolationsWithColor(&sb, report, reporter.formatter)
+		writeScoreBreakdownWithColor(&sb, report, reporter.formatter)
+		fmt.Println(sb.String())
+	}
+
 	return report
 }
 

@@ -215,3 +215,17 @@ func (a *GoAdapter) IsStdlibPackage(importPath string) bool {
 	// (with some exceptions for internal packages)
 	return !strings.Contains(importPath, ".")
 }
+
+// Capabilities returns Go adapter capabilities.
+func (a *GoAdapter) Capabilities() AdapterCapabilities {
+	return AdapterCapabilities{
+		SupportsDependencyGraph: true,
+		SupportsMetrics:         true,
+		UsesASTParsing:          true,
+	}
+}
+
+// NormalizeImport normalizes Go import declarations.
+func (a *GoAdapter) NormalizeImport(importPath string) string {
+	return strings.TrimSpace(importPath)
+}

@@ -4,6 +4,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"strconv"
 	"strings"
 
 	"RepoDoctor/internal/model"
@@ -59,7 +60,7 @@ func (r *SizeRule) checkFile(file RepositoryFile, violations *[]model.Violation)
 		*violations = append(*violations, model.Violation{
 			RuleID:      r.ID(),
 			Severity:    model.SeverityWarning,
-			Message:     "File " + file.Path + " has " + string(rune(fileLines)) + " lines (threshold: " + string(rune(r.MaxFileLines)) + ")",
+			Message:     "File " + file.Path + " has " + strconv.Itoa(fileLines) + " lines (threshold: " + strconv.Itoa(r.MaxFileLines) + ")",
 			File:        file.Path,
 			Line:        0,
 			ScoreImpact: -3.0,
@@ -107,7 +108,7 @@ func (r *SizeRule) checkFunctions(file RepositoryFile, violations *[]model.Viola
 			*violations = append(*violations, model.Violation{
 				RuleID:      r.ID(),
 				Severity:    model.SeverityWarning,
-				Message:     "Function '" + funcDecl.Name.Name + "' has " + string(rune(funcLines)) + " lines (threshold: " + string(rune(r.MaxFunctionLines)) + ")",
+				Message:     "Function '" + funcDecl.Name.Name + "' has " + strconv.Itoa(funcLines) + " lines (threshold: " + strconv.Itoa(r.MaxFunctionLines) + ")",
 				File:        file.Path,
 				Line:        startLine,
 				ScoreImpact: -3.0,

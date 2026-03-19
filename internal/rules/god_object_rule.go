@@ -6,6 +6,7 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"RepoDoctor/internal/model"
@@ -69,7 +70,7 @@ func (r *GodObjectRule) Evaluate(context AnalysisContext) []model.Violation {
 			violations = append(violations, model.Violation{
 				RuleID:      r.ID(),
 				Severity:    model.SeverityWarning,
-				Message:     structName + " has " + string(rune(fieldCount)) + " fields (threshold: " + string(rune(r.MaxFields)) + ")",
+				Message:     structName + " has " + strconv.Itoa(fieldCount) + " fields (threshold: " + strconv.Itoa(r.MaxFields) + ")",
 				File:        info.File,
 				Line:        0,
 				ScoreImpact: -5.0,
@@ -81,7 +82,7 @@ func (r *GodObjectRule) Evaluate(context AnalysisContext) []model.Violation {
 			violations = append(violations, model.Violation{
 				RuleID:      r.ID(),
 				Severity:    model.SeverityWarning,
-				Message:     structName + " has " + string(rune(methodCount)) + " methods (threshold: " + string(rune(r.MaxMethods)) + ")",
+				Message:     structName + " has " + strconv.Itoa(methodCount) + " methods (threshold: " + strconv.Itoa(r.MaxMethods) + ")",
 				File:        info.File,
 				Line:        0,
 				ScoreImpact: -5.0,

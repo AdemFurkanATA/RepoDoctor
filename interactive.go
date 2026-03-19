@@ -15,6 +15,7 @@ import (
 type InteractiveMode struct {
 	io               *interactiveIO
 	configController *InteractiveConfigController
+	session          *InteractiveSession
 }
 
 type interactiveIO struct {
@@ -33,6 +34,7 @@ func NewInteractiveMode() *InteractiveMode {
 	return &InteractiveMode{
 		io:               io,
 		configController: NewInteractiveConfigController(io),
+		session:          nil,
 	}
 }
 
@@ -46,25 +48,11 @@ func (i *InteractiveMode) Run() {
 	fmt.Println(strings.Repeat("═", 50))
 	fmt.Println()
 
-	for {
-		i.showMainMenu()
-
-		choice := i.io.readChoice()
-
-		switch choice {
-		case 1:
-			i.analyzeMenu()
-		case 2:
-			i.viewHistory()
-		case 3:
-			i.configController.configureRules()
-		case 4:
-			fmt.Println("\nExiting RepoDoctor Interactive Mode...")
-			return
-		default:
-			fmt.Println("\nInvalid choice. Please try again.")
-		}
+	if i.session == nil {
+		i.session = NewInteractiveSession(i)
 	}
+
+	i.session.Run()
 }
 
 // showMainMenu displays the main menu

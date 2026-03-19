@@ -16,6 +16,8 @@ type PythonAdapter struct {
 	importPatterns []*regexp.Regexp
 }
 
+const maxPythonFileBytes = 2 * 1024 * 1024
+
 // pythonImportExtractor helps extract imports from Python files
 type pythonImportExtractor struct {
 	patterns []*regexp.Regexp
@@ -144,6 +146,10 @@ func (a *PythonAdapter) collectFileMetrics(path string) (*model.FileMetrics, err
 		return nil, err
 	}
 
+	if len(content) > maxPythonFileBytes {
+		return nil, fmt.Errorf("python file too large for safe parsing: %s", path)
+	}
+
 	lines := strings.Split(string(content), "\n")
 	fm := &model.FileMetrics{
 		Path:      path,
@@ -197,7 +203,7 @@ func (a *PythonAdapter) extractFunctionMetrics(line, path string, lineNum int) *
 		end := strings.Index(line, "(")
 		if end > start {
 			name = line[start:end]
-			
+
 			// Count parameters
 			paramStr := line[end+1:]
 			closeParen := strings.Index(paramStr, ")")
@@ -277,6 +283,15 @@ func (a *PythonAdapter) BuildDependencyGraph(files []string) (*model.DependencyG
 
 // extractImports extracts import statements from a Python file
 func (a *PythonAdapter) extractImports(path string) ([]string, string, error) {
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return nil, "", err
+	}
+
+	if fileInfo.Size() > maxPythonFileBytes {
+		return nil, "", fmt.Errorf("python file too large for safe parsing: %s", path)
+	}
+
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, "", err
@@ -295,7 +310,7 @@ func (a *PythonAdapter) extractImports(path string) ([]string, string, error) {
 			matches := pattern.FindStringSubmatch(line)
 			if len(matches) > 1 {
 				importPath := matches[1]
-				
+
 				// Get base module
 				parts := strings.Split(importPath, ".")
 				if len(parts) > 0 {
@@ -304,13 +319,6 @@ func (a *PythonAdapter) extractImports(path string) ([]string, string, error) {
 			}
 		}
 
-		// Try to get package name from file
-		if pkgName == "" && strings.HasPrefix(strings.TrimSpace(line), "import ") {
-			parts := strings.Fields(strings.TrimSpace(line))
-			if len(parts) > 1 {
-				pkgName = parts[1]
-			}
-		}
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -328,6 +336,8 @@ func (a *PythonAdapter) extractImports(path string) ([]string, string, error) {
 
 // IsStdlibPackage checks if a module is part of Python standard library
 func (a *PythonAdapter) IsStdlibPackage(importPath string) bool {
+	baseModule := strings.Split(importPath, ".")[0]
+
 	// Common Python standard library modules
 	stdlibModules := map[string]bool{
 		"os": true, "sys": true, "re": true, "json": true,
@@ -341,9 +351,29 @@ func (a *PythonAdapter) IsStdlibPackage(importPath string) bool {
 		"asyncio": true, "threading": true, "multiprocessing": true,
 		"logging": true, "unittest": true, "pytest": false,
 		"csv": true, "configparser": true, "argparse": true,
+		"xml": true, "email": true, "subprocess": true,
+		"tempfile": true, "inspect": true,
 	}
 
-	return stdlibModules[importPath] || !strings.Contains(importPath, ".")
+	return stdlibModules[baseModule]
+}
+
+// Capabilities returns Python adapter capabilities.
+func (a *PythonAdapter) Capabilities() AdapterCapabilities {
+	return AdapterCapabilities{
+		SupportsDependencyGraph: true,
+		SupportsMetrics:         true,
+		UsesASTParsing:          false,
+	}
+}
+
+// NormalizeImport normalizes Python import module names.
+func (a *PythonAdapter) NormalizeImport(importPath string) string {
+	trimmed := strings.TrimSpace(importPath)
+	if trimmed == "" {
+		return ""
+	}
+	return strings.Split(trimmed, ".")[0]
 }
 
 // GetPythonVersion attempts to detect Python version from the repository
