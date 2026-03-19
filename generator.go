@@ -34,6 +34,11 @@ func (g *RuleTemplateGenerator) Generate(ruleName string) error {
 		return err
 	}
 
+	return g.generateTemplateFiles(sanitized)
+}
+
+func (g *RuleTemplateGenerator) generateTemplateFiles(sanitized string) error {
+
 	// Create rules directory if it doesn't exist
 	if err := os.MkdirAll(g.rulesDir, 0755); err != nil {
 		return fmt.Errorf("failed to create rules directory: %w", err)
@@ -289,7 +294,7 @@ func (g *RuleTemplateGenerator) GenerateWithTest(ruleName string) error {
 		return err
 	}
 
-	if err := g.Generate(sanitized); err != nil {
+	if err := g.generateTemplateFiles(sanitized); err != nil {
 		return err
 	}
 
