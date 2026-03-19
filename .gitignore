@@ -30,3 +30,8 @@ go.work.sum
 
 # Generated rules (optional)
 rules/
+
+# Internal development artifacts (not user-facing)
+specs/
+.opencode-rules
+.repodoctor/
