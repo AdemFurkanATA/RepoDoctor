@@ -198,7 +198,8 @@ func runGenerate(args []string) error {
 
 func runWatch(path string) {
 	if err := WatchAndAnalyze(path); err != nil {
-		fmt.Fprintf(os.Stderr, "Error in watch mode: %v\n", err)
+		cliErr := WrapError(err, ErrorRuntime, "Watch mode failed", "Check the target path and try again")
+		cliErr.Display()
 		os.Exit(1)
 	}
 }
