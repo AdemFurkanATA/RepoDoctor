@@ -787,15 +787,30 @@ Bu backlog, v0.7 sonrası kalan **god object ihlallerini** ve **rapor doğruluk 
 - **Çözüm:** `extractFunctionMetrics`, `extractClassMetrics`, `GetPythonVersion` → package-level fonksiyonlara (`pyExtractFunctionMetrics`, `pyExtractClassMetrics`, `DetectPythonVersion`) dönüştürüldü.
 - **Etki:** 13 → 10 method (eşikte).
 
-### Kalan İhlaller (v0.9 backlog adayı)
+#### RD-713 — main.go Size Violation Kapatma ✅
+- **PR:** #89 (merged → dev), #90 (dev → main)
+- **Problem:** `main.go` 567 satır ile 500 satır eşiğini aşıyordu (son kalan ihlal).
+- **Çözüm:** 6 secondary CLI fonksiyonu (`scanDirectory`, `runReport`, `runHistory`, `runExtract`, `runGenerate`, `runWatch`) `cli_commands.go` dosyasına taşındı.
+- **Etki:** `main.go` 567 → 485 satır (eşik altı); skor 97 → **100/100**. Sıfır ihlal.
 
-| İhlal | Dosya | Detay | Öncelik |
-|-------|-------|-------|---------|
-| Size violation | `main.go` | 567 satır (eşik: 500) | Düşük |
+### v0.8 Sprint Skor Özeti
+
+| PR | Issue | Skor | İhlal Sayısı |
+|----|-------|------|-------------|
+| #83 | RD-709 | 82/100 | 4 |
+| #84 | RD-708 | 82/100 | 4 (accuracy fix) |
+| #85 | RD-710 | 87/100 | 3 |
+| #86 | RD-711 | 92/100 | 2 |
+| #87 | RD-712 | 97/100 | 1 |
+| #89 | RD-713 | **100/100** | **0** |
+
+### Kalan İhlaller
+
+✅ **Sıfır ihlal — v0.8 hedefi tamamlandı.**
 
 ### Sonraki Adımlar (v0.9 önerileri)
 
-1. `main.go` size violation'ı kapatmak için daha fazla sorumluluk `internal/` altına taşınabilir.
-2. JavaScript/TypeScript language adapter eklemesi.
-3. JSON rapor formatının zenginleştirilmesi (violation detaylarıyla).
-4. Version string'inin build-time injection ile otomatik güncellenmesi.
+1. JavaScript/TypeScript language adapter eklemesi.
+2. JSON rapor formatının zenginleştirilmesi (violation detaylarıyla).
+3. Version string'inin build-time injection ile otomatik güncellenmesi.
+4. Legacy root-package rule kodunun kademeli deprecation planı.
