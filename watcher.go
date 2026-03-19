@@ -3,9 +3,11 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"gopkg.in/fsnotify.v1"
@@ -200,7 +202,8 @@ func (w *Watcher) IsRunning() bool {
 	return w.running
 }
 
-// WatchAndAnalyze starts watch mode and runs initial analysis
+// WatchAndAnalyze starts watch mode and runs initial analysis.
+// It listens for OS signals (SIGINT, SIGTERM) for graceful shutdown.
 func WatchAndAnalyze(path string) error {
 	watcher, err := NewWatcher(path)
 	if err != nil {
@@ -226,6 +229,15 @@ func WatchAndAnalyze(path string) error {
 		return err
 	}
 
-	// Keep running until interrupted
-	select {}
+	// Graceful shutdown: listen for OS signals
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	<-sigChan
+	fmt.Println("\n\nShutting down watch mode...")
+	if err := watcher.Stop(); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: error stopping watcher: %v\n", err)
+	}
+	fmt.Println("Watch mode stopped. Goodbye!")
+	return nil
 }
