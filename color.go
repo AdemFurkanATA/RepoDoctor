@@ -30,22 +30,41 @@ func NewColorFormatter(enabled bool) *ColorFormatter {
 	}
 }
 
-// isTerminal checks if the output is a terminal
+// isTerminal checks if stdout is connected to a terminal that supports ANSI colors.
+//
+// Detection order:
+//  1. NO_COLOR env var (https://no-color.org/) — always disables color.
+//  2. TERM=dumb — indicates a terminal without color support.
+//  3. TERM_PROGRAM — set by modern terminals (vscode, iterm2, etc.).
+//  4. Windows-specific env vars (WT_SESSION, ANSICON, ConEmuANSI).
+//  5. os.Stdout.Stat() — ModeCharDevice detects real terminal vs pipe/redirect.
 func isTerminal() bool {
+	// Respect NO_COLOR convention (https://no-color.org/)
 	if os.Getenv("NO_COLOR") != "" {
 		return false
 	}
 
+	// TERM=dumb means the terminal does not support ANSI escape sequences
 	if term := strings.ToLower(os.Getenv("TERM")); term == "dumb" {
 		return false
 	}
 
+	// TERM_PROGRAM is set by modern terminal emulators (VSCode, iTerm2, Hyper, etc.)
+	if os.Getenv("TERM_PROGRAM") != "" {
+		return true
+	}
+
+	// Windows-specific terminal detection
 	if runtime.GOOS == "windows" {
+		// WT_SESSION: Windows Terminal
+		// ANSICON: ANSICON wrapper for older cmd.exe
+		// ConEmuANSI: ConEmu/Cmder terminal
 		if os.Getenv("WT_SESSION") != "" || os.Getenv("ANSICON") != "" || os.Getenv("ConEmuANSI") == "ON" {
 			return true
 		}
 	}
 
+	// Fallback: check if stdout is a character device (real terminal, not pipe/redirect)
 	if fileInfo, err := os.Stdout.Stat(); err == nil {
 		return (fileInfo.Mode() & os.ModeCharDevice) != 0
 	}
