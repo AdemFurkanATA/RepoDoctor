@@ -235,79 +235,14 @@ Examples:
 }
 
 func runAnalyze(path, format string, verbose bool, colorEnabled bool, exitOnViolation bool) int {
-	// Validate and resolve path
-	absPath := validatePath(path)
-
-	// Initialize color formatter
-	InitColorFormatter(colorEnabled)
-
-	// Extract imports and build dependency graph
-	// Create progress reporter (enabled when not verbose)
-	progress := NewProgressReporter(!verbose)
-
-	// Stage 1: Repository scanning
-	progress.Start("Scanning repository", getStageCount("Scanning repository", absPath))
-	if verbose {
-		fmt.Printf(ColorInfo("Extracting imports from: ")+"%s\n", absPath)
-	}
-
-	// Stage 2: Language adapter pipeline
-	analysisResult, err := runAdapterPipeline(absPath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, ColorError(fmt.Sprintf("Error: analysis pipeline failed: %v\n", err)))
-		if exitOnViolation {
-			os.Exit(1)
-		}
-		return 1
-	}
-
-	if verbose {
-		fmt.Printf(ColorInfo("Selected adapter: ")+"%s\n", analysisResult.AdapterName)
-	}
-
-	progress.SetProgress(progress.totalSteps / 2)
-
-	graph := buildDependencyGraphFromModel(analysisResult.Graph, verbose)
-	progress.SetProgress(progress.totalSteps)
-	progress.Complete()
-
-	// Stage 2: Metrics collection
-	progress.Start("Collecting metrics", getStageCount("Collecting metrics", absPath))
-	totalFiles, goFiles, totalLines := scanDirectory(absPath, false)
-	_ = totalFiles
-	_ = goFiles
-	_ = totalLines
-	progress.SetProgress(progress.totalSteps)
-	progress.Complete()
-
-	// Stage 3: Dependency graph building
-	progress.Start("Building dependency graph", getStageCount("Building dependency graph", absPath))
-	progress.SetProgress(progress.totalSteps)
-	progress.Complete()
-
-	// Load configuration
-	config := loadConfiguration(absPath, verbose)
-
-	// Run internal rule pipeline
-	progress.Start("Running rules", getStageCount("Running rules", absPath))
-	ruleSummary := runInternalRulePipeline(absPath, graph)
-	progress.SetProgress(progress.totalSteps / 2)
-
-	// Generate and display report
-	report := generateRuleEngineReport(absPath, format, verbose, colorEnabled, config, ruleSummary)
-	progress.SetProgress(progress.totalSteps)
-	progress.Complete()
-
-	// Trend analysis
-	handleTrendAnalysis(absPath, report, verbose)
-
-	// Exit with appropriate code based on violations
-	exitCode := determineExitCode(report)
-	if exitOnViolation && exitCode != 0 {
-		os.Exit(exitCode)
-	}
-
-	return exitCode
+	service := NewAnalysisService()
+	return service.Run(AnalyzeRequest{
+		Path:            path,
+		Format:          format,
+		Verbose:         verbose,
+		ColorEnabled:    colorEnabled,
+		ExitOnViolation: exitOnViolation,
+	})
 }
 
 // determineExitCode returns the appropriate exit code based on report
