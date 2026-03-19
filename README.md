@@ -1,17 +1,18 @@
-# RepoDoctor 🏥
+# RepoDoctor
 
-> **Static Architecture Intelligence for Go Repositories**
+> **Static Architecture Analysis for Software Repositories**
 
-RepoDoctor is a CLI tool that analyzes your Go repository's architectural health by evaluating structure, dependency patterns, and maintainability signals. It doesn't lint your syntax—it inspects your engineering decisions.
+RepoDoctor is a CLI tool that analyzes your repository's architectural health by evaluating structure, dependency patterns, and maintainability signals. It doesn't lint your syntax — it inspects your engineering decisions.
 
-![Version](https://img.shields.io/badge/version-v0.6.0-blue)
+![Version](https://img.shields.io/badge/version-v0.8.0-blue)
 [![Go Version](https://img.shields.io/badge/go-1.21+-00ADD8)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Status](https://img.shields.io/badge/status-stable-green)](../../tree/main)
+[![Self-Analysis](https://img.shields.io/badge/self--analysis-100%2F100-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-75%20passing-brightgreen)]()
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 # Clone the repository
@@ -19,81 +20,111 @@ git clone https://github.com/AdemFurkanATA/RepoDoctor.git
 cd RepoDoctor
 
 # Build
-go build -o repodoctor.exe
+go build -o repodoctor
 
-# Run analysis
-./repodoctor analyze -path . -format text
+# Run analysis on any repository
+./repodoctor analyze -path /path/to/your/project
 
-# Extract imports
-./repodoctor extract -path . -module RepoDoctor
+# Run analysis on current directory
+./repodoctor analyze -path .
+```
 
-# Show help
-./repodoctor --help
+### What You Get
+
+```
+Scanning repository [████████████████████] 100%
+Collecting metrics [████████████████████] 100%
+Building dependency graph [████████████████████] 100%
+Running rules [████████████████████] 100%
+
+╔═══════════════════════════════════════════════════════════╗
+║          RepoDoctor Structural Analysis Report           ║
+╚═══════════════════════════════════════════════════════════╝
+
+Version: 0.5.0-dev
+Path: /your/project
+
+┌───────────────────────────────────────────────────────────┐
+│  STRUCTURAL HEALTH SCORE                                  │
+└───────────────────────────────────────────────────────────┘
+✓ Score: 100.0 / 100.0
+
+┌───────────────────────────────────────────────────────────┐
+│  VIOLATIONS SUMMARY                                       │
+└───────────────────────────────────────────────────────────┘
+✓ No violations detected
+✨ No structural violations detected! Your architecture is clean.
 ```
 
 ---
 
-## 📋 Why RepoDoctor?
+## Why RepoDoctor?
 
-Most static analysis tools focus on **code style** and **formatting**. RepoDoctor focuses on **structural integrity**:
+Most static analysis tools focus on **code style** and **formatting**. RepoDoctor focuses on **structural integrity** — the kind of problems that compound over time and make codebases unmaintainable.
 
+| Problem | RepoDoctor Solution |
+|---------|---------------------|
+| Are layers violating boundaries? | Layer validation rules |
+| Circular dependencies forming? | DFS-based import cycle detection |
+| God objects emerging? | Struct field/method count heuristics |
+| Files growing too large? | Size threshold analysis |
+| Technical debt accumulating? | Maintainability scoring (0–100) |
+| Need CI quality gates? | Exit codes + JSON output for automation |
 
-| Problem                            | RepoDoctor Solution             |
-| ---------------------------------- | ------------------------------- |
-| ❓ Are layers violating boundaries? | 🔍 Layer validation rules       |
-| ❓ Circular dependencies?           | 🔄 Import cycle detection       |
-| ❓ God objects emerging?            | 📊 Size heuristics analysis     |
-| ❓ Technical debt accumulating?     | 📈 Maintainability scoring      |
-| ❓ CI/CD quality gates missing?     | 🛡️ Architecture health reports |
-
-
----
-
-## 🎯 Core Features (v0.6)
-
-### Implemented Capabilities
-
-- ✅ **Import Extraction** — AST-based Go import analysis
-- ✅ **Dependency Graph** — Graph-based dependency mapping with cycle detection
-- ✅ **Circular Dependency Detection** — DFS-based import cycle identification (critical severity)
-- ✅ **Layer Validation** — Enforce handler → service → repo architecture (high severity)
-- ✅ **Structural Scoring** — Maintainability score (0-100) with penalty weights
-- ✅ **Size Threshold Analysis** — Detect oversized files (>500 lines) and functions (>80 lines)
-- ✅ **God Object Detection** — Identify structs with too many fields (>15) or methods (>20)
-- ✅ **Custom Configuration** — YAML-based config (`.repodoctor/config.yaml`) for rule thresholds
-- ✅ **GitHub Actions Integration** — CI/CD workflow with automatic analysis and exit codes
-- ✅ **Trend Analysis** — Historical score tracking with `.repodoctor/history.json`
-- ✅ **CLI Reports** — Text output and JSON export for CI integration
-- ✅ **Rule Engine v2** — Scalable, pluggable rule architecture with standardized violation model
-- ✅ **Plugin System** — Extensible plugin architecture for custom rules
-- ✅ **Multi-Language Foundation** — Language Adapter architecture with Python support
-- ✅ **60+ Unit Tests** — Comprehensive test coverage for all core components
-- ✅ **Interactive Mode** — Prompt-based CLI for guided analysis workflows
-- ✅ **Progress Bars** — Visual progress indicators for long-running operations
-- ✅ **Colored Output** — Severity-based color coding (INFO/WARN/ERROR/SUCCESS)
-- ✅ **Watch Mode** — Continuous analysis with filesystem monitoring
-- ✅ **Rule Template Generator** — CLI command for generating custom rule templates
-- ✅ **Enhanced Error Handling** — Structured error system with actionable suggestions
+RepoDoctor eats its own dog food — it analyzes itself and currently scores **100/100** with zero violations.
 
 ---
 
-## 📖 Usage
+## Features
+
+### Analysis Engine
+
+- **Circular Dependency Detection** — DFS-based import cycle identification with critical severity
+- **Layer Validation** — Enforce `handler → service → repo` architecture boundaries
+- **Size Threshold Analysis** — Detect oversized files (>500 lines) and functions (>80 lines)
+- **God Object Detection** — Identify structs with too many fields (>15) or methods (>10)
+- **Structural Scoring** — Maintainability score (0–100) with weighted penalties
+- **Trend Analysis** — Historical score tracking across runs
+
+### Multi-Language Support
+
+- **Go** — Full AST-based analysis (imports, functions, structs, dependency graph)
+- **Python** — Import analysis, class/function metrics, dependency graph
+- **Extensible Adapter Architecture** — Add new languages by implementing `LanguageAdapter` interface
+
+### Developer Experience
+
+- **Interactive Mode** — Guided CLI for analysis workflows
+- **Watch Mode** — Continuous analysis with filesystem monitoring
+- **Progress Bars** — Visual progress indicators for each pipeline stage
+- **Colored Output** — Severity-based color coding with `--no-color` support
+- **Rule Template Generator** — Scaffold custom rules from CLI
+- **Structured Error Handling** — Actionable error messages with suggestions
+
+### CI/CD Integration
+
+- **Deterministic Exit Codes** — `0` (clean), `2` (critical violations)
+- **JSON Output** — Machine-readable reports for pipeline integration
+- **GitHub Actions** — Ready-to-use workflow configuration
+- **Custom Configuration** — YAML-based rule thresholds
+
+---
+
+## Usage
 
 ### Analyze Command
 
-Analyze your repository for structural violations:
-
 ```bash
-# Analyze current directory (text output)
+# Analyze with text output (default)
 repodoctor analyze -path .
 
 # Analyze with JSON output
 repodoctor analyze -path ./my-project -format json
 
-# Verbose mode (shows trend analysis)
+# Verbose mode (includes trend analysis)
 repodoctor analyze -path . -verbose
 
-# Watch mode (continuous analysis)
+# Watch mode — re-analyze on file changes
 repodoctor analyze -path . -watch
 
 # Disable colored output
@@ -102,21 +133,33 @@ repodoctor analyze -path . -no-color
 
 ### Interactive Mode
 
-Start an interactive CLI session for guided analysis:
-
 ```bash
 repodoctor interactive
 ```
 
-### Rule Template Generator
+Provides a guided menu for:
+- Running analysis on a repository
+- Viewing analysis history
+- Configuring rule thresholds
 
-Generate a new custom rule template:
+### Import Extraction
 
 ```bash
-# Generate a rule template
-repodoctor generate rule large-interface
+repodoctor extract -path . -module RepoDoctor
+```
 
-# Generated file: rules/large_interface_rule.go
+### Rule Template Generator
+
+```bash
+# Generate a custom rule template
+repodoctor generate rule large-interface
+# Creates: rules/large_interface_rule.go
+```
+
+### View History
+
+```bash
+repodoctor history
 ```
 
 ### Configuration
@@ -137,195 +180,142 @@ rules:
   enable_god_object_rule: true
 ```
 
-### Extract Command
-
-Extract imports from Go files:
-
-```bash
-# Extract imports with module normalization
-repodoctor extract -path . -module RepoDoctor
-```
-
-### Example Text Output
-
-```
-Scanning repository [████████████████████] 100%
-Building dependency graph [████████████████████] 100%
-Running rules [████████████████████] 100%
-
-╔═══════════════════════════════════════════════════════════╗
-║          RepoDoctor Structural Analysis Report           ║
-╚═══════════════════════════════════════════════════════════╝
-
-Version: v0.6.0
-Path: C:\project
-
-┌───────────────────────────────────────────────────────────┐
-│  STRUCTURAL HEALTH SCORE                                  │
-└───────────────────────────────────────────────────────────┘
-✓ Score: 100.0 / 100.0
-
-┌───────────────────────────────────────────────────────────┐
-│  VIOLATIONS SUMMARY                                       │
-└───────────────────────────────────────────────────────────┘
-✓ No violations detected
-✨ No structural violations detected! Your architecture is clean.
-```
-
-### Example JSON Output
+### JSON Output
 
 ```json
 {
-  "version": "v0.3.0-dev",
-  "path": "C:\\project",
+  "version": "0.5.0-dev",
+  "path": "/your/project",
   "score": {
-    "total": 74.00,
+    "total": 100.00,
     "max": 100.00,
-    "circularPenalty": 10.00,
-    "layerPenalty": 10.00,
-    "sizePenalty": 6.00,
+    "circularPenalty": 0.00,
+    "layerPenalty": 0.00,
+    "sizePenalty": 0.00,
     "godObjectPenalty": 0.00
   },
   "violations": {
-    "circular": 1,
-    "layer": 2,
-    "size": 2,
+    "circular": 0,
+    "layer": 0,
+    "size": 0,
     "godObject": 0
-  },
-  "circularViolations": [...],
-  "layerViolations": [...],
-  "sizeViolations": [...],
-  "godObjectViolations": [...]
+  }
 }
 ```
 
 ---
 
-## 🏗️ Architecture
-
-RepoDoctor philosophy:
+## Architecture
 
 > **Clean architecture is not a folder structure. It is discipline.**
 
-RepoDoctor enforces engineering discipline through:
+RepoDoctor is built on SOLID principles with a clear separation of concerns:
 
-1. **Import Extraction** — AST-based parsing of Go files
-2. **Dependency Graph** — Adjacency list representation with DFS traversal
-3. **Rule Engine v2** — Scalable, pluggable rule architecture with registry system
-4. **Configuration System** — YAML-based config with graceful defaults
-5. **Scoring System** — Weighted penalty calculation (circular: 10pts, layer: 5pts, size: 3pts, god object: 5pts)
-6. **Trend Analysis** — Historical score tracking with delta calculation
-7. **Reporter** — Multi-format output (text with ASCII borders, JSON)
-8. **Progress Reporter** — Visual progress tracking for long operations
-9. **Color Formatter** — Severity-based color coding for CLI output
-10. **Filesystem Watcher** — Continuous monitoring with debounced re-analysis
+```
+┌─────────────────────────────────────────────────────┐
+│                    CLI Layer                         │
+│         main.go / cli_commands.go                   │
+│    (command parsing, output, exit codes)             │
+└──────────────────────┬──────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────┐
+│               Orchestration Layer                    │
+│     analysis_service.go / runtime_engine.go         │
+│     (pipeline coordination, report building)         │
+└──────────────────────┬──────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────┐
+│                 Internal Core                        │
+│                                                      │
+│  internal/analysis/    → Pipeline orchestrator       │
+│  internal/rules/       → Rule engine (registry +     │
+│                          executor pattern)            │
+│  internal/languages/   → Language adapters            │
+│                          (Go, Python)                 │
+│  internal/model/       → Domain models (metrics,     │
+│                          violations, dep graph)       │
+│  internal/engine/      → Rule execution engine       │
+└─────────────────────────────────────────────────────┘
+```
 
----
+### Analysis Pipeline
 
-## 🗺️ Roadmap
+```
+detect language → select adapter → scan files → collect metrics → build dependency graph → execute rules → score → report
+```
 
-### ✅ v0.1 — Core Engine (Completed)
+### Key Design Decisions
 
-**Goal:** Establish the analysis foundation.
-
-- ✅ Project scaffolding
-- ✅ Repository scanner
-- ✅ Basic metrics collector
-- ✅ Initial rule system
-- ✅ Rule execution pipeline
-- ✅ Basic scoring engine
-- ✅ CLI command structure (`analyze`)
-- ✅ Human-readable CLI output
-
-### ✅ v0.2 — Dependency Intelligence (Completed)
-
-**Goal:** Structural awareness of the repository.
-
-- ✅ Import graph builder (Go)
-- ✅ Circular dependency detection
-- ✅ Layer validation rules
-- ✅ Structural scoring adjustments
-- ✅ Improved CLI reporting
-
-### ✅ v0.3 — Advanced Analysis & Automation (Completed)
-
-**Goal:** Introduce deeper analysis and automation capabilities.
-
-- ✅ File size threshold detection
-- ✅ Function size threshold detection
-- ✅ God object detection heuristics
-- ✅ Custom rule configuration (`.repodoctor/config.yaml`)
-- ✅ GitHub Actions integration
-- ✅ Trend analysis with historical scoring
-- ✅ Internal state management (`.repodoctor/history.json`)
-
-### ✅ v0.4 — Rule Engine Evolution (Completed)
-
-**Goal:** Transform the rule system into a scalable analysis engine.
-
-- ✅ Rule interface standardization
-- ✅ Rule registry system
-- ✅ Rule categories (Critical, High, Medium, Low)
-- ✅ Rule execution pipeline
-- ✅ Standardized violation model
-- ✅ Migration of existing rules to Rule Engine v2
-
-### ✅ v0.5 — Multi-Language Foundation (Completed)
-
-**Goal:** Prepare RepoDoctor for multi-language analysis and extensibility.
-
-- ✅ Language Adapter architecture
-- ✅ Python language support (imports, metrics, dependency graph)
-- ✅ Language detection system
-- ✅ Plugin system for custom rules
-- ✅ Advanced configuration system (severity, weights, validation)
-- ✅ CLI improvements (new commands: report, history)
-- ✅ Deterministic exit codes (0/1/2)
-- ✅ JSON output mode for all commands
-- ✅ Internal code exclusion from rules
-
-### ✅ v0.6 — CLI Improvements & DX (Completed)
-
-**Goal:** Enhance CLI experience and developer workflow.
-
-- ✅ Interactive mode for analysis (`repodoctor interactive`)
-- ✅ Progress bars for long-running operations
-- ✅ Colored output and improved formatting (`--no-color` flag)
-- ✅ Watch mode for continuous analysis (`repodoctor analyze --watch`)
-- ✅ Custom rule templates generation (`repodoctor generate rule`)
-- ✅ Better error messages and suggestions (structured error system)
-
-### 🔮 v0.7 — Cross-Language Analysis (Planned)
-
-**Goal:** Expand the rule ecosystem across languages.
-
-- JavaScript / TypeScript analysis
-- Cross-language rule compatibility
-- Unified dependency graph abstraction
-- Shared rule categories across languages
-- Expanded maintainability heuristics
-
-### 🎯 v1.0 — Extensible Platform (Planned)
-
-**Goal:** Product maturity and extensibility.
-
-- Plugin-based rule system (external packages)
-- Configurable architecture profiles
-- Stable public API
-- Official documentation
-- Production-ready release
+- **Adapter Pattern** for language support — new languages don't require core changes
+- **Registry + Executor** for rules — pluggable, sorted, deterministic execution
+- **Package-qualified keys** for god object detection — prevents cross-package name collisions
+- **Regex-based violation parsing** for accurate report mapping
 
 ---
 
-**Long-Term Vision:** RepoDoctor aims to become a structural quality gate for repositories, a CI-integrated architecture evaluator, and a developer tool used to maintain engineering discipline across multiple programming languages.
+## Project Structure
+
+```
+RepoDoctor/
+├── main.go                     # CLI entry point, analyze pipeline orchestration
+├── cli_commands.go             # Secondary CLI commands (scan, report, history, etc.)
+├── analysis_service.go         # AnalysisService — full analyze pipeline coordinator
+├── runtime_engine.go           # Bridges internal rule engine to legacy report format
+│
+├── internal/
+│   ├── analysis/               # Pipeline orchestrator
+│   │   └── orchestrator.go     # Detect → adapt → metrics → graph → rules
+│   ├── rules/                  # Unified rule engine (the active path)
+│   │   ├── rule.go             # Rule interface, AnalysisContext, domain types
+│   │   ├── registry.go         # RuleRegistry with sorted GetAll()
+│   │   ├── init.go             # Default registry initialization
+│   │   ├── size_rule.go        # File/function size thresholds
+│   │   ├── god_object_rule.go  # God object detection (package-qualified keys)
+│   │   ├── circular_dependency_rule.go
+│   │   └── layer_validation_rule.go
+│   ├── engine/
+│   │   └── executor.go         # RuleExecutor with panic recovery
+│   ├── languages/
+│   │   ├── language_adapter.go # LanguageAdapter interface
+│   │   ├── language_detector.go
+│   │   ├── go_adapter.go       # Go AST-based analysis
+│   │   └── python_adapter.go   # Python import/class/function analysis
+│   └── model/
+│       ├── dependency_graph.go # DependencyGraph (10 methods)
+│       ├── graph_cycle_detector.go  # GraphCycleDetector (extracted)
+│       ├── graph_analysis.go   # FindRoots, FindLeaves (extracted)
+│       ├── violation.go        # Violation with Severity, ScoreImpact
+│       └── metrics.go          # Repository/File/Function/Struct metrics
+│
+├── scoring.go                  # Structural scoring system
+├── config.go                   # YAML configuration system
+├── reporter.go                 # Output formatter (text, JSON)
+├── reporter_methods.go         # Report section writers
+├── colored_methods.go          # Colored output section writers
+├── color.go                    # ANSI color formatter, terminal detection
+├── progress.go                 # Progress bar for pipeline stages
+├── watcher.go                  # Filesystem watcher for watch mode
+├── interactive.go              # Interactive CLI mode
+├── interactive_session.go      # Interactive session management
+├── generator.go                # Rule template generator
+├── errors.go                   # Structured error system with suggestions
+├── trend_analyzer.go           # Historical score tracking
+├── import_extractor.go         # AST-based Go import extraction
+│
+├── .repodoctor/                # Runtime state (gitignored)
+│   ├── config.yaml             # User configuration
+│   └── history.json            # Score history
+├── .github/workflows/
+│   └── repodoctor.yml          # CI workflow
+├── specs/
+│   └── todo.md                 # Sprint planning and backlog
+├── go.mod                      # Go 1.21, module RepoDoctor
+└── README.md
+```
 
 ---
 
-## 🚀 GitHub Actions Integration
-
-RepoDoctor can be easily integrated into your CI/CD pipeline using GitHub Actions.
-
-### Basic Workflow
+## GitHub Actions Integration
 
 Create `.github/workflows/repodoctor.yml`:
 
@@ -334,14 +324,14 @@ name: RepoDoctor Analysis
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, dev]
   pull_request:
-    branches: [main, develop]
+    branches: [main, dev]
 
 jobs:
   repodoctor:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -349,7 +339,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
+          go-version: '1.21'
           cache: true
 
       - name: Install dependencies
@@ -358,43 +348,23 @@ jobs:
       - name: Build RepoDoctor
         run: go build -o repodoctor
 
-      - name: Run RepoDoctor analysis
+      - name: Run structural analysis
         run: ./repodoctor analyze -path . -format text
 ```
 
 ### Exit Codes
 
-RepoDoctor uses exit codes to indicate analysis results:
+| Code | Meaning |
+|------|---------|
+| `0` | No critical violations — analysis passed |
+| `2` | Critical violations detected — pipeline should fail |
 
-- `0` → No critical violations (success)
-- `1` → Critical violations detected (failure)
-
-This allows your CI pipeline to fail automatically when architectural violations are found.
-
-### Advanced Configuration
-
-For custom thresholds and rule configuration, create `.repodoctor/config.yaml`:
-
-```yaml
-size:
-  max_file_lines: 500
-  max_function_lines: 80
-
-god_object:
-  max_fields: 15
-  max_methods: 10
-
-rules:
-  enable_size_rule: true
-  enable_god_object_rule: true
-```
-
-### JSON Output for Further Processing
+### JSON Output for CI Pipelines
 
 ```yaml
 - name: Run RepoDoctor (JSON)
-  run: ./repodoctor analyze -path . -format json -verbose
-  
+  run: ./repodoctor analyze -path . -format json > repodoctor-report.json
+
 - name: Upload analysis results
   uses: actions/upload-artifact@v4
   with:
@@ -404,11 +374,26 @@ rules:
 
 ---
 
-## 🛠️ Development
+## Scoring System
+
+RepoDoctor calculates a **Structural Health Score** (0–100) based on weighted penalties:
+
+| Rule | Severity | Penalty per Violation |
+|------|----------|----------------------|
+| Circular Dependency | Critical | -10 points |
+| Layer Violation | High | -5 points |
+| God Object | High | -5 points |
+| File/Function Size | Medium | -3 points |
+
+The score starts at 100 and decreases with each violation. A score of **100** means zero architectural violations.
+
+---
+
+## Development
 
 ### Prerequisites
 
-- Go 1.25 or higher
+- Go 1.21 or higher
 - Git
 
 ### Build from Source
@@ -416,114 +401,98 @@ rules:
 ```bash
 git clone https://github.com/AdemFurkanATA/RepoDoctor.git
 cd RepoDoctor
-go build -o repodoctor.exe
+go build -o repodoctor
 ```
 
 ### Run Tests
 
 ```bash
-# Run all tests
+# Run all tests (75 tests across 5 packages)
 go test ./...
 
-# Run tests with verbose output
+# Verbose output
 go test -v ./...
 
-# Run tests with coverage
+# With coverage
 go test -v -cover ./...
+
+# Static analysis
+go vet ./...
+```
+
+### Self-Analysis
+
+RepoDoctor analyzes its own codebase:
+
+```bash
+go run . analyze -path .
+# Score: 100.0 / 100.0
+# No violations detected
 ```
 
 ---
 
-## 📁 Project Structure
+## Roadmap
 
-```
-RepoDoctor/
-├── main.go                 # CLI entry point (analyze, extract, interactive, generate commands)
-├── import_extractor.go     # AST-based import extraction
-├── dependency_graph.go     # Graph data structure with cycle detection
-├── circular_rule.go        # Circular dependency rule (critical severity)
-├── layer_rule.go           # Layer validation rule (high severity)
-├── size_rule.go            # File/function size threshold analysis
-├── god_object_rule.go      # God object detection (fields/methods)
-├── config.go               # YAML configuration system
-├── trend_analyzer.go       # Historical score tracking
-├── scoring.go              # Structural scoring system
-├── reporter.go             # Output formatter (text, JSON)
-├── color.go                # ANSI color codes and formatter (v0.6)
-├── colored_methods.go      # Colored report rendering methods (v0.6)
-├── progress.go             # Progress reporter for analysis stages (v0.6)
-├── watcher.go              # Filesystem watcher for watch mode (v0.6)
-├── generator.go            # Rule template generator (v0.6)
-├── interactive.go          # Interactive CLI mode (v0.6)
-├── errors.go               # Structured error system (v0.6)
-├── registry.go             # Rule registry and engine v2
-├── reporter_methods.go     # Reporter method implementations
-├── dependency_test.go      # Comprehensive test suite (60+ tests)
-├── docs/                   # Documentation
-│   ├── specs/              # Feature specifications (v0.1-v0.6)
-│   ├── architecture.md     # Architecture overview
-│   └── roadmap.md          # Development roadmap
-├── internal/               # Internal packages
-│   ├── rules/              # Rule engine v2 (interface, registry, plugins)
-│   ├── model/              # Data models (metrics, dependency graph, violations)
-│   ├── languages/          # Language adapters (Go, Python)
-│   └── engine/             # Rule execution engine
-├── rules/                  # Generated custom rules (gitignored)
-├── go.mod                  # Go module definition
-└── README.md               # This file
-```
+### Completed
+
+| Version | Theme | Highlights |
+|---------|-------|------------|
+| **v0.1** | Core Engine | Repository scanner, basic rule system, scoring engine, CLI |
+| **v0.2** | Dependency Intelligence | Import graph builder, circular dependency detection, layer validation |
+| **v0.3** | Advanced Analysis | Size thresholds, god object detection, YAML config, GitHub Actions, trend analysis |
+| **v0.4** | Rule Engine v2 | Rule interface standardization, registry system, categories, execution pipeline |
+| **v0.5** | Multi-Language Foundation | Language adapter architecture, Python support, plugin system, JSON output |
+| **v0.6** | CLI & DX | Interactive mode, progress bars, colored output, watch mode, rule templates, error handling |
+| **v0.7** | Architecture Hardening | Adapter-based pipeline, unified rule engine, language detector integration |
+| **v0.8** | Perfect Score | God object elimination, report accuracy fixes, self-analysis 100/100 |
+
+### v0.8 Sprint Details
+
+The v0.8 sprint focused on eliminating all self-analysis violations:
+
+| Issue | Change | Score Impact |
+|-------|--------|-------------|
+| RD-709 | Fixed god object cross-package name collision | 67 → 82 |
+| RD-708 | Fixed report mapping with regex-based parsers | Accuracy fix |
+| RD-710 | Refactored `DependencyGraph` (14 → 10 methods) | 82 → 87 |
+| RD-711 | Refactored `GoAdapter` (12 → 9 methods) | 87 → 92 |
+| RD-712 | Refactored `PythonAdapter` (13 → 10 methods) | 92 → 97 |
+| RD-713 | Extracted CLI commands from `main.go` (567 → 485 lines) | 97 → **100** |
+
+### Planned
+
+| Version | Theme | Goals |
+|---------|-------|-------|
+| **v0.9** | Expansion | JavaScript/TypeScript adapter, enriched JSON reports, build-time versioning |
+| **v1.0** | Platform | Plugin-based rule system, configurable architecture profiles, stable public API |
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
-Contributions are welcome! This project is in early development.
+Contributions are welcome! Please follow these guidelines:
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create a feature branch from `dev` (`git checkout -b feature/amazing-feature`)
+3. Write tests for your changes
+4. Ensure all tests pass (`go test ./...`) and vet is clean (`go vet ./...`)
+5. Commit with conventional messages (`feat:`, `fix:`, `refactor:`, `docs:`)
+6. Push to your branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request targeting `dev`
+
+### Branch Strategy
+
+- `main` — stable releases
+- `dev` — integration branch for features
+- `feature/*`, `refactor/*` — individual work branches
 
 ---
 
-## 📜 License
+## License
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## 📬 Acknowledgments
-
-Inspired by the need for architectural discipline in growing codebases. Built with ❤️ for Go developers who care about maintainability.
-
----
-
 **RepoDoctor** — *Enforcing engineering discipline, one repository at a time.*
-
----
-
-## 📊 Test Coverage
-
-```bash
-$ go test -v ./...
-=== RUN   TestConfigLoader_DefaultConfig
---- PASS: TestConfigLoader_DefaultConfig (0.00s)
-=== RUN   TestSizeRule_DetectLargeFile
---- PASS: TestSizeRule_DetectLargeFile (0.02s)
-=== RUN   TestGodObjectRule_DetectManyFields
---- PASS: TestGodObjectRule_DetectManyFields (0.01s)
-=== RUN   TestTrendAnalyzer_AppendScore
---- PASS: TestTrendAnalyzer_AppendScore (0.00s)
-=== RUN   TestDependencyGraphSimpleCycle
---- PASS: TestDependencyGraphSimpleCycle (0.00s)
-=== RUN   TestLayerValidationRuleUpwardImport
---- PASS: TestLayerValidationRuleUpwardImport (0.00s)
-=== RUN   TestStructuralScoringDeterministic
---- PASS: TestStructuralScoringDeterministic (0.00s)
-PASS
-ok      RepoDoctor      0.892s
-```
-
-All 60+ tests pass with deterministic output across all v0.5 features.
-
