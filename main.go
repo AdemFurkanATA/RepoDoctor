@@ -265,41 +265,33 @@ func determineExitCode(report *StructuralReport) int {
 func validatePath(path string) string {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
-		err := HandleInvalidPathError(path, err)
-		err.Display()
-		fmt.Fprintf(os.Stderr, ColorError(fmt.Sprintf("Error: Could not resolve path: %v\n", err)))
-		fmt.Fprintf(os.Stderr, ColorInfo("Suggestion: Use an absolute or valid relative path\n"))
+		cliErr := HandleInvalidPathError(path, err)
+		cliErr.Display()
 		os.Exit(1)
 	}
 
 	info, err := os.Stat(absPath)
 	if err != nil {
-		err := HandleFileNotFoundError(absPath, err)
-		err.Display()
-		fmt.Fprintf(os.Stderr, ColorError(fmt.Sprintf("Error: Path does not exist: %s\n", absPath)))
-		fmt.Fprintf(os.Stderr, ColorInfo("Suggestion: Check if the path is correct and accessible\n"))
+		cliErr := HandleFileNotFoundError(absPath, err)
+		cliErr.Display()
 		os.Exit(1)
 	}
 
 	if !info.IsDir() {
-		err := NewCLIError(
+		cliErr := NewCLIError(
 			ErrorInvalidArgument,
 			fmt.Sprintf("Path is not a directory: %s", absPath),
 			"Provide a directory path instead of a file",
 			nil,
 		)
-		err.Display()
-		fmt.Fprintf(os.Stderr, ColorError(fmt.Sprintf("Error: Path is not a directory: %s\n", absPath)))
-		fmt.Fprintf(os.Stderr, ColorInfo("Suggestion: Provide a directory path instead of a file\n"))
+		cliErr.Display()
 		os.Exit(1)
 	}
 
 	cwd, err := filepath.Abs(".")
 	if err != nil {
-		err := HandleInvalidPathError(".", err)
-		err.Display()
-		fmt.Fprintf(os.Stderr, ColorError(fmt.Sprintf("Error: Could not resolve repository root: %v\n", err)))
-		fmt.Fprintf(os.Stderr, ColorInfo("Suggestion: Run the command from a valid repository directory\n"))
+		cliErr := HandleInvalidPathError(".", err)
+		cliErr.Display()
 		os.Exit(1)
 	}
 
@@ -314,15 +306,13 @@ func validatePath(path string) string {
 	}
 
 	if !isWithinRoot(canonicalCwd, canonicalPath) {
-		err := NewCLIError(
+		cliErr := NewCLIError(
 			ErrorInvalidArgument,
 			fmt.Sprintf("Path escapes repository root: %s", canonicalPath),
 			"Provide a path inside the current repository",
 			nil,
 		)
-		err.Display()
-		fmt.Fprintf(os.Stderr, ColorError(fmt.Sprintf("Error: Path escapes repository root: %s\n", canonicalPath)))
-		fmt.Fprintf(os.Stderr, ColorInfo("Suggestion: Provide a path inside the current repository\n"))
+		cliErr.Display()
 		os.Exit(1)
 	}
 

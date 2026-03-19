@@ -814,3 +814,172 @@ Bu backlog, v0.7 sonrası kalan **god object ihlallerini** ve **rapor doğruluk 
 2. JSON rapor formatının zenginleştirilmesi (violation detaylarıyla).
 3. Version string'inin build-time injection ile otomatik güncellenmesi.
 4. Legacy root-package rule kodunun kademeli deprecation planı.
+
+---
+
+## v0.6 Completion Sprint — Issue-Based Implementation Plan
+
+Bu sprint, v0.6'da kısmen tamamlanmış 6 özelliği tamamlayarak v0.6 milestone'unu kapatır.
+
+> **Kural:** Tek issue = tek branch = tek PR (base: `dev`). Tüm PR'lar merge sonrası `dev→main` PR ile release edilir.
+
+### Kalite Kapısı (Her Issue İçin Zorunlu)
+
+- `go build ./...` başarılı
+- `go test ./...` başarılı (75+ test)
+- `go vet ./...` temiz
+- Self-analysis skoru 100/100 korunacak
+- Hedefli `git add` (ilgili dosyalar), `git add .` yasak
+- Force push yasak, destructive git komutları yasak
+
+---
+
+### RD-723 — Interactive Mode: God Object Threshold Configuration ✅
+
+- **Branch:** `fix/v0.6-rd-723-interactive-god-object-config`
+- **Problem:** Interactive `configureRules()` menüsünde sadece size rule ayarları var (max file lines, max function lines). God object rule eşikleri (max_fields, max_methods) yapılandırılamıyor.
+- **Kök neden:** `showConfigMenu` ve `configureRules` sadece 4 seçenek sunuyor; god object threshold set/toggle metodları hiç eklenmemiş.
+- **Çözüm:**
+  1. `showConfigMenu`'ye 2 yeni seçenek ekle: "Set Max Fields", "Set Max Methods"
+  2. `InteractiveConfigController`'a `setMaxFields(config)` ve `setMaxMethods(config)` metodları ekle
+  3. Menü numaralarını güncelle (5→Save, 6→Back yerine 7→Save, 8→Back)
+  4. `showConfigMenu`'deki current settings bölümüne Max Fields / Max Methods gösterimi ekle
+- **Etkilenen dosyalar:** `interactive.go`
+- **Commit mesajı:** `feat(interactive): add god object threshold configuration to interactive menu`
+- **Kabul kriterleri:**
+  - [x] Interactive menüde Max Fields ve Max Methods ayarlanabiliyor
+  - [x] Değişiklikler save ile kaydediliyor
+  - [x] Mevcut menü davranışları korunuyor
+  - [x] `go test ./...` başarılı
+
+---
+
+### RD-724 — Progress Indicators: Real Stage Counts ✅
+
+- **Branch:** `fix/v0.6-rd-724-progress-real-stage-counts`
+- **Problem:** `getStageCount()` fonksiyonu "Collecting metrics" ve "Building dependency graph" stage'leri için hardcoded `10` döndürüyor. Bu, progress bar'ın gerçek ilerlemeyi yansıtmamasına neden oluyor.
+- **Kök neden:** İlk implementasyonda sadece scanning stage'i gerçek dosya sayısı kullanıyor; diğer stage'ler yaklaşık değer kullanıyor.
+- **Çözüm:**
+  1. `getStageCount` fonksiyonunda "Collecting metrics" stage'i için `countFiles(repoPath)` kullan (her dosya için metric toplanıyor)
+  2. "Building dependency graph" stage'i için de `countFiles(repoPath)` kullan (her dosya graph'a ekleniyor)
+  3. "Running rules" stage'i 4 olarak kalsın (gerçekten 4 rule tipi var)
+- **Etkilenen dosyalar:** `progress.go`
+- **Commit mesajı:** `fix(progress): use real file counts for metrics and graph progress stages`
+- **Kabul kriterleri:**
+  - [x] Metrics ve graph stage'leri gerçek dosya sayısına göre ilerleme gösteriyor
+  - [x] Scanning, metrics, graph, rules stage'leri ayrı ve doğru etiketli
+  - [x] `go test ./...` başarılı
+
+---
+
+### RD-725 — Colored Output: Windows Virtual Terminal Processing ✅
+
+- **Branch:** `fix/v0.6-rd-725-colored-output-windows-vtp`
+- **Problem:** `isTerminal()` Windows'ta WT_SESSION/ANSICON/ConEmuANSI ortam değişkenlerine bakıyor ama standart Windows Terminal (cmd.exe) bu değişkenleri set etmiyor. Modern Windows 10+ VTP destekliyor ama bu kontrol yapılmıyor.
+- **Kök neden:** Windows terminal desteği sadece env-var bazlı kontrol ediyor; `golang.org/x/sys/windows` ile VTP enable etme veya Go 1.21+ `os.Stdout.Stat()` fallback'i yeterli olabilir.
+- **Çözüm:**
+  1. Windows'ta `os.Stdout.Stat()` fallback'inin `ModeCharDevice` kontrolünü güçlendir — bu zaten mevcut ama env var branch'i `return true` yapıp atlıyor
+  2. Windows branch'ini düzelt: env var'lar varsa `true` dön, yoksa `ModeCharDevice` kontrolüne düş (mevcut kodda zaten böyle — kontrol et)
+  3. `isTerminal()` fonksiyonuna açıklayıcı yorum ekle
+- **Etkilenen dosyalar:** `color.go`
+- **Commit mesajı:** `fix(color): improve Windows terminal detection and add TERM_PROGRAM support`
+- **Kabul kriterleri:**
+  - [x] `NO_COLOR` env var set edildiğinde renkler kapalı
+  - [x] `TERM=dumb` durumunda renkler kapalı
+  - [x] Pipe/redirect durumunda renkler kapalı (ModeCharDevice)
+  - [x] `go test ./...` başarılı
+
+---
+
+### RD-726 — Watch Mode: Graceful Shutdown with Signal Handling ✅
+
+- **Branch:** `fix/v0.6-rd-726-watch-graceful-shutdown`
+- **Problem:** `WatchAndAnalyze` fonksiyonu `select {}` ile sonsuza kadar bekliyor. Ctrl+C ile kapatıldığında watcher düzgün temizlenmiyor (Close() çağrılmıyor).
+- **Kök neden:** Signal handling implementasyonu eksik; `select {}` bloğu yerine `os/signal` kullanılarak graceful shutdown yapılmalı.
+- **Çözüm:**
+  1. `WatchAndAnalyze`'da `os/signal.Notify` ile `SIGINT`, `SIGTERM` dinle
+  2. `select {}` yerine signal channel'ını bekle
+  3. Signal geldiğinde `watcher.Stop()` çağrısı ile temiz kapatma yap
+  4. Kapatma mesajı yazdır
+- **Etkilenen dosyalar:** `watcher.go`
+- **Commit mesajı:** `fix(watch): add graceful shutdown with OS signal handling`
+- **Kabul kriterleri:**
+  - [x] Ctrl+C ile düzgün kapatılıyor, watcher.Close() çağrılıyor
+  - [x] Kapatma sırasında kullanıcıya mesaj gösteriliyor
+  - [x] Mevcut watch loop davranışı korunuyor
+  - [x] `go test ./...` başarılı
+
+---
+
+### RD-727 — Rule Template Generator: Align with Internal Rule Interface ✅
+
+- **Branch:** `fix/v0.6-rd-727-generator-rule-interface-alignment`
+- **Problem:** Üretilen rule template'i kendi `Violation` struct'ını tanımlıyor ve `Evaluate(rootPath string) ([]Violation, error)` imzası kullanıyor. Bu, `internal/rules.Rule` interface'iyle uyumlu değil: `Evaluate(context AnalysisContext) []model.Violation`.
+- **Kök neden:** Template, Rule interface standartlaştırılmadan önce yazılmış ve güncellenmemiş.
+- **Çözüm:**
+  1. `ruleTemplateText()` template'ini güncelle: `Evaluate(context AnalysisContext) []model.Violation` imzası kullan
+  2. Template'den bağımsız `Violation` struct tanımını kaldır
+  3. Import'lara `"RepoDoctor/internal/model"` ve `"RepoDoctor/internal/rules"` (veya sadece AnalysisContext için rules) ekle
+  4. `simpleRuleTemplate` sabitini de aynı şekilde güncelle
+  5. Test'i güncelle: derlenebilirlik kontrolü `internal/rules` interface'ine uyumluluğu doğrulamalı
+- **Etkilenen dosyalar:** `generator.go`, `generator_test.go`
+- **Commit mesajı:** `fix(generator): align rule template with internal Rule interface contract`
+- **Kabul kriterleri:**
+  - [x] Üretilen template `internal/rules.Rule` interface'ini implemente ediyor
+  - [x] Template'de bağımsız Violation struct yok
+  - [x] Üretilen dosya Go syntax olarak geçerli (parser.ParseFile)
+  - [x] `go test ./...` başarılı
+
+---
+
+### RD-728 — CLI Error Improvements: Eliminate Duplicate Error Messages ✅
+
+- **Branch:** `fix/v0.6-rd-728-cli-errors-deduplicate`
+- **Problem:** `validatePath()` fonksiyonu her hata durumunda hem `err.Display()` çağırıp hem de `fmt.Fprintf(os.Stderr, ColorError(...))` ile aynı mesajı tekrar basıyor. Bu, kullanıcıya çift hata mesajı gösteriyor.
+- **Kök neden:** Hata altyapısı (`CLIError.Display()`) eklendikten sonra eski `fmt.Fprintf` satırları kaldırılmamış.
+- **Çözüm:**
+  1. `validatePath()`'teki her hata bloğunda `CLIError.Display()` çağrısını tut, duplicate `fmt.Fprintf` satırlarını kaldır
+  2. `runWatch()` fonksiyonunda raw `fmt.Fprintf + os.Exit(1)` yerine `WrapError` kullan
+  3. `Display()` metodunun renk formatlamasını kullandığından emin ol
+- **Etkilenen dosyalar:** `main.go`, `cli_commands.go`
+- **Commit mesajı:** `fix(cli-errors): remove duplicate error messages in validatePath and unify runWatch error handling`
+- **Kabul kriterleri:**
+  - [x] Her hata durumunda tek bir mesaj basılıyor
+  - [x] Tüm komut yolları `CLIError` formatından geçiyor
+  - [x] `go test ./...` başarılı
+  - [x] `main.go` 500 satır altında kalıyor
+
+---
+
+### Uygulama Sırası
+
+Bağımsız issue'lar — herhangi bir sırada uygulanabilir:
+
+```text
+RD-723 (interactive)  ─┐
+RD-724 (progress)     ─┤
+RD-725 (color)        ─┤── hepsi bağımsız ──→ dev merge ──→ dev→main PR
+RD-726 (watch)        ─┤
+RD-727 (generator)    ─┤
+RD-728 (cli-errors)   ─┘
+```
+
+### Git Workflow
+
+```bash
+# Her issue için:
+git switch dev && git pull origin dev
+git switch -c <issue-branch>
+# ... değişiklikleri uygula ...
+go test ./... && go vet ./... && go build ./...
+go run . analyze -path .  # skor 100/100 kalmalı
+git add -A -- <ilgili-dosyalar>
+git commit -m "<commit-mesajı>"
+git push -u origin <issue-branch>
+gh pr create --base dev --head <issue-branch> --title "<pr-title>" --body "<özet>"
+gh pr merge <pr-no> --merge --delete-branch
+
+# Tümü bittikten sonra:
+gh pr create --base main --head dev --title "release: v0.6 completion sprint"
+gh pr merge <pr-no> --merge
+```
