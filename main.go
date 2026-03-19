@@ -247,7 +247,6 @@ func runAnalyze(path, format string, verbose bool, colorEnabled bool, exitOnViol
 
 // determineExitCode returns the appropriate exit code based on report
 // 0 = success (no violations)
-// 1 = warnings (low/medium severity violations)
 // 2 = critical violations (circular dependencies or layer violations)
 func determineExitCode(report *StructuralReport) int {
 	if !report.HasViolations {
@@ -259,8 +258,8 @@ func determineExitCode(report *StructuralReport) int {
 		return 2
 	}
 
-	// Warnings: size or god object violations
-	return 1
+	// Non-critical warnings (size/god-object) should not fail CI pipelines.
+	return 0
 }
 
 func validatePath(path string) string {
