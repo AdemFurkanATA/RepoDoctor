@@ -109,12 +109,12 @@ func (a *GoAdapter) collectFileMetrics(path string) (*model.FileMetrics, error) 
 		switch x := n.(type) {
 		case *ast.FuncDecl:
 			fm.Functions++
-			funcMetrics := a.extractFunctionMetrics(x, path)
+			funcMetrics := goExtractFunctionMetrics(a.fset, x, path)
 			metrics.AddFunctionMetrics(*funcMetrics)
 
 		case *ast.TypeSpec:
 			if structType, ok := x.Type.(*ast.StructType); ok {
-				structMetrics := a.extractStructMetrics(x, structType, path)
+				structMetrics := goExtractStructMetrics(a.fset, x, structType, path)
 				metrics.AddStructMetrics(*structMetrics)
 			}
 		}
@@ -127,12 +127,13 @@ func (a *GoAdapter) collectFileMetrics(path string) (*model.FileMetrics, error) 
 	return fm, nil
 }
 
-// extractFunctionMetrics extracts metrics from a function declaration
-func (a *GoAdapter) extractFunctionMetrics(funcDecl *ast.FuncDecl, path string) *model.FunctionMetrics {
+// goExtractFunctionMetrics extracts metrics from a Go function declaration.
+// Package-level helper to keep GoAdapter method count within SRP bounds.
+func goExtractFunctionMetrics(fset *token.FileSet, funcDecl *ast.FuncDecl, path string) *model.FunctionMetrics {
 	fm := &model.FunctionMetrics{
 		Name: funcDecl.Name.Name,
 		File: path,
-		Line: a.fset.Position(funcDecl.Pos()).Line,
+		Line: fset.Position(funcDecl.Pos()).Line,
 	}
 
 	// Count parameters
@@ -141,25 +142,24 @@ func (a *GoAdapter) extractFunctionMetrics(funcDecl *ast.FuncDecl, path string) 
 	}
 
 	// Estimate lines (rough approximation)
-	startPos := a.fset.Position(funcDecl.Pos())
-	endPos := a.fset.Position(funcDecl.End())
+	startPos := fset.Position(funcDecl.Pos())
+	endPos := fset.Position(funcDecl.End())
 	fm.Lines = endPos.Line - startPos.Line + 1
 
 	return fm
 }
 
-// extractStructMetrics extracts metrics from a struct type
-func (a *GoAdapter) extractStructMetrics(typeSpec *ast.TypeSpec, structType *ast.StructType, path string) *model.StructMetrics {
-	sm := &model.StructMetrics{
+// goExtractStructMetrics extracts metrics from a Go struct type.
+// Package-level helper to keep GoAdapter method count within SRP bounds.
+func goExtractStructMetrics(fset *token.FileSet, typeSpec *ast.TypeSpec, structType *ast.StructType, path string) *model.StructMetrics {
+	return &model.StructMetrics{
 		Name:     typeSpec.Name.Name,
 		File:     path,
-		Line:     a.fset.Position(typeSpec.Pos()).Line,
+		Line:     fset.Position(typeSpec.Pos()).Line,
 		Fields:   structType.Fields.NumFields(),
 		Methods:  0, // Methods are counted separately
 		Exported: typeSpec.Name.IsExported(),
 	}
-
-	return sm
 }
 
 // BuildDependencyGraph constructs a dependency graph from Go imports
@@ -167,7 +167,7 @@ func (a *GoAdapter) BuildDependencyGraph(files []string) (*model.DependencyGraph
 	graph := model.NewDependencyGraph()
 
 	for _, file := range files {
-		node, err := a.parseFileAndAddToGraph(file, graph)
+		node, err := goParseFileAndAddToGraph(a.fset, file, graph)
 		if err != nil {
 			continue
 		}
@@ -183,14 +183,15 @@ func (a *GoAdapter) BuildDependencyGraph(files []string) (*model.DependencyGraph
 	return graph, nil
 }
 
-// parseFileAndAddToGraph parses a Go file and adds it to the graph
-func (a *GoAdapter) parseFileAndAddToGraph(path string, graph *model.DependencyGraph) (*model.Node, error) {
-	node, err := parser.ParseFile(a.fset, path, nil, parser.ImportsOnly)
+// goParseFileAndAddToGraph parses a Go file and adds it to the dependency graph.
+// Package-level helper to keep GoAdapter method count within SRP bounds.
+func goParseFileAndAddToGraph(fset *token.FileSet, path string, graph *model.DependencyGraph) (*model.Node, error) {
+	node, err := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
 	if err != nil {
 		return nil, err
 	}
 
-	fileInfo := a.fset.File(node.Pos())
+	fileInfo := fset.File(node.Pos())
 	if fileInfo == nil {
 		return nil, nil
 	}
