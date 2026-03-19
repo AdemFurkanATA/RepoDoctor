@@ -2,6 +2,7 @@ package rules
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 )
 
@@ -52,6 +53,9 @@ func (r *RuleRegistry) GetAll() []Rule {
 	for _, rule := range r.rules {
 		rules = append(rules, rule)
 	}
+	sort.Slice(rules, func(i, j int) bool {
+		return rules[i].ID() < rules[j].ID()
+	})
 	return rules
 }
 
@@ -67,6 +71,9 @@ func (r *RuleRegistry) GetByCategory(category string) []Rule {
 			result = append(result, rule)
 		}
 	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].ID() < result[j].ID()
+	})
 	return result
 }
 
@@ -86,6 +93,7 @@ func (r *RuleRegistry) ListIDs() []string {
 	for id := range r.rules {
 		ids = append(ids, id)
 	}
+	sort.Strings(ids)
 	return ids
 }
 
