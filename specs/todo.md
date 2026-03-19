@@ -854,7 +854,7 @@ Bu sprint, v0.6'da kısmen tamamlanmış 6 özelliği tamamlayarak v0.6 mileston
 
 ---
 
-### RD-724 — Progress Indicators: Real Stage Counts
+### RD-724 — Progress Indicators: Real Stage Counts ✅
 
 - **Branch:** `fix/v0.6-rd-724-progress-real-stage-counts`
 - **Problem:** `getStageCount()` fonksiyonu "Collecting metrics" ve "Building dependency graph" stage'leri için hardcoded `10` döndürüyor. Bu, progress bar'ın gerçek ilerlemeyi yansıtmamasına neden oluyor.
@@ -866,13 +866,13 @@ Bu sprint, v0.6'da kısmen tamamlanmış 6 özelliği tamamlayarak v0.6 mileston
 - **Etkilenen dosyalar:** `progress.go`
 - **Commit mesajı:** `fix(progress): use real file counts for metrics and graph progress stages`
 - **Kabul kriterleri:**
-  - [ ] Metrics ve graph stage'leri gerçek dosya sayısına göre ilerleme gösteriyor
-  - [ ] Scanning, metrics, graph, rules stage'leri ayrı ve doğru etiketli
-  - [ ] `go test ./...` başarılı
+  - [x] Metrics ve graph stage'leri gerçek dosya sayısına göre ilerleme gösteriyor
+  - [x] Scanning, metrics, graph, rules stage'leri ayrı ve doğru etiketli
+  - [x] `go test ./...` başarılı
 
 ---
 
-### RD-725 — Colored Output: Windows Virtual Terminal Processing
+### RD-725 — Colored Output: Windows Virtual Terminal Processing ✅
 
 - **Branch:** `fix/v0.6-rd-725-colored-output-windows-vtp`
 - **Problem:** `isTerminal()` Windows'ta WT_SESSION/ANSICON/ConEmuANSI ortam değişkenlerine bakıyor ama standart Windows Terminal (cmd.exe) bu değişkenleri set etmiyor. Modern Windows 10+ VTP destekliyor ama bu kontrol yapılmıyor.
@@ -884,14 +884,14 @@ Bu sprint, v0.6'da kısmen tamamlanmış 6 özelliği tamamlayarak v0.6 mileston
 - **Etkilenen dosyalar:** `color.go`
 - **Commit mesajı:** `fix(color): improve Windows terminal detection and add TERM_PROGRAM support`
 - **Kabul kriterleri:**
-  - [ ] `NO_COLOR` env var set edildiğinde renkler kapalı
-  - [ ] `TERM=dumb` durumunda renkler kapalı
-  - [ ] Pipe/redirect durumunda renkler kapalı (ModeCharDevice)
-  - [ ] `go test ./...` başarılı
+  - [x] `NO_COLOR` env var set edildiğinde renkler kapalı
+  - [x] `TERM=dumb` durumunda renkler kapalı
+  - [x] Pipe/redirect durumunda renkler kapalı (ModeCharDevice)
+  - [x] `go test ./...` başarılı
 
 ---
 
-### RD-726 — Watch Mode: Graceful Shutdown with Signal Handling
+### RD-726 — Watch Mode: Graceful Shutdown with Signal Handling ✅
 
 - **Branch:** `fix/v0.6-rd-726-watch-graceful-shutdown`
 - **Problem:** `WatchAndAnalyze` fonksiyonu `select {}` ile sonsuza kadar bekliyor. Ctrl+C ile kapatıldığında watcher düzgün temizlenmiyor (Close() çağrılmıyor).
@@ -904,14 +904,14 @@ Bu sprint, v0.6'da kısmen tamamlanmış 6 özelliği tamamlayarak v0.6 mileston
 - **Etkilenen dosyalar:** `watcher.go`
 - **Commit mesajı:** `fix(watch): add graceful shutdown with OS signal handling`
 - **Kabul kriterleri:**
-  - [ ] Ctrl+C ile düzgün kapatılıyor, watcher.Close() çağrılıyor
-  - [ ] Kapatma sırasında kullanıcıya mesaj gösteriliyor
-  - [ ] Mevcut watch loop davranışı korunuyor
-  - [ ] `go test ./...` başarılı
+  - [x] Ctrl+C ile düzgün kapatılıyor, watcher.Close() çağrılıyor
+  - [x] Kapatma sırasında kullanıcıya mesaj gösteriliyor
+  - [x] Mevcut watch loop davranışı korunuyor
+  - [x] `go test ./...` başarılı
 
 ---
 
-### RD-727 — Rule Template Generator: Align with Internal Rule Interface
+### RD-727 — Rule Template Generator: Align with Internal Rule Interface ✅
 
 - **Branch:** `fix/v0.6-rd-727-generator-rule-interface-alignment`
 - **Problem:** Üretilen rule template'i kendi `Violation` struct'ını tanımlıyor ve `Evaluate(rootPath string) ([]Violation, error)` imzası kullanıyor. Bu, `internal/rules.Rule` interface'iyle uyumlu değil: `Evaluate(context AnalysisContext) []model.Violation`.
@@ -925,14 +925,14 @@ Bu sprint, v0.6'da kısmen tamamlanmış 6 özelliği tamamlayarak v0.6 mileston
 - **Etkilenen dosyalar:** `generator.go`, `generator_test.go`
 - **Commit mesajı:** `fix(generator): align rule template with internal Rule interface contract`
 - **Kabul kriterleri:**
-  - [ ] Üretilen template `internal/rules.Rule` interface'ini implemente ediyor
-  - [ ] Template'de bağımsız Violation struct yok
-  - [ ] Üretilen dosya Go syntax olarak geçerli (parser.ParseFile)
-  - [ ] `go test ./...` başarılı
+  - [x] Üretilen template `internal/rules.Rule` interface'ini implemente ediyor
+  - [x] Template'de bağımsız Violation struct yok
+  - [x] Üretilen dosya Go syntax olarak geçerli (parser.ParseFile)
+  - [x] `go test ./...` başarılı
 
 ---
 
-### RD-728 — CLI Error Improvements: Eliminate Duplicate Error Messages
+### RD-728 — CLI Error Improvements: Eliminate Duplicate Error Messages ✅
 
 - **Branch:** `fix/v0.6-rd-728-cli-errors-deduplicate`
 - **Problem:** `validatePath()` fonksiyonu her hata durumunda hem `err.Display()` çağırıp hem de `fmt.Fprintf(os.Stderr, ColorError(...))` ile aynı mesajı tekrar basıyor. Bu, kullanıcıya çift hata mesajı gösteriyor.
@@ -944,10 +944,10 @@ Bu sprint, v0.6'da kısmen tamamlanmış 6 özelliği tamamlayarak v0.6 mileston
 - **Etkilenen dosyalar:** `main.go`, `cli_commands.go`
 - **Commit mesajı:** `fix(cli-errors): remove duplicate error messages in validatePath and unify runWatch error handling`
 - **Kabul kriterleri:**
-  - [ ] Her hata durumunda tek bir mesaj basılıyor
-  - [ ] Tüm komut yolları `CLIError` formatından geçiyor
-  - [ ] `go test ./...` başarılı
-  - [ ] `main.go` 500 satır altında kalıyor
+  - [x] Her hata durumunda tek bir mesaj basılıyor
+  - [x] Tüm komut yolları `CLIError` formatından geçiyor
+  - [x] `go test ./...` başarılı
+  - [x] `main.go` 500 satır altında kalıyor
 
 ---
 
