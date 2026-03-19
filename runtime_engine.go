@@ -96,9 +96,9 @@ func buildReportFromRuleViolations(path string, version string, cfg *Config, vio
 		case "rule.layer-validation":
 			report.Layer = append(report.Layer, LayerViolation{From: v.File, To: "", Message: v.Message})
 		case "rule.size":
-			report.Size = append(report.Size, SizeViolation{File: v.File, Function: "", Lines: 0, Threshold: 0})
+			report.Size = append(report.Size, SizeViolation{File: v.File, Function: "", Lines: 1, Threshold: 1})
 		case "rule.god-object":
-			report.GodObject = append(report.GodObject, GodObjectViolation{StructName: v.Message, File: v.File})
+			report.GodObject = append(report.GodObject, GodObjectViolation{StructName: v.Message, File: v.File, FieldCount: 1, MethodCount: 1})
 		}
 	}
 
