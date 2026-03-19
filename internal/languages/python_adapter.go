@@ -177,13 +177,13 @@ func (a *PythonAdapter) collectFileMetrics(path string) (*model.FileMetrics, err
 		// Count function definitions
 		if strings.HasPrefix(trimmed, "def ") {
 			fm.Functions++
-			funcMetrics := a.extractFunctionMetrics(trimmed, path, i+1)
+			funcMetrics := pyExtractFunctionMetrics(trimmed, path, i+1)
 			localMetrics.AddFunctionMetrics(*funcMetrics)
 		}
 
 		// Count class definitions
 		if strings.HasPrefix(trimmed, "class ") {
-			structMetrics := a.extractClassMetrics(trimmed, path, i+1)
+			structMetrics := pyExtractClassMetrics(trimmed, path, i+1)
 			localMetrics.AddStructMetrics(*structMetrics)
 		}
 	}
@@ -191,8 +191,9 @@ func (a *PythonAdapter) collectFileMetrics(path string) (*model.FileMetrics, err
 	return fm, nil
 }
 
-// extractFunctionMetrics extracts metrics from a Python function definition
-func (a *PythonAdapter) extractFunctionMetrics(line, path string, lineNum int) *model.FunctionMetrics {
+// pyExtractFunctionMetrics extracts metrics from a Python function definition line.
+// Package-level helper to keep PythonAdapter method count within SRP bounds.
+func pyExtractFunctionMetrics(line, path string, lineNum int) *model.FunctionMetrics {
 	// Parse: def function_name(params):
 	name := "unknown"
 	params := 0
@@ -229,8 +230,9 @@ func (a *PythonAdapter) extractFunctionMetrics(line, path string, lineNum int) *
 	}
 }
 
-// extractClassMetrics extracts metrics from a Python class definition
-func (a *PythonAdapter) extractClassMetrics(line, path string, lineNum int) *model.StructMetrics {
+// pyExtractClassMetrics extracts metrics from a Python class definition line.
+// Package-level helper to keep PythonAdapter method count within SRP bounds.
+func pyExtractClassMetrics(line, path string, lineNum int) *model.StructMetrics {
 	// Parse: class ClassName:
 	name := "Unknown"
 
@@ -376,8 +378,9 @@ func (a *PythonAdapter) NormalizeImport(importPath string) string {
 	return strings.Split(trimmed, ".")[0]
 }
 
-// GetPythonVersion attempts to detect Python version from the repository
-func (a *PythonAdapter) GetPythonVersion(repoPath string) (string, error) {
+// DetectPythonVersion attempts to detect Python version from the repository.
+// Package-level helper to keep PythonAdapter method count within SRP bounds.
+func DetectPythonVersion(repoPath string) (string, error) {
 	// Check for .python-version file
 	versionFile := filepath.Join(repoPath, ".python-version")
 	if data, err := os.ReadFile(versionFile); err == nil {
