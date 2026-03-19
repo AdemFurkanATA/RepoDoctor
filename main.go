@@ -69,17 +69,41 @@ func handleAnalyzeCommand(args []string) error {
 	noColor := analyzeCmd.Bool("no-color", false, "Disable colored output")
 	analyzeCmd.Parse(args)
 
+	resolvedPath := resolveAnalyzePathArg(args, *path, analyzeCmd.Args())
+
 	outputFormat := *format
 	if *jsonOut {
 		outputFormat = "json"
 	}
 	if *watch {
-		runWatch(*path)
+		runWatch(resolvedPath)
 		return nil
 	}
 
-	runAnalyze(*path, outputFormat, *verbose, !*noColor, true)
+	runAnalyze(resolvedPath, outputFormat, *verbose, !*noColor, true)
 	return nil
+}
+
+func resolveAnalyzePathArg(rawArgs []string, pathFlag string, positional []string) string {
+	if hasExplicitPathFlag(rawArgs) {
+		return pathFlag
+	}
+
+	if len(positional) > 0 {
+		return positional[0]
+	}
+
+	return pathFlag
+}
+
+func hasExplicitPathFlag(rawArgs []string) bool {
+	for _, arg := range rawArgs {
+		if arg == "-path" || strings.HasPrefix(arg, "-path=") {
+			return true
+		}
+	}
+
+	return false
 }
 
 func handleExtractCommand(args []string) error {
@@ -321,7 +345,56 @@ func validatePath(path string) string {
 		os.Exit(1)
 	}
 
-	return absPath
+	cwd, err := filepath.Abs(".")
+	if err != nil {
+		err := HandleInvalidPathError(".", err)
+		err.Display()
+		fmt.Fprintf(os.Stderr, ColorError(fmt.Sprintf("Error: Could not resolve repository root: %v\n", err)))
+		fmt.Fprintf(os.Stderr, ColorInfo("Suggestion: Run the command from a valid repository directory\n"))
+		os.Exit(1)
+	}
+
+	canonicalCwd := cwd
+	if resolvedRoot, resolveErr := filepath.EvalSymlinks(cwd); resolveErr == nil {
+		canonicalCwd = resolvedRoot
+	}
+
+	canonicalPath := absPath
+	if resolvedPath, resolveErr := filepath.EvalSymlinks(absPath); resolveErr == nil {
+		canonicalPath = resolvedPath
+	}
+
+	if !isWithinRoot(canonicalCwd, canonicalPath) {
+		err := NewCLIError(
+			ErrorInvalidArgument,
+			fmt.Sprintf("Path escapes repository root: %s", canonicalPath),
+			"Provide a path inside the current repository",
+			nil,
+		)
+		err.Display()
+		fmt.Fprintf(os.Stderr, ColorError(fmt.Sprintf("Error: Path escapes repository root: %s\n", canonicalPath)))
+		fmt.Fprintf(os.Stderr, ColorInfo("Suggestion: Provide a path inside the current repository\n"))
+		os.Exit(1)
+	}
+
+	return canonicalPath
+}
+
+func isWithinRoot(rootPath, targetPath string) bool {
+	rel, err := filepath.Rel(rootPath, targetPath)
+	if err != nil {
+		return false
+	}
+
+	if rel == "." {
+		return true
+	}
+
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return false
+	}
+
+	return !filepath.IsAbs(rel)
 }
 
 func extractImports(absPath string, verbose bool) map[string]*ImportMetadata {
