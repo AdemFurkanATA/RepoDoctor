@@ -2,7 +2,9 @@ package main
 
 import (
 	"os"
+	"regexp"
 	"sort"
+	"strconv"
 
 	"RepoDoctor/internal/engine"
 	"RepoDoctor/internal/model"
@@ -89,6 +91,10 @@ func sortViolations(violations []model.Violation) {
 func buildReportFromRuleViolations(path string, version string, cfg *Config, violations []model.Violation) *StructuralReport {
 	report := &StructuralReport{Version: version, Path: path}
 
+	// Accumulate god object violations by file+struct so field and method
+	// violations for the same struct merge into a single report entry.
+	godObjectMap := make(map[string]*GodObjectViolation)
+
 	for _, v := range violations {
 		switch v.RuleID {
 		case "rule.circular-dependency":
@@ -96,15 +102,88 @@ func buildReportFromRuleViolations(path string, version string, cfg *Config, vio
 		case "rule.layer-validation":
 			report.Layer = append(report.Layer, LayerViolation{From: v.File, To: "", Message: v.Message})
 		case "rule.size":
-			report.Size = append(report.Size, SizeViolation{File: v.File, Function: "", Lines: 1, Threshold: 1})
+			report.Size = append(report.Size, parseSizeViolation(v))
 		case "rule.god-object":
-			report.GodObject = append(report.GodObject, GodObjectViolation{StructName: v.Message, File: v.File, FieldCount: 1, MethodCount: 1})
+			mergeGodObjectViolation(godObjectMap, v)
 		}
+	}
+
+	for _, gov := range godObjectMap {
+		report.GodObject = append(report.GodObject, *gov)
 	}
 
 	report.HasViolations = len(violations) > 0
 	report.Score = calculateScoreFromViolations(cfg, report)
 	return report
+}
+
+// Regex patterns for parsing violation messages produced by internal rules.
+// Size:       "File <path> has <N> lines (threshold: <T>)"
+//
+//	"Function '<name>' has <N> lines (threshold: <T>)"
+//
+// GodObject:  "<Struct> has <N> fields (threshold: <T>)"
+//
+//	"<Struct> has <N> methods (threshold: <T>)"
+var (
+	sizeFileRe  = regexp.MustCompile(`has (\d+) lines \(threshold: (\d+)\)`)
+	sizeFuncRe  = regexp.MustCompile(`^Function '([^']+)' has (\d+) lines \(threshold: (\d+)\)`)
+	godFieldRe  = regexp.MustCompile(`^(.+) has (\d+) fields \(threshold: \d+\)`)
+	godMethodRe = regexp.MustCompile(`^(.+) has (\d+) methods \(threshold: \d+\)`)
+)
+
+// parseSizeViolation extracts Lines, Threshold, and Function from a size
+// violation message instead of using hardcoded placeholder values.
+func parseSizeViolation(v model.Violation) SizeViolation {
+	sv := SizeViolation{File: v.File}
+
+	// Try function-level match first (more specific)
+	if m := sizeFuncRe.FindStringSubmatch(v.Message); len(m) == 4 {
+		sv.Function = m[1]
+		sv.Lines, _ = strconv.Atoi(m[2])
+		sv.Threshold, _ = strconv.Atoi(m[3])
+		return sv
+	}
+
+	// Fall back to file-level match
+	if m := sizeFileRe.FindStringSubmatch(v.Message); len(m) == 3 {
+		sv.Lines, _ = strconv.Atoi(m[1])
+		sv.Threshold, _ = strconv.Atoi(m[2])
+	}
+
+	return sv
+}
+
+// mergeGodObjectViolation accumulates field and method counts for the same
+// struct into a single GodObjectViolation entry keyed by file + struct name.
+func mergeGodObjectViolation(m map[string]*GodObjectViolation, v model.Violation) {
+	structName := ""
+	fieldCount := 0
+	methodCount := 0
+
+	if match := godFieldRe.FindStringSubmatch(v.Message); len(match) == 3 {
+		structName = match[1]
+		fieldCount, _ = strconv.Atoi(match[2])
+	} else if match := godMethodRe.FindStringSubmatch(v.Message); len(match) == 3 {
+		structName = match[1]
+		methodCount, _ = strconv.Atoi(match[2])
+	} else {
+		// Unrecognised format — preserve raw message as struct name
+		structName = v.Message
+	}
+
+	key := v.File + "#" + structName
+	if existing, ok := m[key]; ok {
+		existing.FieldCount += fieldCount
+		existing.MethodCount += methodCount
+	} else {
+		m[key] = &GodObjectViolation{
+			StructName:  structName,
+			File:        v.File,
+			FieldCount:  fieldCount,
+			MethodCount: methodCount,
+		}
+	}
 }
 
 func calculateScoreFromViolations(cfg *Config, report *StructuralReport) *StructuralScore {
