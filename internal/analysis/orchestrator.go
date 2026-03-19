@@ -37,6 +37,14 @@ func (o *Orchestrator) Analyze(repoPath string) (*Result, error) {
 		return nil, fmt.Errorf("language detection failed: %w", err)
 	}
 
+	capabilities := adapter.Capabilities()
+	if !capabilities.SupportsDependencyGraph {
+		return nil, fmt.Errorf("adapter %s does not support dependency graph capability", adapter.Name())
+	}
+	if !capabilities.SupportsMetrics {
+		return nil, fmt.Errorf("adapter %s does not support metrics capability", adapter.Name())
+	}
+
 	files, err := adapter.DetectFiles(repoPath)
 	if err != nil {
 		return nil, fmt.Errorf("file detection failed for %s: %w", adapter.Name(), err)
