@@ -108,33 +108,21 @@ func (g *RuleTemplateGenerator) renderRuleTemplate(data ruleTemplateData) (strin
 func (g *RuleTemplateGenerator) ruleTemplateText() string {
 	return `package rules
 
-import "fmt"
+import (
+	"RepoDoctor/internal/model"
+)
 
 // {{.TypeName}}Rule detects {{.RuleName}} violations.
-type {{.TypeName}}Rule struct {
-	enabled bool
-}
+type {{.TypeName}}Rule struct{}
 
 // New{{.TypeName}}Rule creates a new {{.TypeName}}Rule instance.
 func New{{.TypeName}}Rule() *{{.TypeName}}Rule {
-	return &{{.TypeName}}Rule{
-		enabled: true,
-	}
+	return &{{.TypeName}}Rule{}
 }
 
 // ID returns the unique identifier for this rule.
 func (r *{{.TypeName}}Rule) ID() string {
-	return "{{.RuleID}}"
-}
-
-// Name returns the human-readable name of the rule.
-func (r *{{.TypeName}}Rule) Name() string {
-	return "{{.RuleName}}"
-}
-
-// Description returns what this rule checks.
-func (r *{{.TypeName}}Rule) Description() string {
-	return "TODO: describe {{.RuleName}} rule behavior"
+	return "rule.{{.RuleID}}"
 }
 
 // Category returns the rule category.
@@ -147,40 +135,26 @@ func (r *{{.TypeName}}Rule) Severity() string {
 	return "warning"
 }
 
-// Enabled indicates whether this rule is enabled by default.
-func (r *{{.TypeName}}Rule) Enabled() bool {
-	return r.enabled
-}
-
-// SetEnabled toggles the rule state.
-func (r *{{.TypeName}}Rule) SetEnabled(enabled bool) {
-	r.enabled = enabled
-}
-
-// Configure validates and applies optional settings.
-func (r *{{.TypeName}}Rule) Configure(config map[string]interface{}) error {
-	_ = config
-	return nil
-}
-
-// Evaluate checks for {{.RuleName}} violations in the repository
-func (r *{{.TypeName}}Rule) Evaluate(rootPath string) ([]Violation, error) {
-	if rootPath == "" {
-		return nil, fmt.Errorf("rootPath cannot be empty")
-	}
-
-	var violations []Violation
+// Evaluate checks for {{.RuleName}} violations in the analysis context.
+// This signature matches internal/rules.Rule interface.
+func (r *{{.TypeName}}Rule) Evaluate(context AnalysisContext) []model.Violation {
+	var violations []model.Violation
 	// TODO: Implement rule evaluation logic
-	return violations, nil
+	return violations
 }
 
-// Violation represents a rule violation
-type Violation struct {
-	RuleID   string
-	File     string
-	Message  string
-	Severity string
-	Line     int
+// AnalysisContext mirrors internal/rules.AnalysisContext.
+// NOTE: When moving this rule into internal/rules/, remove this type
+// and use the AnalysisContext defined in that package instead.
+type AnalysisContext struct {
+	RepositoryFiles []RepositoryFile
+}
+
+// RepositoryFile represents a source file for analysis.
+type RepositoryFile struct {
+	Path    string
+	Content string
+	Imports []string
 }
 `
 }
@@ -188,82 +162,49 @@ type Violation struct {
 const simpleRuleTemplate = `package rules
 
 import (
-	"fmt"
+	"RepoDoctor/internal/model"
 )
 
-// %sRule detects %s violations
-type %sRule struct {
-	enabled bool
-}
+// %sRule detects %s violations.
+type %sRule struct{}
 
-// New%sRule creates a new %sRule instance
+// New%sRule creates a new %sRule instance.
 func New%sRule() *%sRule {
-	return &%sRule{
-		enabled: true,
-	}
+	return &%sRule{}
 }
 
-// ID returns the unique identifier for this rule
+// ID returns the unique identifier for this rule.
 func (r *%sRule) ID() string {
-	return "%s"
+	return "rule.%s"
 }
 
-// Name returns the human-readable name of the rule
-func (r *%sRule) Name() string {
-	return "%s Rule"
-}
-
-// Description returns a detailed description of what the rule checks
-func (r *%sRule) Description() string {
-	return "TODO: Add description for %s rule"
-}
-
-// Category returns the category of this rule
+// Category returns the rule category.
 func (r *%sRule) Category() string {
-	return "TODO"
+	return "maintainability"
 }
 
-// Severity returns the severity level of violations
+// Severity returns the default severity.
 func (r *%sRule) Severity() string {
 	return "warning"
 }
 
-// Enabled returns whether the rule is enabled
-func (r *%sRule) Enabled() bool {
-	return r.enabled
-}
-
-// SetEnabled enables or disables the rule
-func (r *%sRule) SetEnabled(enabled bool) {
-	r.enabled = enabled
-}
-
-// Configure sets rule-specific configuration
-func (r *%sRule) Configure(config map[string]interface{}) error {
-	_ = config
-	return nil
-}
-
-// Evaluate checks for %s violations in the repository
-func (r *%sRule) Evaluate(rootPath string) ([]Violation, error) {
-	if rootPath == "" {
-		return nil, fmt.Errorf("rootPath cannot be empty")
-	}
-
-	var violations []Violation
-
+// Evaluate checks for %s violations in the analysis context.
+func (r *%sRule) Evaluate(context AnalysisContext) []model.Violation {
+	var violations []model.Violation
 	// TODO: Implement rule evaluation logic
-
-	return violations, nil
+	return violations
 }
 
-// Violation represents a rule violation
-type Violation struct {
-	RuleID   string
-	File     string
-	Message  string
-	Severity string
-	Line     int
+// AnalysisContext mirrors internal/rules.AnalysisContext.
+type AnalysisContext struct {
+	RepositoryFiles []RepositoryFile
+}
+
+// RepositoryFile represents a source file for analysis.
+type RepositoryFile struct {
+	Path    string
+	Content string
+	Imports []string
 }
 `
 
@@ -274,16 +215,12 @@ func (g *RuleTemplateGenerator) generateSimpleTemplate(ruleName, typeName string
 	return fmt.Sprintf(
 		simpleRuleTemplate,
 		typeName, ruleName, typeName,
-		typeName, typeName, typeName, typeName, typeName, typeName,
+		typeName, typeName, typeName, typeName, typeName,
 		typeName, ruleID,
-		typeName, ruleName,
-		typeName, ruleName,
-		typeName,
-		typeName,
-		typeName,
 		typeName,
 		typeName,
 		ruleName,
+		typeName,
 	)
 }
 
@@ -326,47 +263,38 @@ import (
 func Test%sRule_ID(t *testing.T) {
 	rule := New%sRule()
 	
-	expected := "%s"
+	expected := "rule.%s"
 	if rule.ID() != expected {
 		t.Errorf("Expected ID %%s, got %%s", expected, rule.ID())
 	}
 }
 
-func Test%sRule_Name(t *testing.T) {
+func Test%sRule_Category(t *testing.T) {
 	rule := New%sRule()
 	
-	expected := "%s"
-	if rule.Name() != expected {
-		t.Errorf("Expected Name %%s, got %%s", expected, rule.Name())
+	if rule.Category() == "" {
+		t.Error("Expected non-empty category")
 	}
 }
 
-func Test%sRule_Enabled(t *testing.T) {
+func Test%sRule_Severity(t *testing.T) {
 	rule := New%sRule()
 	
-	if !rule.Enabled() {
-		t.Error("Expected rule to be enabled by default")
-	}
-	
-	rule.SetEnabled(false)
-	if rule.Enabled() {
-		t.Error("Expected rule to be disabled after SetEnabled(false)")
+	if rule.Severity() == "" {
+		t.Error("Expected non-empty severity")
 	}
 }
 
 func Test%sRule_Evaluate(t *testing.T) {
 	rule := New%sRule()
 	
-	if _, err := rule.Evaluate(""); err == nil {
-		t.Fatal("expected error for empty rootPath")
-	}
-	
-	if _, err := rule.Evaluate("."); err != nil {
-		t.Fatalf("unexpected error: %%v", err)
+	violations := rule.Evaluate(AnalysisContext{})
+	if violations == nil {
+		t.Fatal("expected non-nil violations slice")
 	}
 }
 `, typeName, typeName, strings.ReplaceAll(ruleName, "-", "_"),
-		typeName, typeName, ruleName,
+		typeName, typeName,
 		typeName, typeName,
 		typeName, typeName)
 }
