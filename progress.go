@@ -97,17 +97,19 @@ func (p *ProgressReporter) GetElapsedTime() time.Duration {
 	return time.Since(p.startTime)
 }
 
-// getStageCount returns the number of steps for a given stage
+// getStageCount returns the number of steps for a given stage.
+// Uses real file counts for scanning, metrics, and graph stages
+// to provide accurate progress indication.
 func getStageCount(stage string, repoPath string) int {
 	switch stage {
 	case "Scanning repository":
 		return countFiles(repoPath)
 	case "Collecting metrics":
-		return 10 // Approximate progress steps
+		return countFiles(repoPath) // one metric collection pass per file
 	case "Building dependency graph":
-		return 10 // Approximate progress steps
+		return countFiles(repoPath) // one graph node per file
 	case "Running rules":
-		return 4 // One for each rule type
+		return 4 // one step per rule type (size, god-object, circular, layer)
 	}
 	return 10
 }
