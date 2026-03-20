@@ -312,6 +312,8 @@ func runAdapterPipeline(absPath string) (*analysis.Result, error) {
 	detector := languages.NewRepositoryLanguageDetector(ignoreStrategy)
 	detector.RegisterAdapter(languages.NewGoAdapter())
 	detector.RegisterAdapter(languages.NewPythonAdapter())
+	detector.RegisterAdapter(languages.NewJavaScriptAdapter())
+	detector.RegisterAdapter(languages.NewTypeScriptAdapter())
 
 	orchestrator := analysis.NewOrchestrator(detector)
 	return orchestrator.Analyze(absPath)

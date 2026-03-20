@@ -83,6 +83,18 @@ func markerBoost(repoPath, language string) float64 {
 		}
 	}
 
+	if language == "TypeScript" {
+		if _, err := os.Stat(filepath.Join(repoPath, "tsconfig.json")); err == nil {
+			return 5.0
+		}
+	}
+
+	if language == "JavaScript" {
+		if _, err := os.Stat(filepath.Join(repoPath, "package.json")); err == nil {
+			return 3.0
+		}
+	}
+
 	return 0
 }
 
@@ -303,7 +315,7 @@ func (d *RepositoryLanguageDetector) findDominantLanguage(stats map[string]*Lang
 			return left.Count > right.Count
 		}
 
-		priority := map[string]int{"Python": 0, "Go": 1}
+		priority := map[string]int{"Python": 0, "TypeScript": 1, "JavaScript": 2, "Go": 3}
 		lp, lok := priority[left.Language]
 		rp, rok := priority[right.Language]
 		if lok && rok && lp != rp {
