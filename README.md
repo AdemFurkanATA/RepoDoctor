@@ -430,6 +430,24 @@ go run . analyze -path .
 # No violations detected
 ```
 
+### Mandatory v0.9 Merge Gates
+
+Before merging any issue PR to `dev`, run locally:
+
+```bash
+go test ./...
+go vet ./...
+go run . analyze -path .  # must remain 100/100
+```
+
+If the issue touches concurrency/shared-state paths (`internal/languages`, `internal/rules`, `internal/engine`, `internal/analysis`), also run:
+
+```bash
+go test -race ./...
+```
+
+Workflow policy: one issue = one branch, separate commit(s), separate push, separate PR to `dev`.
+
 ---
 
 ## Roadmap
