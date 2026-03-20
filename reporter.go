@@ -190,7 +190,7 @@ func (r *Reporter) formatJSONV1(report *StructuralReport) string {
 	sb.WriteString(fmt.Sprintf("  \"path\": \"%s\",\n", report.Path))
 
 	r.formatScoreSection(&sb, report)
-	r.formatViolationsSection(&sb, report)
+	formatViolationsSection(&sb, report)
 	r.formatCircularViolations(&sb, report)
 	r.formatLayerViolations(&sb, report)
 	r.formatSizeViolations(&sb, report)
@@ -273,7 +273,7 @@ func (r *Reporter) formatScoreSection(sb *strings.Builder, report *StructuralRep
 }
 
 // formatViolationsSection formats the violations summary section
-func (r *Reporter) formatViolationsSection(sb *strings.Builder, report *StructuralReport) {
+func formatViolationsSection(sb *strings.Builder, report *StructuralReport) {
 	sb.WriteString("  \"violations\": {\n")
 	sb.WriteString(fmt.Sprintf("    \"circular\": %d,\n", report.Score.CircularCount))
 	sb.WriteString(fmt.Sprintf("    \"layer\": %d,\n", report.Score.LayerCount))
