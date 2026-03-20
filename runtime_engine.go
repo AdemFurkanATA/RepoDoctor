@@ -56,6 +56,7 @@ func buildRulesAnalysisContext(absPath string, graph Graph) rules.AnalysisContex
 		RepositoryFiles: repoFiles,
 		DependencyGraph: toRulesDependencyGraph(graph),
 		Configuration:   rules.Configuration{"repositoryPath": absPath},
+		Languages:       []string{"Go", "Python", "JavaScript", "TypeScript"},
 	}
 }
 

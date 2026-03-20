@@ -14,6 +14,20 @@ type AnalysisContext struct {
 	DependencyGraph DependencyGraph
 	// Configuration contains rule configuration settings
 	Configuration Configuration
+	// Languages contains detected language context for multi-language-aware rule dispatch.
+	Languages []string
+}
+
+type RuleCapabilities struct {
+	SupportedLanguages        []string
+	SupportsMultipleLanguages bool
+}
+
+// LanguageAwareRule is an optional extension for rules that participate in
+// language-targeted dispatch while keeping core engine language-agnostic.
+type LanguageAwareRule interface {
+	Rule
+	Capabilities() RuleCapabilities
 }
 
 // RepositoryFile represents a Go file in the repository

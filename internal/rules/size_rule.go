@@ -41,6 +41,10 @@ func (r *SizeRule) Severity() string {
 	return string(model.SeverityWarning)
 }
 
+func (r *SizeRule) Capabilities() RuleCapabilities {
+	return RuleCapabilities{SupportedLanguages: []string{"Go"}, SupportsMultipleLanguages: false}
+}
+
 // Evaluate executes the rule logic against the provided context
 func (r *SizeRule) Evaluate(context AnalysisContext) []model.Violation {
 	var violations []model.Violation
