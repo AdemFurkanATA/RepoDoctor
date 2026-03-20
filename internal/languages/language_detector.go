@@ -449,82 +449,17 @@ func (d *RepositoryLanguageDetector) GetLanguageStats(repoPath string) ([]Langua
 		return nil, err
 	}
 
-	stats := make(map[string]*LanguageStat)
-	matchedFiles := make(map[string][]string)
-	adapters := d.orderedAdapters()
-
-	err = filepath.WalkDir(normalizedRepoPath, func(path string, dEntry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-
-		normalizedPath, ok := normalizePathWithinRoot(normalizedRepoPath, path)
-		if !ok {
-			if dEntry.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-
-		if dEntry.IsDir() {
-			if normalizedPath == normalizedRepoPath {
-				return nil
-			}
-			if strings.HasPrefix(dEntry.Name(), ".") || (d.ignoreStrategy != nil && d.ignoreStrategy.ShouldIgnore(normalizedPath, dEntry.Name())) {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-
-		if dEntry.Type()&fs.ModeSymlink != 0 {
-			return nil
-		}
-		if strings.HasPrefix(dEntry.Name(), ".") {
-			return nil
-		}
-
-		ext := strings.ToLower(filepath.Ext(normalizedPath))
-		role := classifyPathRole(normalizedPath)
-		weight := roleWeight(role)
-		weight *= d.segmentWeight(normalizedPath)
-
-		for _, adapter := range adapters {
-			for _, supportedExt := range adapter.FileExtensions() {
-				if ext != strings.ToLower(supportedExt) {
-					continue
-				}
-
-				lang := adapter.Name()
-				if stats[lang] == nil {
-					stats[lang] = &LanguageStat{Language: lang}
-				}
-
-				stats[lang].Count++
-				matchedFiles[lang] = append(matchedFiles[lang], normalizedPath)
-				lines, _ := countLines(normalizedPath)
-				stats[lang].Lines += lines
-				stats[lang].Score += (0.35*weight + float64(lines)*weight) * d.languageWeight(lang)
-				if role == roleProduct {
-					stats[lang].ProductScore += float64(lines) + 0.35
-				}
-				break
-			}
-		}
-
-		return nil
-	})
+	scanCtx := newDetectionScanContext(d.orderedAdapters())
+	err = scanRepository(d, normalizedRepoPath, scanCtx)
 	if err != nil {
 		return nil, fmt.Errorf("error scanning repository: %w", err)
 	}
 
-	d.applyAdapterEvidence(normalizedRepoPath, adapters, matchedFiles, stats)
+	d.applyAdapterEvidence(normalizedRepoPath, scanCtx.adapters, scanCtx.matchedFiles, scanCtx.stats)
+	applyMarkerBoost(normalizedRepoPath, scanCtx.stats)
 
-	for lang, stat := range stats {
-		stat.Score += markerBoost(normalizedRepoPath, lang)
-	}
-
-	result := make([]LanguageStat, 0, len(stats))
-	for _, stat := range stats {
+	result := make([]LanguageStat, 0, len(scanCtx.stats))
+	for _, stat := range scanCtx.stats {
 		result = append(result, *stat)
 	}
 	sort.SliceStable(result, func(i, j int) bool { return result[i].Language < result[j].Language })
