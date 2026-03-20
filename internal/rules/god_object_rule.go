@@ -43,6 +43,10 @@ func (r *GodObjectRule) Severity() string {
 	return string(model.SeverityWarning)
 }
 
+func (r *GodObjectRule) Capabilities() RuleCapabilities {
+	return RuleCapabilities{SupportedLanguages: []string{"Go"}, SupportsMultipleLanguages: false}
+}
+
 // Evaluate executes the rule logic against the provided context
 func (r *GodObjectRule) Evaluate(context AnalysisContext) []model.Violation {
 	var violations []model.Violation

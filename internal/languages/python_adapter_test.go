@@ -3,6 +3,7 @@ package languages
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -261,5 +262,65 @@ func TestPythonAdapter_ExtractImports_RejectsLargeFile(t *testing.T) {
 	adapter := NewPythonAdapter()
 	if _, _, err := adapter.extractImports(path); err == nil {
 		t.Fatal("expected extractImports to reject oversized file")
+	}
+}
+
+func TestPythonAdapter_CollectEvidence_RelativeImports(t *testing.T) {
+	repo := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repo, "pkg", "app"), 0o755); err != nil {
+		t.Fatalf("failed to create package dirs: %v", err)
+	}
+	for _, rel := range []string{"pkg/__init__.py", "pkg/app/__init__.py"} {
+		if err := os.WriteFile(filepath.Join(repo, rel), []byte(""), 0o644); err != nil {
+			t.Fatalf("failed to write __init__: %v", err)
+		}
+	}
+
+	source := filepath.Join(repo, "pkg", "app", "main.py")
+	content := "from .service import run\nfrom ..shared import helper\n"
+	if err := os.WriteFile(source, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write source: %v", err)
+	}
+
+	adapter := NewPythonAdapter()
+	signals, warnings, err := adapter.CollectEvidence(repo, []string{source})
+	if err != nil {
+		t.Fatalf("CollectEvidence failed: %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("expected no warnings, got %v", warnings)
+	}
+	if len(signals) < 2 {
+		t.Fatalf("expected evidence signals for relative imports, got %d", len(signals))
+	}
+
+	for _, signal := range signals {
+		if signal.Language != "Python" {
+			t.Fatalf("unexpected language evidence: %s", signal.Language)
+		}
+		if !strings.HasPrefix(signal.SignalType, "python_import_") {
+			t.Fatalf("unexpected signal type: %s", signal.SignalType)
+		}
+	}
+}
+
+func TestPythonAdapter_CollectEvidence_SkipsOutsidePath(t *testing.T) {
+	repo := t.TempDir()
+	outside := t.TempDir()
+	outsideFile := filepath.Join(outside, "outside.py")
+	if err := os.WriteFile(outsideFile, []byte("import os\n"), 0o644); err != nil {
+		t.Fatalf("failed writing outside file: %v", err)
+	}
+
+	adapter := NewPythonAdapter()
+	signals, warnings, err := adapter.CollectEvidence(repo, []string{outsideFile})
+	if err != nil {
+		t.Fatalf("CollectEvidence failed: %v", err)
+	}
+	if len(signals) != 0 {
+		t.Fatalf("expected zero signals for outside path, got %d", len(signals))
+	}
+	if len(warnings) == 0 {
+		t.Fatal("expected warning for outside path")
 	}
 }

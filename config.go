@@ -1,19 +1,28 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
 
 // Config represents the root configuration structure
 type Config struct {
-	Size      *SizeConfig      `yaml:"size,omitempty"`
-	GodObject *GodObjectConfig `yaml:"god_object,omitempty"`
-	Rules     *RulesConfig     `yaml:"rules,omitempty"`
-	Weights   *WeightsConfig   `yaml:"weights,omitempty"`
+	Size              *SizeConfig              `yaml:"size,omitempty"`
+	GodObject         *GodObjectConfig         `yaml:"god_object,omitempty"`
+	Rules             *RulesConfig             `yaml:"rules,omitempty"`
+	Weights           *WeightsConfig           `yaml:"weights,omitempty"`
+	LanguageDetection *LanguageDetectionConfig `yaml:"language_detection,omitempty"`
+}
+
+type LanguageDetectionConfig struct {
+	Weights        map[string]float64 `yaml:"weights,omitempty"`
+	TieBreakOrder  []string           `yaml:"tie_break_order,omitempty"`
+	SegmentWeights map[string]float64 `yaml:"segment_weights,omitempty"`
 }
 
 // SizeConfig holds size rule configuration
@@ -80,6 +89,9 @@ func (l *ConfigLoader) Load() (*Config, error) {
 
 	// Parse YAML
 	var config Config
+	if err := rejectUnknownConfigKeys(data); err != nil {
+		return nil, err
+	}
 	if err := yaml.Unmarshal(data, &config); err != nil {
 		return nil, fmt.Errorf("invalid YAML in config file: %w", err)
 	}
@@ -138,6 +150,30 @@ func (l *ConfigLoader) validate(cfg *Config) error {
 		}
 	}
 
+	if cfg.LanguageDetection != nil {
+		for lang, weight := range cfg.LanguageDetection.Weights {
+			if lang == "" {
+				return fmt.Errorf("language_detection.weights contains empty language key")
+			}
+			if weight < 0 || weight > 100 {
+				return fmt.Errorf("language_detection weight for '%s' must be between 0 and 100", lang)
+			}
+		}
+		for _, lang := range cfg.LanguageDetection.TieBreakOrder {
+			if strings.TrimSpace(lang) == "" {
+				return fmt.Errorf("language_detection.tie_break_order cannot include empty values")
+			}
+		}
+		for segment, value := range cfg.LanguageDetection.SegmentWeights {
+			if strings.TrimSpace(segment) == "" {
+				return fmt.Errorf("language_detection.segment_weights contains empty segment key")
+			}
+			if value < 0 || value > 10 {
+				return fmt.Errorf("language_detection segment weight for '%s' must be between 0 and 10", segment)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -174,6 +210,22 @@ func (l *ConfigLoader) getDefaultConfig() *Config {
 			Layer:     5.0,
 			Size:      3.0,
 			GodObject: 5.0,
+		},
+		LanguageDetection: &LanguageDetectionConfig{
+			Weights: map[string]float64{
+				"Go":         1.0,
+				"Python":     1.0,
+				"JavaScript": 1.0,
+				"TypeScript": 1.0,
+			},
+			TieBreakOrder: []string{"Python", "TypeScript", "JavaScript", "Go"},
+			SegmentWeights: map[string]float64{
+				"src":     1.0,
+				"app":     1.0,
+				"pkg":     1.0,
+				"tools":   0.2,
+				"scripts": 0.2,
+			},
 		},
 	}
 }
@@ -254,7 +306,51 @@ func (l *ConfigLoader) mergeWithDefaults(cfg *Config) *Config {
 		}
 	}
 
+	if cfg.LanguageDetection == nil {
+		cfg.LanguageDetection = defaults.LanguageDetection
+	} else {
+		if cfg.LanguageDetection.Weights == nil {
+			cfg.LanguageDetection.Weights = defaults.LanguageDetection.Weights
+		}
+		if len(cfg.LanguageDetection.TieBreakOrder) == 0 {
+			cfg.LanguageDetection.TieBreakOrder = defaults.LanguageDetection.TieBreakOrder
+		}
+		if cfg.LanguageDetection.SegmentWeights == nil {
+			cfg.LanguageDetection.SegmentWeights = defaults.LanguageDetection.SegmentWeights
+		}
+	}
+
 	return cfg
+}
+
+func rejectUnknownConfigKeys(data []byte) error {
+	var raw map[string]interface{}
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return fmt.Errorf("invalid YAML in config file: %w", err)
+	}
+
+	allowed := map[string]bool{
+		"size": true, "god_object": true, "rules": true, "weights": true, "language_detection": true,
+	}
+	for key := range raw {
+		if !allowed[key] {
+			return fmt.Errorf("config validation error: unknown config key '%s'", key)
+		}
+	}
+
+	if ldRaw, ok := raw["language_detection"]; ok {
+		encoded, _ := json.Marshal(ldRaw)
+		var ld map[string]interface{}
+		_ = json.Unmarshal(encoded, &ld)
+		allowedLD := map[string]bool{"weights": true, "tie_break_order": true, "segment_weights": true}
+		for key := range ld {
+			if !allowedLD[key] {
+				return fmt.Errorf("config validation error: unknown language_detection key '%s'", key)
+			}
+		}
+	}
+
+	return nil
 }
 
 // GetConfigPath returns the default config path for a given directory

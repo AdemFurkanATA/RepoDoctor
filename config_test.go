@@ -186,3 +186,58 @@ rules:
 		t.Error("Expected EnableGodObjectRule to be false")
 	}
 }
+
+func TestConfigLoader_RejectsUnknownTopLevelKey(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+
+	configContent := "unknown_key: true\n"
+	if err := os.WriteFile(configPath, []byte(configContent), 0o644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	loader := NewConfigLoader(configPath)
+	_, err := loader.Load()
+	if err == nil {
+		t.Fatal("expected error for unknown top-level key")
+	}
+}
+
+func TestConfigLoader_RejectsUnknownLanguageDetectionKey(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+
+	configContent := `
+language_detection:
+  unknown: 1
+`
+	if err := os.WriteFile(configPath, []byte(configContent), 0o644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	loader := NewConfigLoader(configPath)
+	_, err := loader.Load()
+	if err == nil {
+		t.Fatal("expected error for unknown language_detection key")
+	}
+}
+
+func TestConfigLoader_LanguageDetectionValidation(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+
+	configContent := `
+language_detection:
+  weights:
+    Go: -1
+`
+	if err := os.WriteFile(configPath, []byte(configContent), 0o644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	loader := NewConfigLoader(configPath)
+	_, err := loader.Load()
+	if err == nil {
+		t.Fatal("expected validation error for negative language weight")
+	}
+}

@@ -1,7 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -9,8 +13,9 @@ import (
 type OutputFormat string
 
 const (
-	FormatText OutputFormat = "text"
-	FormatJSON OutputFormat = "json"
+	FormatText   OutputFormat = "text"
+	FormatJSON   OutputFormat = "json"
+	FormatJSONV1 OutputFormat = "json-v1"
 )
 
 // ColoredReporter extends Reporter with colored output support
@@ -31,12 +36,28 @@ func NewColoredReporter(format OutputFormat, colorEnabled bool) *ColoredReporter
 type StructuralReport struct {
 	Version       string
 	Path          string
+	SchemaVersion string
 	Score         *StructuralScore
 	Circular      []CycleViolation
 	Layer         []LayerViolation
 	Size          []SizeViolation
 	GodObject     []GodObjectViolation
+	Summary       ReportSummary
+	Language      LanguageEvidenceSummary
 	HasViolations bool
+}
+
+type ReportSummary struct {
+	TotalViolations int `json:"totalViolations"`
+	Circular        int `json:"circular"`
+	Layer           int `json:"layer"`
+	Size            int `json:"size"`
+	GodObject       int `json:"godObject"`
+}
+
+type LanguageEvidenceSummary struct {
+	DetectedLanguage string  `json:"detectedLanguage"`
+	Confidence       float64 `json:"confidence"`
 }
 
 // Reporter handles formatting and displaying structural analysis results
@@ -58,11 +79,20 @@ func (r *Reporter) GenerateReport(scorer *StructuralScorer, path, version string
 	return &StructuralReport{
 		Version:       version,
 		Path:          path,
+		SchemaVersion: "v2",
 		Score:         scorer.CalculateScore(),
 		Circular:      violations.Circular,
 		Layer:         violations.Layer,
 		Size:          violations.Size,
 		GodObject:     violations.GodObject,
+		Summary: ReportSummary{
+			TotalViolations: len(violations.Circular) + len(violations.Layer) + len(violations.Size) + len(violations.GodObject),
+			Circular:        len(violations.Circular),
+			Layer:           len(violations.Layer),
+			Size:            len(violations.Size),
+			GodObject:       len(violations.GodObject),
+		},
+		Language:      LanguageEvidenceSummary{DetectedLanguage: "unknown", Confidence: 0.0},
 		HasViolations: len(violations.Circular) > 0 || len(violations.Layer) > 0 || len(violations.Size) > 0 || len(violations.GodObject) > 0,
 	}
 }
@@ -72,6 +102,8 @@ func (r *Reporter) Format(report *StructuralReport) string {
 	switch r.format {
 	case FormatJSON:
 		return r.formatJSON(report)
+	case FormatJSONV1:
+		return r.formatJSONV1(report)
 	default:
 		return r.formatText(report)
 	}
@@ -114,22 +146,118 @@ func formatCyclePath(path []string) string {
 
 // formatJSON formats the report as JSON
 func (r *Reporter) formatJSON(report *StructuralReport) string {
+	relPath := normalizeReportPath(report.Path)
+	payload := map[string]interface{}{
+		"version":       report.Version,
+		"schemaVersion": report.SchemaVersion,
+		"path":          relPath,
+		"score": map[string]interface{}{
+			"total":            report.Score.TotalScore,
+			"max":              report.Score.MaxScore,
+			"circularPenalty":  report.Score.CircularPenalty,
+			"layerPenalty":     report.Score.LayerPenalty,
+			"sizePenalty":      report.Score.SizePenalty,
+			"godObjectPenalty": report.Score.GodObjectPenalty,
+		},
+		"summary": map[string]interface{}{
+			"totalViolations": report.Summary.TotalViolations,
+			"circular":        report.Summary.Circular,
+			"layer":           report.Summary.Layer,
+			"size":            report.Summary.Size,
+			"godObject":       report.Summary.GodObject,
+		},
+		"language": map[string]interface{}{
+			"detectedLanguage": report.Language.DetectedLanguage,
+			"confidence":       report.Language.Confidence,
+		},
+		"circularViolations":  sortedCircular(report.Circular),
+		"layerViolations":     sortedLayer(report.Layer),
+		"sizeViolations":      sortedSize(report.Size),
+		"godObjectViolations": sortedGodObject(report.GodObject),
+	}
+	data, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		return "{}\n"
+	}
+	return string(data) + "\n"
+}
+
+func (r *Reporter) formatJSONV1(report *StructuralReport) string {
 	var sb strings.Builder
 
 	sb.WriteString("{\n")
 	sb.WriteString(fmt.Sprintf("  \"version\": \"%s\",\n", report.Version))
 	sb.WriteString(fmt.Sprintf("  \"path\": \"%s\",\n", report.Path))
-	
+
 	r.formatScoreSection(&sb, report)
 	r.formatViolationsSection(&sb, report)
 	r.formatCircularViolations(&sb, report)
 	r.formatLayerViolations(&sb, report)
 	r.formatSizeViolations(&sb, report)
 	r.formatGodObjectViolations(&sb, report)
-	
+
 	sb.WriteString("}\n")
 
 	return sb.String()
+}
+
+func normalizeReportPath(path string) string {
+	cleaned := filepath.ToSlash(filepath.Clean(path))
+	if wd, err := os.Getwd(); err == nil {
+		if rel, relErr := filepath.Rel(wd, cleaned); relErr == nil && !strings.HasPrefix(rel, "..") {
+			return filepath.ToSlash(rel)
+		}
+	}
+	return cleaned
+}
+
+func sortedCircular(in []CycleViolation) []CycleViolation {
+	result := append([]CycleViolation(nil), in...)
+	sort.SliceStable(result, func(i, j int) bool {
+		left := strings.Join(result[i].Path, "/")
+		right := strings.Join(result[j].Path, "/")
+		return left < right
+	})
+	return result
+}
+
+func sortedLayer(in []LayerViolation) []LayerViolation {
+	result := append([]LayerViolation(nil), in...)
+	sort.SliceStable(result, func(i, j int) bool {
+		if result[i].From != result[j].From {
+			return result[i].From < result[j].From
+		}
+		if result[i].To != result[j].To {
+			return result[i].To < result[j].To
+		}
+		return result[i].Message < result[j].Message
+	})
+	return result
+}
+
+func sortedSize(in []SizeViolation) []SizeViolation {
+	result := append([]SizeViolation(nil), in...)
+	sort.SliceStable(result, func(i, j int) bool {
+		if result[i].File != result[j].File {
+			return result[i].File < result[j].File
+		}
+		if result[i].Function != result[j].Function {
+			return result[i].Function < result[j].Function
+		}
+		return result[i].Lines < result[j].Lines
+	})
+	return result
+}
+
+func sortedGodObject(in []GodObjectViolation) []GodObjectViolation {
+	result := append([]GodObjectViolation(nil), in...)
+	sort.SliceStable(result, func(i, j int) bool {
+		if result[i].File != result[j].File {
+			return result[i].File < result[j].File
+		}
+		return result[i].StructName < result[j].StructName
+	})
+	return result
 }
 
 // formatScoreSection formats the score section of JSON output

@@ -42,37 +42,25 @@ func (d *DummyAdapter) Capabilities() languages.AdapterCapabilities {
 func (d *DummyAdapter) NormalizeImport(importPath string) string { return importPath }
 
 func TestLanguageDetector_DetectLanguage(t *testing.T) {
-	// Create a temporary directory structure
 	tempDir, err := os.MkdirTemp("", "detector_test")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tempDir)
 
-	// Create some normal files
-	os.WriteFile(filepath.Join(tempDir, "main.go"), []byte("package main"), 0644)
-	os.WriteFile(filepath.Join(tempDir, "utils.go"), []byte("package utils"), 0644)
+	_ = os.WriteFile(filepath.Join(tempDir, "main.go"), []byte("package main"), 0644)
+	_ = os.WriteFile(filepath.Join(tempDir, "utils.go"), []byte("package utils"), 0644)
 
-	// Create an ignored directory with many files
 	nodeModulesDir := filepath.Join(tempDir, "node_modules")
-	os.MkdirAll(nodeModulesDir, 0755)
+	_ = os.MkdirAll(nodeModulesDir, 0755)
 	for i := 0; i < 5; i++ {
-		os.WriteFile(filepath.Join(nodeModulesDir, "index"+string(rune(i+48))+".py"), []byte("print('hello')"), 0644)
+		_ = os.WriteFile(filepath.Join(nodeModulesDir, "index"+strconv.Itoa(i)+".py"), []byte("print('hello')"), 0644)
 	}
 
-	mockStrategy := &MockIgnoreStrategy{
-		ignored: map[string]bool{
-			"node_modules": true,
-		},
-	}
-
+	mockStrategy := &MockIgnoreStrategy{ignored: map[string]bool{"node_modules": true}}
 	detector := languages.NewRepositoryLanguageDetector(mockStrategy)
-
-	goAdapter := &DummyAdapter{name: "Go", exts: []string{".go"}}
-	pyAdapter := &DummyAdapter{name: "Python", exts: []string{".py"}}
-
-	detector.RegisterAdapter(goAdapter)
-	detector.RegisterAdapter(pyAdapter)
+	detector.RegisterAdapter(&DummyAdapter{name: "Go", exts: []string{".go"}})
+	detector.RegisterAdapter(&DummyAdapter{name: "Python", exts: []string{".py"}})
 
 	adapter, err := detector.DetectLanguage(tempDir)
 	if err != nil {
@@ -156,26 +144,145 @@ func TestLanguageDetector_DetectLanguage_WeightedProductOverTooling(t *testing.T
 	}
 }
 
+func TestLanguageDetector_DetectLanguage_PythonRelativeImportsPreferred(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "detector_py_relative")
+	if err != nil {
+		t.Fatalf("failed creating temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	if err := os.WriteFile(filepath.Join(tempDir, "pyproject.toml"), []byte("[project]\nname='demo'\n"), 0o644); err != nil {
+		t.Fatalf("failed writing pyproject marker: %v", err)
+	}
+
+	appDir := filepath.Join(tempDir, "src", "pkg", "app")
+	if err := os.MkdirAll(appDir, 0o755); err != nil {
+		t.Fatalf("failed creating package dirs: %v", err)
+	}
+
+	for _, rel := range []string{"src/pkg/__init__.py", "src/pkg/app/__init__.py"} {
+		if err := os.WriteFile(filepath.Join(tempDir, rel), []byte(""), 0o644); err != nil {
+			t.Fatalf("failed writing __init__.py: %v", err)
+		}
+	}
+
+	pythonMain := "from .service import run\nfrom ..shared import util\n"
+	if err := os.WriteFile(filepath.Join(appDir, "main.py"), []byte(pythonMain), 0o644); err != nil {
+		t.Fatalf("failed writing python source: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(tempDir, "scripts.go"), []byte("package main\n"), 0o644); err != nil {
+		t.Fatalf("failed writing go script: %v", err)
+	}
+
+	strategy := domain.NewDefaultIgnoreStrategy(domain.DefaultIgnoredDirs)
+	detector := languages.NewRepositoryLanguageDetector(strategy)
+	detector.RegisterAdapter(languages.NewGoAdapter())
+	detector.RegisterAdapter(languages.NewPythonAdapter())
+
+	for i := 0; i < 10; i++ {
+		adapter, detectErr := detector.DetectLanguage(tempDir)
+		if detectErr != nil {
+			t.Fatalf("detect language failed: %v", detectErr)
+		}
+		if adapter.Name() != "Python" {
+			t.Fatalf("expected Python, got %s on iteration %d", adapter.Name(), i)
+		}
+	}
+}
+
+func TestLanguageDetector_DetectLanguage_SkipsSymlinkOutsideRoot(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "detector_symlink")
+	if err != nil {
+		t.Fatalf("failed creating temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	outside, err := os.MkdirTemp("", "detector_outside")
+	if err != nil {
+		t.Fatalf("failed creating outside dir: %v", err)
+	}
+	defer os.RemoveAll(outside)
+
+	if err := os.WriteFile(filepath.Join(tempDir, "main.go"), []byte("package main\n"), 0o644); err != nil {
+		t.Fatalf("failed writing go file: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(outside, "danger.py"), []byte("print('x')\n"), 0o644); err != nil {
+		t.Fatalf("failed writing outside file: %v", err)
+	}
+
+	if err := os.Symlink(outside, filepath.Join(tempDir, "linked_outside")); err != nil {
+		t.Skipf("symlink not supported in this environment: %v", err)
+	}
+
+	strategy := domain.NewDefaultIgnoreStrategy(domain.DefaultIgnoredDirs)
+	detector := languages.NewRepositoryLanguageDetector(strategy)
+	detector.RegisterAdapter(languages.NewGoAdapter())
+	detector.RegisterAdapter(languages.NewPythonAdapter())
+
+	adapter, detectErr := detector.DetectLanguage(tempDir)
+	if detectErr != nil {
+		t.Fatalf("detect language failed: %v", detectErr)
+	}
+
+	if adapter.Name() != "Go" {
+		t.Fatalf("expected Go after skipping outside symlink, got %s", adapter.Name())
+	}
+}
+
+func TestLanguageDetector_DetectLanguage_DeterministicAcrossRuns(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "detector_deterministic")
+	if err != nil {
+		t.Fatalf("failed creating temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	if err := os.WriteFile(filepath.Join(tempDir, "app.py"), []byte("from .mod import run\n"), 0o644); err != nil {
+		t.Fatalf("failed writing app.py: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempDir, "mod.py"), []byte("def run():\n    return 1\n"), 0o644); err != nil {
+		t.Fatalf("failed writing mod.py: %v", err)
+	}
+
+	strategy := domain.NewDefaultIgnoreStrategy(domain.DefaultIgnoredDirs)
+	detector := languages.NewRepositoryLanguageDetector(strategy)
+	detector.RegisterAdapter(languages.NewGoAdapter())
+	detector.RegisterAdapter(languages.NewPythonAdapter())
+
+	first, err := detector.DetectLanguage(tempDir)
+	if err != nil {
+		t.Fatalf("initial detection failed: %v", err)
+	}
+
+	for i := 0; i < 100; i++ {
+		adapter, detectErr := detector.DetectLanguage(tempDir)
+		if detectErr != nil {
+			t.Fatalf("detection failed on iteration %d: %v", i, detectErr)
+		}
+		if adapter.Name() != first.Name() {
+			t.Fatalf("non-deterministic result: got %s, expected %s", adapter.Name(), first.Name())
+		}
+	}
+}
+
 func BenchmarkLanguageDetector_WalkDir(b *testing.B) {
-	// Create a mock filesystem
 	tempDir, err := os.MkdirTemp("", "benchmark_test")
 	if err != nil {
 		b.Fatalf("Failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tempDir)
 
-	// Create deep ignored directory structure
 	ignoredDir := filepath.Join(tempDir, "node_modules", "package")
-	os.MkdirAll(ignoredDir, 0755)
+	_ = os.MkdirAll(ignoredDir, 0755)
 	for i := 0; i < 1000; i++ {
-		os.WriteFile(filepath.Join(ignoredDir, "file"+string(rune(i))+".py"), []byte("pass"), 0644)
+		_ = os.WriteFile(filepath.Join(ignoredDir, "file"+strconv.Itoa(i)+".py"), []byte("pass"), 0644)
 	}
 
-	// Create some go files
 	srcDir := filepath.Join(tempDir, "src")
-	os.MkdirAll(srcDir, 0755)
+	_ = os.MkdirAll(srcDir, 0755)
 	for i := 0; i < 100; i++ {
-		os.WriteFile(filepath.Join(srcDir, "main"+string(rune(i))+".go"), []byte("package main\n\nfunc main() {}"), 0644)
+		_ = os.WriteFile(filepath.Join(srcDir, "main"+strconv.Itoa(i)+".go"), []byte("package main\n\nfunc main() {}"), 0644)
 	}
 
 	strategy := domain.NewDefaultIgnoreStrategy(domain.DefaultIgnoredDirs)
@@ -186,5 +293,50 @@ func BenchmarkLanguageDetector_WalkDir(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _ = detector.DetectLanguage(tempDir)
+	}
+}
+
+func TestLanguageDetector_WithPolicy_MonorepoSegmentAware(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "detector_monorepo")
+	if err != nil {
+		t.Fatalf("failed creating temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	if err := os.MkdirAll(filepath.Join(tempDir, "apps", "frontend"), 0o755); err != nil {
+		t.Fatalf("failed creating frontend dir: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(tempDir, "tools"), 0o755); err != nil {
+		t.Fatalf("failed creating tools dir: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(tempDir, "apps", "frontend", "main.ts"), []byte("export const app = 1\n"), 0o644); err != nil {
+		t.Fatalf("failed writing ts file: %v", err)
+	}
+	for i := 0; i < 20; i++ {
+		if err := os.WriteFile(filepath.Join(tempDir, "tools", "tool_"+strconv.Itoa(i)+".go"), []byte("package tools\n"), 0o644); err != nil {
+			t.Fatalf("failed writing tooling go file: %v", err)
+		}
+	}
+
+	policy := languages.DetectionPolicy{
+		LanguageWeights: map[string]float64{"Go": 0.5, "TypeScript": 3.0, "JavaScript": 1.0, "Python": 1.0},
+		TieBreakOrder:   []string{"TypeScript", "Python", "JavaScript", "Go"},
+		SegmentWeights:  map[string]float64{"tools": 0.1, "apps": 1.2},
+	}
+
+	strategy := domain.NewDefaultIgnoreStrategy(domain.DefaultIgnoredDirs)
+	detector := languages.NewRepositoryLanguageDetectorWithPolicy(strategy, policy)
+	detector.RegisterAdapter(languages.NewGoAdapter())
+	detector.RegisterAdapter(languages.NewTypeScriptAdapter())
+	detector.RegisterAdapter(languages.NewJavaScriptAdapter())
+	detector.RegisterAdapter(languages.NewPythonAdapter())
+
+	adapter, detectErr := detector.DetectLanguage(tempDir)
+	if detectErr != nil {
+		t.Fatalf("detect language failed: %v", detectErr)
+	}
+	if adapter.Name() != "TypeScript" {
+		t.Fatalf("expected TypeScript with configured monorepo policy, got %s", adapter.Name())
 	}
 }
