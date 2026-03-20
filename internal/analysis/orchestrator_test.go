@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"RepoDoctor/internal/domain"
 	"RepoDoctor/internal/languages"
 )
 
@@ -14,7 +15,8 @@ func TestOrchestrator_Analyze_SelectsAdapterAndBuildsPipeline(t *testing.T) {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
-	detector := languages.NewRepositoryLanguageDetector()
+	strategy := domain.NewDefaultIgnoreStrategy(domain.DefaultIgnoredDirs)
+	detector := languages.NewRepositoryLanguageDetector(strategy)
 	detector.RegisterAdapter(languages.NewGoAdapter())
 	detector.RegisterAdapter(languages.NewPythonAdapter())
 

@@ -2,15 +2,19 @@ package languages
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"RepoDoctor/internal/domain"
 )
 
 // RepositoryLanguageDetector detects the primary language of a repository
 // based on file extension distribution.
 type RepositoryLanguageDetector struct {
-	adapters map[string]LanguageAdapter
+	adapters       map[string]LanguageAdapter
+	ignoreStrategy domain.IgnoreStrategy
 }
 
 // LanguageStat holds statistics about detected language files
@@ -21,9 +25,10 @@ type LanguageStat struct {
 }
 
 // NewRepositoryLanguageDetector creates a new language detector
-func NewRepositoryLanguageDetector() *RepositoryLanguageDetector {
+func NewRepositoryLanguageDetector(ignoreStrategy domain.IgnoreStrategy) *RepositoryLanguageDetector {
 	return &RepositoryLanguageDetector{
-		adapters: make(map[string]LanguageAdapter),
+		adapters:       make(map[string]LanguageAdapter),
+		ignoreStrategy: ignoreStrategy,
 	}
 }
 
@@ -36,22 +41,33 @@ func (d *RepositoryLanguageDetector) RegisterAdapter(adapter LanguageAdapter) {
 func (d *RepositoryLanguageDetector) DetectLanguage(repoPath string) (LanguageAdapter, error) {
 	stats := make(map[string]*LanguageStat)
 
-	// Walk through repository and count files by language
-	err := filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
+	// WalkDir is faster than Walk because it doesn't call os.Lstat for every file/directory
+	err := filepath.WalkDir(repoPath, func(path string, dEntry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
-		// Skip hidden directories and files
-		if strings.HasPrefix(info.Name(), ".") {
-			if info.IsDir() {
+		// Directory handling
+		if dEntry.IsDir() {
+			// Do not skip the root directory itself
+			if path == repoPath {
+				return nil
+			}
+
+			// Check ignore strategy or hidden directories
+			if strings.HasPrefix(dEntry.Name(), ".") || (d.ignoreStrategy != nil && d.ignoreStrategy.ShouldIgnore(dEntry.Name())) {
 				return filepath.SkipDir
 			}
 			return nil
 		}
 
-		// Skip directories
-		if info.IsDir() {
+		// Security: skip symlinks to prevent infinite loops and path traversal
+		if dEntry.Type()&fs.ModeSymlink != 0 {
+			return nil
+		}
+
+		// Skip hidden files
+		if strings.HasPrefix(dEntry.Name(), ".") {
 			return nil
 		}
 
@@ -139,15 +155,28 @@ func countLines(path string) (int, error) {
 func (d *RepositoryLanguageDetector) GetLanguageStats(repoPath string) ([]LanguageStat, error) {
 	stats := make(map[string]*LanguageStat)
 
-	err := filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
+	err := filepath.WalkDir(repoPath, func(path string, dEntry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
-		if info.IsDir() || strings.HasPrefix(info.Name(), ".") {
-			if info.IsDir() && strings.HasPrefix(info.Name(), ".") {
+		// Directory handling
+		if dEntry.IsDir() {
+			if path == repoPath {
+				return nil
+			}
+			if strings.HasPrefix(dEntry.Name(), ".") || (d.ignoreStrategy != nil && d.ignoreStrategy.ShouldIgnore(dEntry.Name())) {
 				return filepath.SkipDir
 			}
+			return nil
+		}
+
+		// Security: skip symlinks
+		if dEntry.Type()&fs.ModeSymlink != 0 {
+			return nil
+		}
+
+		if strings.HasPrefix(dEntry.Name(), ".") {
 			return nil
 		}
 

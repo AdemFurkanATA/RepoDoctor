@@ -33,7 +33,7 @@ func (s *AnalysisService) Run(request AnalyzeRequest) int {
 
 	analysisResult, err := runAdapterPipeline(absPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, ColorError(fmt.Sprintf("Error: analysis pipeline failed: %v\n", err)))
+		fmt.Fprintf(os.Stderr, "%s", ColorError(fmt.Sprintf("Error: analysis pipeline failed: %v\n", err)))
 		if request.ExitOnViolation {
 			os.Exit(1)
 		}

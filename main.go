@@ -2,6 +2,7 @@ package main
 
 import (
 	"RepoDoctor/internal/analysis"
+	"RepoDoctor/internal/domain"
 	"RepoDoctor/internal/languages"
 	"RepoDoctor/internal/model"
 	"flag"
@@ -301,13 +302,14 @@ func extractImports(absPath string, verbose bool) map[string]*ImportMetadata {
 	extractor := NewImportExtractor(moduleName)
 	imports, err := extractor.ExtractFromDir(absPath)
 	if err != nil && verbose {
-		fmt.Fprintf(os.Stderr, ColorWarn(fmt.Sprintf("Warning: error extracting imports: %v\n", err)))
+		fmt.Fprintf(os.Stderr, "%s", ColorWarn(fmt.Sprintf("Warning: error extracting imports: %v\n", err)))
 	}
 	return imports
 }
 
 func runAdapterPipeline(absPath string) (*analysis.Result, error) {
-	detector := languages.NewRepositoryLanguageDetector()
+	ignoreStrategy := domain.NewDefaultIgnoreStrategy(domain.DefaultIgnoredDirs)
+	detector := languages.NewRepositoryLanguageDetector(ignoreStrategy)
 	detector.RegisterAdapter(languages.NewGoAdapter())
 	detector.RegisterAdapter(languages.NewPythonAdapter())
 
@@ -329,7 +331,7 @@ func buildDependencyGraphFromModel(languageGraph *model.DependencyGraph, verbose
 	}
 
 	if verbose {
-		fmt.Printf(ColorInfo(fmt.Sprintf("Built dependency graph with %d nodes and %d edges\n",
+		fmt.Printf("%s", ColorInfo(fmt.Sprintf("Built dependency graph with %d nodes and %d edges\n",
 			graph.GetNodeCount(), graph.GetEdgeCount())))
 	}
 
@@ -346,7 +348,7 @@ func buildDependencyGraph(imports map[string]*ImportMetadata, verbose bool) Grap
 	}
 
 	if verbose {
-		fmt.Printf(ColorInfo(fmt.Sprintf("Built dependency graph with %d nodes and %d edges\n",
+		fmt.Printf("%s", ColorInfo(fmt.Sprintf("Built dependency graph with %d nodes and %d edges\n",
 			graph.GetNodeCount(), graph.GetEdgeCount())))
 	}
 	return graph
@@ -358,13 +360,13 @@ func loadConfiguration(absPath string, verbose bool) *Config {
 	config, err := configLoader.Load()
 	if err != nil {
 		if verbose {
-			fmt.Printf(ColorWarn(fmt.Sprintf("Warning: error loading config: %v\n", err)))
+			fmt.Printf("%s", ColorWarn(fmt.Sprintf("Warning: error loading config: %v\n", err)))
 		}
 		config = configLoader.getDefaultConfig()
 	}
 
 	if verbose {
-		fmt.Printf(ColorInfo(fmt.Sprintf("Configuration loaded from: %s\n", configPath)))
+		fmt.Printf("%s", ColorInfo(fmt.Sprintf("Configuration loaded from: %s\n", configPath)))
 	}
 	return config
 }
@@ -421,7 +423,7 @@ func generateRuleEngineReport(absPath, format string, verbose bool, colorEnabled
 func handleTrendAnalysis(absPath string, report *StructuralReport, verbose bool) {
 	trendAnalyzer := NewTrendAnalyzer(absPath)
 	if err := trendAnalyzer.LoadHistory(); err != nil && verbose {
-		fmt.Printf(ColorWarn(fmt.Sprintf("Warning: could not load history: %v\n", err)))
+		fmt.Printf("%s", ColorWarn(fmt.Sprintf("Warning: could not load history: %v\n", err)))
 	}
 
 	if verbose {
@@ -430,6 +432,6 @@ func handleTrendAnalysis(absPath string, report *StructuralReport, verbose bool)
 	}
 
 	if err := trendAnalyzer.AppendScore(report.Score.TotalScore); err != nil && verbose {
-		fmt.Printf(ColorWarn(fmt.Sprintf("Warning: could not save to history: %v\n", err)))
+		fmt.Printf("%s", ColorWarn(fmt.Sprintf("Warning: could not save to history: %v\n", err)))
 	}
 }
