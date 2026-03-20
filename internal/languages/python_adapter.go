@@ -77,7 +77,7 @@ func (a *PythonAdapter) CollectMetrics(files []string) (*model.RepositoryMetrics
 	metrics := model.NewRepositoryMetrics()
 
 	for _, file := range files {
-		fileMetrics, err := a.collectFileMetrics(file)
+		fileMetrics, err := collectPythonFileMetrics(file)
 		if err != nil {
 			continue
 		}
@@ -87,8 +87,8 @@ func (a *PythonAdapter) CollectMetrics(files []string) (*model.RepositoryMetrics
 	return metrics, nil
 }
 
-// collectFileMetrics extracts metrics from a single Python file
-func (a *PythonAdapter) collectFileMetrics(path string) (*model.FileMetrics, error) {
+// collectPythonFileMetrics extracts metrics from a single Python file
+func collectPythonFileMetrics(path string) (*model.FileMetrics, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
