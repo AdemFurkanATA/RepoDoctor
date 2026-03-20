@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -96,5 +98,85 @@ func TestReporter_JSONV1_GoldenParity(t *testing.T) {
 
 	if got != want {
 		t.Fatalf("json v1 golden mismatch\nwant:\n%s\ngot:\n%s", want, got)
+	}
+}
+
+func TestReporter_JSONV2_GoldenStableOrderingAndSchema(t *testing.T) {
+	reporter := NewReporter(FormatJSON)
+	report := &StructuralReport{
+		Version:       "0.5.0-dev",
+		SchemaVersion: "v2",
+		Path:          filepath.Join(".", "demo", "repo"),
+		Score: &StructuralScore{
+			TotalScore:       88,
+			MaxScore:         100,
+			CircularPenalty:  10,
+			LayerPenalty:     0,
+			SizePenalty:      2,
+			GodObjectPenalty: 0,
+		},
+		Summary:  ReportSummary{TotalViolations: 2, Circular: 1, Layer: 0, Size: 1, GodObject: 0},
+		Language: LanguageEvidenceSummary{DetectedLanguage: "Go", Confidence: 0.91},
+		Circular: []CycleViolation{{Path: []string{"b", "a"}, Severity: "critical"}, {Path: []string{"a", "b"}, Severity: "critical"}},
+		Size:     []SizeViolation{{File: "z.go", Function: "f", Lines: 100, Threshold: 80}, {File: "a.go", Function: "f", Lines: 90, Threshold: 80}},
+	}
+
+	out := reporter.Format(report)
+	if !strings.Contains(out, "\"schemaVersion\": \"v2\"") {
+		t.Fatalf("expected v2 schema marker in golden output: %s", out)
+	}
+
+	var payload map[string]interface{}
+	if err := json.Unmarshal([]byte(out), &payload); err != nil {
+		t.Fatalf("output must be valid JSON: %v", err)
+	}
+
+	if payload["path"] == report.Path {
+		t.Fatalf("expected normalized/redacted path, got original: %v", payload["path"])
+	}
+}
+
+func TestReporter_JSON_DoesNotLeakAbsolutePathByDefault(t *testing.T) {
+	reporter := NewReporter(FormatJSON)
+	abs := filepath.Join("C:\\", "tmp", "sensitive", "repo")
+
+	report := &StructuralReport{
+		Version:       "0.5.0-dev",
+		SchemaVersion: "v2",
+		Path:          abs,
+		Score:         &StructuralScore{TotalScore: 100, MaxScore: 100},
+	}
+
+	out := reporter.Format(report)
+	if strings.Contains(out, abs) {
+		t.Fatalf("absolute path leaked in JSON output: %s", out)
+	}
+}
+
+func TestReporter_JSON_EscapesUntrustedFields(t *testing.T) {
+	reporter := NewReporter(FormatJSON)
+	malicious := "name\"with\ncontrol"
+
+	report := &StructuralReport{
+		Version:       "0.5.0-dev",
+		SchemaVersion: "v2",
+		Path:          ".",
+		Score:         &StructuralScore{TotalScore: 99, MaxScore: 100},
+		Size: []SizeViolation{{
+			File:      malicious,
+			Function:  malicious,
+			Lines:     1,
+			Threshold: 1,
+		}},
+	}
+
+	out := reporter.Format(report)
+	if strings.Contains(out, "name\"with\ncontrol") {
+		t.Fatalf("expected JSON escaping for untrusted fields: %s", out)
+	}
+
+	var payload map[string]interface{}
+	if err := json.Unmarshal([]byte(out), &payload); err != nil {
+		t.Fatalf("escaped output must still be valid json: %v", err)
 	}
 }
