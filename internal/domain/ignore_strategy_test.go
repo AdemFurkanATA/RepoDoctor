@@ -24,7 +24,7 @@ func TestDefaultIgnoreStrategy_ShouldIgnore(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := strategy.ShouldIgnore(tt.dir)
+			result := strategy.ShouldIgnore(tt.dir, tt.dir)
 			if result != tt.expected {
 				t.Errorf("ShouldIgnore(%q) = %v; expected %v", tt.dir, result, tt.expected)
 			}
@@ -37,7 +37,7 @@ func BenchmarkDefaultIgnoreStrategy_ShouldIgnore(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		strategy.ShouldIgnore("node_modules")
-		strategy.ShouldIgnore("src")
+		strategy.ShouldIgnore("node_modules", "node_modules")
+		strategy.ShouldIgnore("src", "src")
 	}
 }

@@ -3,7 +3,7 @@ package domain
 // IgnoreStrategy defines the interface for determining if a directory should be ignored
 // during directory traversal.
 type IgnoreStrategy interface {
-	ShouldIgnore(dirName string) bool
+	ShouldIgnore(path string, dirName string) bool
 }
 
 // DefaultIgnoreStrategy is a high-performance implementation of IgnoreStrategy
@@ -25,7 +25,7 @@ func NewDefaultIgnoreStrategy(dirs []string) *DefaultIgnoreStrategy {
 }
 
 // ShouldIgnore returns true if the directory name is in the ignored list.
-func (s *DefaultIgnoreStrategy) ShouldIgnore(dirName string) bool {
+func (s *DefaultIgnoreStrategy) ShouldIgnore(_ string, dirName string) bool {
 	_, exists := s.ignoredDirs[dirName]
 	return exists
 }
