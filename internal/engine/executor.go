@@ -3,6 +3,8 @@ package engine
 import (
 	"RepoDoctor/internal/model"
 	"RepoDoctor/internal/rules"
+	"sort"
+	"time"
 )
 
 // RuleExecutor is responsible for executing all registered rules.
@@ -24,16 +26,23 @@ type ExecutionResult struct {
 	Violations []model.Violation
 	// RulesExecuted is the number of rules that were executed
 	RulesExecuted int
+	TimedOut      bool
 }
+
+const defaultExecutionBudget = 2 * time.Second
 
 // Execute runs all registered rules against the provided analysis context.
 // Rules are executed sequentially to maintain deterministic output.
 // Returns aggregated violations from all rules.
 func (e *RuleExecutor) Execute(context rules.AnalysisContext) *ExecutionResult {
-	allRules := e.registry.GetAll()
+	allRules := e.selectEligibleRules(context)
 	allViolations := make([]model.Violation, 0)
+	start := time.Now()
 
 	for _, rule := range allRules {
+		if time.Since(start) > defaultExecutionBudget {
+			return &ExecutionResult{Violations: allViolations, RulesExecuted: len(allRules), TimedOut: true}
+		}
 		violations := e.executeRule(rule, context)
 		allViolations = append(allViolations, violations...)
 	}
@@ -41,7 +50,43 @@ func (e *RuleExecutor) Execute(context rules.AnalysisContext) *ExecutionResult {
 	return &ExecutionResult{
 		Violations:    allViolations,
 		RulesExecuted: len(allRules),
+		TimedOut:      false,
 	}
+}
+
+func (e *RuleExecutor) selectEligibleRules(context rules.AnalysisContext) []rules.Rule {
+	allRules := e.registry.GetAll()
+	if len(context.Languages) == 0 {
+		return allRules
+	}
+
+	langSet := make(map[string]struct{}, len(context.Languages))
+	for _, lang := range context.Languages {
+		langSet[lang] = struct{}{}
+	}
+
+	eligible := make([]rules.Rule, 0, len(allRules))
+	for _, rule := range allRules {
+		aware, ok := rule.(rules.LanguageAwareRule)
+		if !ok {
+			eligible = append(eligible, rule)
+			continue
+		}
+		caps := aware.Capabilities()
+		if caps.SupportsMultipleLanguages {
+			eligible = append(eligible, rule)
+			continue
+		}
+		for _, supported := range caps.SupportedLanguages {
+			if _, found := langSet[supported]; found {
+				eligible = append(eligible, rule)
+				break
+			}
+		}
+	}
+
+	sort.SliceStable(eligible, func(i, j int) bool { return eligible[i].ID() < eligible[j].ID() })
+	return eligible
 }
 
 // ExecuteByCategory runs only rules belonging to a specific category

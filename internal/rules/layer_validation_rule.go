@@ -41,6 +41,10 @@ func (r *LayerValidationRule) Severity() string {
 	return string(model.SeverityError)
 }
 
+func (r *LayerValidationRule) Capabilities() RuleCapabilities {
+	return RuleCapabilities{SupportedLanguages: []string{"Go", "Python", "JavaScript", "TypeScript"}, SupportsMultipleLanguages: true}
+}
+
 // Evaluate executes the rule logic against the provided context
 func (r *LayerValidationRule) Evaluate(context AnalysisContext) []model.Violation {
 	var violations []model.Violation
