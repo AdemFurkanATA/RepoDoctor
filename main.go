@@ -66,7 +66,7 @@ func executeCommand(cmd string, args []string) error {
 func handleAnalyzeCommand(args []string) error {
 	analyzeCmd := flag.NewFlagSet("analyze", flag.ExitOnError)
 	path := analyzeCmd.String("path", ".", "Path to analyze")
-	format := analyzeCmd.String("format", "text", "Output format (text, json)")
+	format := analyzeCmd.String("format", "text", "Output format (text, json, json-v1)")
 	verbose := analyzeCmd.Bool("verbose", false, "Enable verbose output")
 	jsonOut := analyzeCmd.Bool("json", false, "Output in JSON format")
 	watch := analyzeCmd.Bool("watch", false, "Enable watch mode for continuous analysis")
@@ -207,7 +207,7 @@ Commands:
 Arguments:
   analyze [options]
     -path      Directory path to analyze (default: current directory)
-    -format    Output format: text, json (default: text)
+    -format    Output format: text, json, json-v1 (default: text)
     -verbose   Enable verbose output
     -watch     Enable watch mode for continuous analysis
     -no-color  Disable colored output (default: enabled)
@@ -219,7 +219,7 @@ Arguments:
 
   report [options]
     -path      Path to JSON report file (default: repodoctor-report.json)
-    -format    Output format: text, json (default: text)
+    -format    Output format: text, json, json-v1 (default: text)
 
   history [options]
     -path      Path to repository (default: current directory)
