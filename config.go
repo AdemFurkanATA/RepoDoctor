@@ -234,93 +234,105 @@ func (l *ConfigLoader) getDefaultConfig() *Config {
 func (l *ConfigLoader) mergeWithDefaults(cfg *Config) *Config {
 	defaults := l.getDefaultConfig()
 
-	// Merge size config
-	if cfg.Size == nil {
-		cfg.Size = defaults.Size
-	} else {
-		if cfg.Size.MaxFileLines == 0 {
-			cfg.Size.MaxFileLines = defaults.Size.MaxFileLines
-		}
-		if cfg.Size.MaxFunctionLines == 0 {
-			cfg.Size.MaxFunctionLines = defaults.Size.MaxFunctionLines
-		}
-		if cfg.Size.Enabled == nil {
-			cfg.Size.Enabled = defaults.Size.Enabled
-		}
-		if cfg.Size.Severity == "" {
-			cfg.Size.Severity = defaults.Size.Severity
-		}
-	}
-
-	// Merge god object config
-	if cfg.GodObject == nil {
-		cfg.GodObject = defaults.GodObject
-	} else {
-		if cfg.GodObject.MaxFields == 0 {
-			cfg.GodObject.MaxFields = defaults.GodObject.MaxFields
-		}
-		if cfg.GodObject.MaxMethods == 0 {
-			cfg.GodObject.MaxMethods = defaults.GodObject.MaxMethods
-		}
-		if cfg.GodObject.Enabled == nil {
-			cfg.GodObject.Enabled = defaults.GodObject.Enabled
-		}
-		if cfg.GodObject.Severity == "" {
-			cfg.GodObject.Severity = defaults.GodObject.Severity
-		}
-	}
-
-	// Merge rules config
-	if cfg.Rules == nil {
-		cfg.Rules = defaults.Rules
-	} else {
-		if cfg.Rules.EnableSizeRule == nil {
-			cfg.Rules.EnableSizeRule = defaults.Rules.EnableSizeRule
-		}
-		if cfg.Rules.EnableGodObjectRule == nil {
-			cfg.Rules.EnableGodObjectRule = defaults.Rules.EnableGodObjectRule
-		}
-		if cfg.Rules.EnableCircularRule == nil {
-			cfg.Rules.EnableCircularRule = defaults.Rules.EnableCircularRule
-		}
-		if cfg.Rules.EnableLayerRule == nil {
-			cfg.Rules.EnableLayerRule = defaults.Rules.EnableLayerRule
-		}
-	}
-
-	// Merge weights config
-	if cfg.Weights == nil {
-		cfg.Weights = defaults.Weights
-	} else {
-		if cfg.Weights.Circular == 0 {
-			cfg.Weights.Circular = defaults.Weights.Circular
-		}
-		if cfg.Weights.Layer == 0 {
-			cfg.Weights.Layer = defaults.Weights.Layer
-		}
-		if cfg.Weights.Size == 0 {
-			cfg.Weights.Size = defaults.Weights.Size
-		}
-		if cfg.Weights.GodObject == 0 {
-			cfg.Weights.GodObject = defaults.Weights.GodObject
-		}
-	}
-
-	if cfg.LanguageDetection == nil {
-		cfg.LanguageDetection = defaults.LanguageDetection
-	} else {
-		if cfg.LanguageDetection.Weights == nil {
-			cfg.LanguageDetection.Weights = defaults.LanguageDetection.Weights
-		}
-		if len(cfg.LanguageDetection.TieBreakOrder) == 0 {
-			cfg.LanguageDetection.TieBreakOrder = defaults.LanguageDetection.TieBreakOrder
-		}
-		if cfg.LanguageDetection.SegmentWeights == nil {
-			cfg.LanguageDetection.SegmentWeights = defaults.LanguageDetection.SegmentWeights
-		}
-	}
+	mergeSizeConfig(cfg, defaults)
+	mergeGodObjectConfig(cfg, defaults)
+	mergeRulesConfig(cfg, defaults)
+	mergeWeightsConfig(cfg, defaults)
+	mergeLanguageDetectionConfig(cfg, defaults)
 
 	return cfg
+}
+
+func mergeSizeConfig(cfg, defaults *Config) {
+	if cfg.Size == nil {
+		cfg.Size = defaults.Size
+		return
+	}
+	if cfg.Size.MaxFileLines == 0 {
+		cfg.Size.MaxFileLines = defaults.Size.MaxFileLines
+	}
+	if cfg.Size.MaxFunctionLines == 0 {
+		cfg.Size.MaxFunctionLines = defaults.Size.MaxFunctionLines
+	}
+	if cfg.Size.Enabled == nil {
+		cfg.Size.Enabled = defaults.Size.Enabled
+	}
+	if cfg.Size.Severity == "" {
+		cfg.Size.Severity = defaults.Size.Severity
+	}
+}
+
+func mergeGodObjectConfig(cfg, defaults *Config) {
+	if cfg.GodObject == nil {
+		cfg.GodObject = defaults.GodObject
+		return
+	}
+	if cfg.GodObject.MaxFields == 0 {
+		cfg.GodObject.MaxFields = defaults.GodObject.MaxFields
+	}
+	if cfg.GodObject.MaxMethods == 0 {
+		cfg.GodObject.MaxMethods = defaults.GodObject.MaxMethods
+	}
+	if cfg.GodObject.Enabled == nil {
+		cfg.GodObject.Enabled = defaults.GodObject.Enabled
+	}
+	if cfg.GodObject.Severity == "" {
+		cfg.GodObject.Severity = defaults.GodObject.Severity
+	}
+}
+
+func mergeRulesConfig(cfg, defaults *Config) {
+	if cfg.Rules == nil {
+		cfg.Rules = defaults.Rules
+		return
+	}
+	if cfg.Rules.EnableSizeRule == nil {
+		cfg.Rules.EnableSizeRule = defaults.Rules.EnableSizeRule
+	}
+	if cfg.Rules.EnableGodObjectRule == nil {
+		cfg.Rules.EnableGodObjectRule = defaults.Rules.EnableGodObjectRule
+	}
+	if cfg.Rules.EnableCircularRule == nil {
+		cfg.Rules.EnableCircularRule = defaults.Rules.EnableCircularRule
+	}
+	if cfg.Rules.EnableLayerRule == nil {
+		cfg.Rules.EnableLayerRule = defaults.Rules.EnableLayerRule
+	}
+}
+
+func mergeWeightsConfig(cfg, defaults *Config) {
+	if cfg.Weights == nil {
+		cfg.Weights = defaults.Weights
+		return
+	}
+	if cfg.Weights.Circular == 0 {
+		cfg.Weights.Circular = defaults.Weights.Circular
+	}
+	if cfg.Weights.Layer == 0 {
+		cfg.Weights.Layer = defaults.Weights.Layer
+	}
+	if cfg.Weights.Size == 0 {
+		cfg.Weights.Size = defaults.Weights.Size
+	}
+	if cfg.Weights.GodObject == 0 {
+		cfg.Weights.GodObject = defaults.Weights.GodObject
+	}
+}
+
+func mergeLanguageDetectionConfig(cfg, defaults *Config) {
+	if cfg.LanguageDetection == nil {
+		cfg.LanguageDetection = defaults.LanguageDetection
+		return
+	}
+	if cfg.LanguageDetection.Weights == nil {
+		cfg.LanguageDetection.Weights = defaults.LanguageDetection.Weights
+	}
+	if len(cfg.LanguageDetection.TieBreakOrder) == 0 {
+		cfg.LanguageDetection.TieBreakOrder = defaults.LanguageDetection.TieBreakOrder
+	}
+	if cfg.LanguageDetection.SegmentWeights == nil {
+		cfg.LanguageDetection.SegmentWeights = defaults.LanguageDetection.SegmentWeights
+	}
 }
 
 func rejectUnknownConfigKeys(data []byte) error {

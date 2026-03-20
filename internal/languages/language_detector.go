@@ -19,6 +19,12 @@ type RepositoryLanguageDetector struct {
 	policy         DetectionPolicy
 }
 
+type detectionScanContext struct {
+	stats        map[string]*LanguageStat
+	matchedFiles map[string][]string
+	adapters     []LanguageAdapter
+}
+
 type DetectionPolicy struct {
 	LanguageWeights map[string]float64
 	TieBreakOrder   []string
@@ -172,16 +178,33 @@ func (d *RepositoryLanguageDetector) DetectLanguage(repoPath string) (LanguageAd
 		return nil, err
 	}
 
-	stats := make(map[string]*LanguageStat)
-	matchedFiles := make(map[string][]string)
-	adapters := d.orderedAdapters()
+	scanCtx := newDetectionScanContext(d.orderedAdapters())
+	err = scanRepository(d, normalizedRepoPath, scanCtx)
+	if err != nil {
+		return nil, fmt.Errorf("error scanning repository: %w", err)
+	}
 
-	err = filepath.WalkDir(normalizedRepoPath, func(path string, dEntry fs.DirEntry, walkErr error) error {
+	d.applyAdapterEvidence(normalizedRepoPath, scanCtx.adapters, scanCtx.matchedFiles, scanCtx.stats)
+	applyMarkerBoost(normalizedRepoPath, scanCtx.stats)
+
+	return d.findDominantLanguage(scanCtx.stats)
+}
+
+func newDetectionScanContext(adapters []LanguageAdapter) *detectionScanContext {
+	return &detectionScanContext{
+		stats:        make(map[string]*LanguageStat),
+		matchedFiles: make(map[string][]string),
+		adapters:     adapters,
+	}
+}
+
+func scanRepository(detector *RepositoryLanguageDetector, repoPath string, ctx *detectionScanContext) error {
+	return filepath.WalkDir(repoPath, func(path string, dEntry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
 
-		normalizedPath, ok := normalizePathWithinRoot(normalizedRepoPath, path)
+		normalizedPath, ok := normalizePathWithinRoot(repoPath, path)
 		if !ok {
 			if dEntry.IsDir() {
 				return filepath.SkipDir
@@ -190,66 +213,70 @@ func (d *RepositoryLanguageDetector) DetectLanguage(repoPath string) (LanguageAd
 		}
 
 		if dEntry.IsDir() {
-			if normalizedPath == normalizedRepoPath {
-				return nil
-			}
-			if strings.HasPrefix(dEntry.Name(), ".") || (d.ignoreStrategy != nil && d.ignoreStrategy.ShouldIgnore(normalizedPath, dEntry.Name())) {
-				return filepath.SkipDir
-			}
+			return shouldSkipDir(detector, repoPath, normalizedPath, dEntry)
+		}
+
+		if shouldSkipFile(dEntry) {
 			return nil
 		}
 
-		if dEntry.Type()&fs.ModeSymlink != 0 {
-			return nil
-		}
-
-		if strings.HasPrefix(dEntry.Name(), ".") {
-			return nil
-		}
-
-		ext := strings.ToLower(filepath.Ext(normalizedPath))
-		role := classifyPathRole(normalizedPath)
-		weight := roleWeight(role)
-		weight *= d.segmentWeight(normalizedPath)
-
-		for _, adapter := range adapters {
-			for _, supportedExt := range adapter.FileExtensions() {
-				if ext != strings.ToLower(supportedExt) {
-					continue
-				}
-
-				lang := adapter.Name()
-				if stats[lang] == nil {
-					stats[lang] = &LanguageStat{Language: lang}
-				}
-
-				stats[lang].Count++
-				stats[lang].Score += 0.35 * weight * d.languageWeight(lang)
-				matchedFiles[lang] = append(matchedFiles[lang], normalizedPath)
-
-				lines, _ := countLines(normalizedPath)
-				stats[lang].Lines += lines
-				stats[lang].Score += float64(lines) * weight * d.languageWeight(lang)
-				if role == roleProduct {
-					stats[lang].ProductScore += float64(lines) + 0.35
-				}
-				break
-			}
-		}
-
+		accumulateFileLanguageStats(detector, normalizedPath, ctx)
 		return nil
 	})
-	if err != nil {
-		return nil, fmt.Errorf("error scanning repository: %w", err)
+}
+
+func shouldSkipDir(detector *RepositoryLanguageDetector, repoPath, normalizedPath string, dEntry fs.DirEntry) error {
+	if normalizedPath == repoPath {
+		return nil
 	}
+	if strings.HasPrefix(dEntry.Name(), ".") || (detector.ignoreStrategy != nil && detector.ignoreStrategy.ShouldIgnore(normalizedPath, dEntry.Name())) {
+		return filepath.SkipDir
+	}
+	return nil
+}
 
-	d.applyAdapterEvidence(normalizedRepoPath, adapters, matchedFiles, stats)
+func shouldSkipFile(dEntry fs.DirEntry) bool {
+	if dEntry.Type()&fs.ModeSymlink != 0 {
+		return true
+	}
+	return strings.HasPrefix(dEntry.Name(), ".")
+}
 
+func accumulateFileLanguageStats(detector *RepositoryLanguageDetector, path string, ctx *detectionScanContext) {
+	ext := strings.ToLower(filepath.Ext(path))
+	role := classifyPathRole(path)
+	weight := roleWeight(role) * detector.segmentWeight(path)
+
+	for _, adapter := range ctx.adapters {
+		for _, supportedExt := range adapter.FileExtensions() {
+			if ext != strings.ToLower(supportedExt) {
+				continue
+			}
+
+			lang := adapter.Name()
+			if ctx.stats[lang] == nil {
+				ctx.stats[lang] = &LanguageStat{Language: lang}
+			}
+
+			ctx.stats[lang].Count++
+			ctx.stats[lang].Score += 0.35 * weight * detector.languageWeight(lang)
+			ctx.matchedFiles[lang] = append(ctx.matchedFiles[lang], path)
+
+			lines, _ := countLines(path)
+			ctx.stats[lang].Lines += lines
+			ctx.stats[lang].Score += float64(lines) * weight * detector.languageWeight(lang)
+			if role == roleProduct {
+				ctx.stats[lang].ProductScore += float64(lines) + 0.35
+			}
+			break
+		}
+	}
+}
+
+func applyMarkerBoost(repoPath string, stats map[string]*LanguageStat) {
 	for lang, stat := range stats {
-		stat.Score += markerBoost(normalizedRepoPath, lang)
+		stat.Score += markerBoost(repoPath, lang)
 	}
-
-	return d.findDominantLanguage(stats)
 }
 
 func (d *RepositoryLanguageDetector) orderedAdapters() []LanguageAdapter {
@@ -422,82 +449,17 @@ func (d *RepositoryLanguageDetector) GetLanguageStats(repoPath string) ([]Langua
 		return nil, err
 	}
 
-	stats := make(map[string]*LanguageStat)
-	matchedFiles := make(map[string][]string)
-	adapters := d.orderedAdapters()
-
-	err = filepath.WalkDir(normalizedRepoPath, func(path string, dEntry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-
-		normalizedPath, ok := normalizePathWithinRoot(normalizedRepoPath, path)
-		if !ok {
-			if dEntry.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-
-		if dEntry.IsDir() {
-			if normalizedPath == normalizedRepoPath {
-				return nil
-			}
-			if strings.HasPrefix(dEntry.Name(), ".") || (d.ignoreStrategy != nil && d.ignoreStrategy.ShouldIgnore(normalizedPath, dEntry.Name())) {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-
-		if dEntry.Type()&fs.ModeSymlink != 0 {
-			return nil
-		}
-		if strings.HasPrefix(dEntry.Name(), ".") {
-			return nil
-		}
-
-		ext := strings.ToLower(filepath.Ext(normalizedPath))
-		role := classifyPathRole(normalizedPath)
-		weight := roleWeight(role)
-		weight *= d.segmentWeight(normalizedPath)
-
-		for _, adapter := range adapters {
-			for _, supportedExt := range adapter.FileExtensions() {
-				if ext != strings.ToLower(supportedExt) {
-					continue
-				}
-
-				lang := adapter.Name()
-				if stats[lang] == nil {
-					stats[lang] = &LanguageStat{Language: lang}
-				}
-
-				stats[lang].Count++
-				matchedFiles[lang] = append(matchedFiles[lang], normalizedPath)
-				lines, _ := countLines(normalizedPath)
-				stats[lang].Lines += lines
-				stats[lang].Score += (0.35*weight + float64(lines)*weight) * d.languageWeight(lang)
-				if role == roleProduct {
-					stats[lang].ProductScore += float64(lines) + 0.35
-				}
-				break
-			}
-		}
-
-		return nil
-	})
+	scanCtx := newDetectionScanContext(d.orderedAdapters())
+	err = scanRepository(d, normalizedRepoPath, scanCtx)
 	if err != nil {
 		return nil, fmt.Errorf("error scanning repository: %w", err)
 	}
 
-	d.applyAdapterEvidence(normalizedRepoPath, adapters, matchedFiles, stats)
+	d.applyAdapterEvidence(normalizedRepoPath, scanCtx.adapters, scanCtx.matchedFiles, scanCtx.stats)
+	applyMarkerBoost(normalizedRepoPath, scanCtx.stats)
 
-	for lang, stat := range stats {
-		stat.Score += markerBoost(normalizedRepoPath, lang)
-	}
-
-	result := make([]LanguageStat, 0, len(stats))
-	for _, stat := range stats {
+	result := make([]LanguageStat, 0, len(scanCtx.stats))
+	for _, stat := range scanCtx.stats {
 		result = append(result, *stat)
 	}
 	sort.SliceStable(result, func(i, j int) bool { return result[i].Language < result[j].Language })

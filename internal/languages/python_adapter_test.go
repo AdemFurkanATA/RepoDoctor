@@ -324,3 +324,40 @@ func TestPythonAdapter_CollectEvidence_SkipsOutsidePath(t *testing.T) {
 		t.Fatal("expected warning for outside path")
 	}
 }
+
+func TestCollectPythonFileMetrics_Parity(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "python-file-metrics-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	content := `import os
+from collections import defaultdict
+
+class Service:
+    def __init__(self):
+        self.value = 1
+
+def run(arg1, arg2):
+    return arg1 + arg2
+`
+	path := filepath.Join(tmpDir, "metrics.py")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write fixture: %v", err)
+	}
+
+	fm, err := collectPythonFileMetrics(path)
+	if err != nil {
+		t.Fatalf("collectPythonFileMetrics failed: %v", err)
+	}
+	if fm.Path != path {
+		t.Fatalf("expected path %s, got %s", path, fm.Path)
+	}
+	if fm.Imports != 2 {
+		t.Fatalf("expected 2 imports, got %d", fm.Imports)
+	}
+	if fm.Functions != 2 {
+		t.Fatalf("expected 2 functions, got %d", fm.Functions)
+	}
+}
