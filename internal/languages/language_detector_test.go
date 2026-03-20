@@ -16,7 +16,7 @@ type MockIgnoreStrategy struct {
 	ignored map[string]bool
 }
 
-func (m *MockIgnoreStrategy) ShouldIgnore(dirName string) bool {
+func (m *MockIgnoreStrategy) ShouldIgnore(_ string, dirName string) bool {
 	return m.ignored[dirName]
 }
 

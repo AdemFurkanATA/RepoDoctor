@@ -193,7 +193,7 @@ func (d *RepositoryLanguageDetector) DetectLanguage(repoPath string) (LanguageAd
 			if normalizedPath == normalizedRepoPath {
 				return nil
 			}
-			if strings.HasPrefix(dEntry.Name(), ".") || (d.ignoreStrategy != nil && d.ignoreStrategy.ShouldIgnore(dEntry.Name())) {
+			if strings.HasPrefix(dEntry.Name(), ".") || (d.ignoreStrategy != nil && d.ignoreStrategy.ShouldIgnore(normalizedPath, dEntry.Name())) {
 				return filepath.SkipDir
 			}
 			return nil
@@ -443,7 +443,7 @@ func (d *RepositoryLanguageDetector) GetLanguageStats(repoPath string) ([]Langua
 			if normalizedPath == normalizedRepoPath {
 				return nil
 			}
-			if strings.HasPrefix(dEntry.Name(), ".") || (d.ignoreStrategy != nil && d.ignoreStrategy.ShouldIgnore(dEntry.Name())) {
+			if strings.HasPrefix(dEntry.Name(), ".") || (d.ignoreStrategy != nil && d.ignoreStrategy.ShouldIgnore(normalizedPath, dEntry.Name())) {
 				return filepath.SkipDir
 			}
 			return nil

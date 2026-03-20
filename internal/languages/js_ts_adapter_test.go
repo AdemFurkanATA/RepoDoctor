@@ -125,4 +125,4 @@ func TestLanguageDetector_DeterministicWithAdapterRegistrationOrder(t *testing.T
 
 type fixedIgnore struct{}
 
-func (f *fixedIgnore) ShouldIgnore(string) bool { return false }
+func (f *fixedIgnore) ShouldIgnore(string, string) bool { return false }
