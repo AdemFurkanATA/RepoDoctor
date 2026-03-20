@@ -31,7 +31,7 @@ func (s *AnalysisService) Run(request AnalyzeRequest) int {
 		fmt.Printf(ColorInfo("Extracting imports from: ")+"%s\n", absPath)
 	}
 
-	analysisResult, err := runAdapterPipeline(absPath, request.Verbose)
+	analysisResult, err := runAdapterPipeline(absPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s", ColorError(fmt.Sprintf("Error: analysis pipeline failed: %v\n", err)))
 		if request.ExitOnViolation {
