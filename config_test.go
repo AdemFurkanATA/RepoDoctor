@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -293,5 +294,107 @@ language_detection:
 	_, err := loader.Load()
 	if err == nil {
 		t.Fatal("expected validation error for negative language weight")
+	}
+}
+
+func TestConfigLoader_MergeWithDefaults_TableDrivenInvariants(t *testing.T) {
+	loader := NewConfigLoader("")
+	enabled := false
+
+	tests := []struct {
+		name   string
+		input  *Config
+		assert func(t *testing.T, got, defaults *Config)
+	}{
+		{
+			name:  "nil sections fallback to defaults",
+			input: &Config{},
+			assert: func(t *testing.T, got, defaults *Config) {
+				t.Helper()
+				if got.Size.MaxFileLines != defaults.Size.MaxFileLines || got.Size.MaxFunctionLines != defaults.Size.MaxFunctionLines {
+					t.Fatalf("size defaults drifted: %+v", got.Size)
+				}
+				if got.GodObject.MaxFields != defaults.GodObject.MaxFields || got.GodObject.MaxMethods != defaults.GodObject.MaxMethods {
+					t.Fatalf("god object defaults drifted: %+v", got.GodObject)
+				}
+			},
+		},
+		{
+			name: "explicit false bool override must be preserved",
+			input: &Config{
+				Rules: &RulesConfig{EnableSizeRule: &enabled},
+			},
+			assert: func(t *testing.T, got, _ *Config) {
+				t.Helper()
+				if got.Rules.EnableSizeRule == nil || *got.Rules.EnableSizeRule {
+					t.Fatal("expected explicit false to be preserved for rules.enable_size_rule")
+				}
+			},
+		},
+		{
+			name: "zero values use deterministic defaults",
+			input: &Config{
+				Size:    &SizeConfig{MaxFileLines: 0, MaxFunctionLines: 0},
+				Weights: &WeightsConfig{Circular: 0, Layer: 0, Size: 0, GodObject: 0},
+			},
+			assert: func(t *testing.T, got, defaults *Config) {
+				t.Helper()
+				if got.Size.MaxFileLines != defaults.Size.MaxFileLines || got.Size.MaxFunctionLines != defaults.Size.MaxFunctionLines {
+					t.Fatalf("expected zero size values to fallback to defaults, got %+v", got.Size)
+				}
+				if got.Weights.Circular != defaults.Weights.Circular || got.Weights.Layer != defaults.Weights.Layer || got.Weights.Size != defaults.Weights.Size || got.Weights.GodObject != defaults.Weights.GodObject {
+					t.Fatalf("expected zero weights to fallback to defaults, got %+v", got.Weights)
+				}
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			merged := loader.mergeWithDefaults(tc.input)
+			tc.assert(t, merged, loader.getDefaultConfig())
+		})
+	}
+}
+
+func TestConfigLoader_RejectsAmbiguousCasingKeys(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+
+	configContent := "Size:\n  max_file_lines: 123\n"
+	if err := os.WriteFile(configPath, []byte(configContent), 0o644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	loader := NewConfigLoader(configPath)
+	_, err := loader.Load()
+	if err == nil {
+		t.Fatal("expected error for ambiguous top-level key casing")
+	}
+	if !strings.Contains(err.Error(), "unknown config key 'Size'") {
+		t.Fatalf("expected deterministic unknown-key error, got: %v", err)
+	}
+}
+
+func TestConfigLoader_RejectsAmbiguousNestedAliasKeys(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+
+	configContent := `
+language_detection:
+  Tie_Break_Order:
+    - Go
+`
+	if err := os.WriteFile(configPath, []byte(configContent), 0o644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	loader := NewConfigLoader(configPath)
+	_, err := loader.Load()
+	if err == nil {
+		t.Fatal("expected error for ambiguous nested key alias/casing")
+	}
+	if !strings.Contains(err.Error(), "unknown language_detection key 'Tie_Break_Order'") {
+		t.Fatalf("expected deterministic nested unknown-key error, got: %v", err)
 	}
 }
