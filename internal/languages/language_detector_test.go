@@ -295,3 +295,48 @@ func BenchmarkLanguageDetector_WalkDir(b *testing.B) {
 		_, _ = detector.DetectLanguage(tempDir)
 	}
 }
+
+func TestLanguageDetector_WithPolicy_MonorepoSegmentAware(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "detector_monorepo")
+	if err != nil {
+		t.Fatalf("failed creating temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	if err := os.MkdirAll(filepath.Join(tempDir, "apps", "frontend"), 0o755); err != nil {
+		t.Fatalf("failed creating frontend dir: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(tempDir, "tools"), 0o755); err != nil {
+		t.Fatalf("failed creating tools dir: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(tempDir, "apps", "frontend", "main.ts"), []byte("export const app = 1\n"), 0o644); err != nil {
+		t.Fatalf("failed writing ts file: %v", err)
+	}
+	for i := 0; i < 20; i++ {
+		if err := os.WriteFile(filepath.Join(tempDir, "tools", "tool_"+strconv.Itoa(i)+".go"), []byte("package tools\n"), 0o644); err != nil {
+			t.Fatalf("failed writing tooling go file: %v", err)
+		}
+	}
+
+	policy := languages.DetectionPolicy{
+		LanguageWeights: map[string]float64{"Go": 0.5, "TypeScript": 3.0, "JavaScript": 1.0, "Python": 1.0},
+		TieBreakOrder:   []string{"TypeScript", "Python", "JavaScript", "Go"},
+		SegmentWeights:  map[string]float64{"tools": 0.1, "apps": 1.2},
+	}
+
+	strategy := domain.NewDefaultIgnoreStrategy(domain.DefaultIgnoredDirs)
+	detector := languages.NewRepositoryLanguageDetectorWithPolicy(strategy, policy)
+	detector.RegisterAdapter(languages.NewGoAdapter())
+	detector.RegisterAdapter(languages.NewTypeScriptAdapter())
+	detector.RegisterAdapter(languages.NewJavaScriptAdapter())
+	detector.RegisterAdapter(languages.NewPythonAdapter())
+
+	adapter, detectErr := detector.DetectLanguage(tempDir)
+	if detectErr != nil {
+		t.Fatalf("detect language failed: %v", detectErr)
+	}
+	if adapter.Name() != "TypeScript" {
+		t.Fatalf("expected TypeScript with configured monorepo policy, got %s", adapter.Name())
+	}
+}

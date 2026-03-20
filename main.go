@@ -309,7 +309,14 @@ func extractImports(absPath string, verbose bool) map[string]*ImportMetadata {
 
 func runAdapterPipeline(absPath string) (*analysis.Result, error) {
 	ignoreStrategy := domain.NewDefaultIgnoreStrategy(domain.DefaultIgnoredDirs)
-	detector := languages.NewRepositoryLanguageDetector(ignoreStrategy)
+	config := loadConfiguration(absPath, false)
+	policy := languages.DetectionPolicy{}
+	if config != nil && config.LanguageDetection != nil {
+		policy.LanguageWeights = config.LanguageDetection.Weights
+		policy.TieBreakOrder = config.LanguageDetection.TieBreakOrder
+		policy.SegmentWeights = config.LanguageDetection.SegmentWeights
+	}
+	detector := languages.NewRepositoryLanguageDetectorWithPolicy(ignoreStrategy, policy)
 	detector.RegisterAdapter(languages.NewGoAdapter())
 	detector.RegisterAdapter(languages.NewPythonAdapter())
 	detector.RegisterAdapter(languages.NewJavaScriptAdapter())

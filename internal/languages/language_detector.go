@@ -16,6 +16,13 @@ import (
 type RepositoryLanguageDetector struct {
 	adapters       map[string]LanguageAdapter
 	ignoreStrategy domain.IgnoreStrategy
+	policy         DetectionPolicy
+}
+
+type DetectionPolicy struct {
+	LanguageWeights map[string]float64
+	TieBreakOrder   []string
+	SegmentWeights  map[string]float64
 }
 
 // LanguageStat holds statistics about detected language files.
@@ -103,7 +110,54 @@ func NewRepositoryLanguageDetector(ignoreStrategy domain.IgnoreStrategy) *Reposi
 	return &RepositoryLanguageDetector{
 		adapters:       make(map[string]LanguageAdapter),
 		ignoreStrategy: ignoreStrategy,
+		policy:         defaultDetectionPolicy(),
 	}
+}
+
+func NewRepositoryLanguageDetectorWithPolicy(ignoreStrategy domain.IgnoreStrategy, policy DetectionPolicy) *RepositoryLanguageDetector {
+	merged := defaultDetectionPolicy()
+	if policy.LanguageWeights != nil {
+		merged.LanguageWeights = policy.LanguageWeights
+	}
+	if len(policy.TieBreakOrder) > 0 {
+		merged.TieBreakOrder = policy.TieBreakOrder
+	}
+	if policy.SegmentWeights != nil {
+		merged.SegmentWeights = policy.SegmentWeights
+	}
+
+	return &RepositoryLanguageDetector{
+		adapters:       make(map[string]LanguageAdapter),
+		ignoreStrategy: ignoreStrategy,
+		policy:         merged,
+	}
+}
+
+func defaultDetectionPolicy() DetectionPolicy {
+	return DetectionPolicy{
+		LanguageWeights: map[string]float64{"Go": 1, "Python": 1, "JavaScript": 1, "TypeScript": 1},
+		TieBreakOrder:   []string{"Python", "TypeScript", "JavaScript", "Go"},
+		SegmentWeights:  map[string]float64{"src": 1.0, "app": 1.0, "pkg": 1.0, "tools": 0.2, "scripts": 0.2},
+	}
+}
+
+func (d *RepositoryLanguageDetector) languageWeight(language string) float64 {
+	if weight, ok := d.policy.LanguageWeights[language]; ok && weight > 0 {
+		return weight
+	}
+	return 1.0
+}
+
+func (d *RepositoryLanguageDetector) segmentWeight(path string) float64 {
+	normalized := strings.ToLower(filepath.ToSlash(path))
+	for segment, weight := range d.policy.SegmentWeights {
+		if strings.Contains(normalized, "/"+strings.ToLower(segment)+"/") || strings.HasSuffix(normalized, "/"+strings.ToLower(segment)) {
+			if weight > 0 {
+				return weight
+			}
+		}
+	}
+	return 1.0
 }
 
 // RegisterAdapter registers a language adapter for detection.
@@ -156,6 +210,7 @@ func (d *RepositoryLanguageDetector) DetectLanguage(repoPath string) (LanguageAd
 		ext := strings.ToLower(filepath.Ext(normalizedPath))
 		role := classifyPathRole(normalizedPath)
 		weight := roleWeight(role)
+		weight *= d.segmentWeight(normalizedPath)
 
 		for _, adapter := range adapters {
 			for _, supportedExt := range adapter.FileExtensions() {
@@ -169,12 +224,12 @@ func (d *RepositoryLanguageDetector) DetectLanguage(repoPath string) (LanguageAd
 				}
 
 				stats[lang].Count++
-				stats[lang].Score += 0.35 * weight
+				stats[lang].Score += 0.35 * weight * d.languageWeight(lang)
 				matchedFiles[lang] = append(matchedFiles[lang], normalizedPath)
 
 				lines, _ := countLines(normalizedPath)
 				stats[lang].Lines += lines
-				stats[lang].Score += float64(lines) * weight
+				stats[lang].Score += float64(lines) * weight * d.languageWeight(lang)
 				if role == roleProduct {
 					stats[lang].ProductScore += float64(lines) + 0.35
 				}
@@ -315,7 +370,10 @@ func (d *RepositoryLanguageDetector) findDominantLanguage(stats map[string]*Lang
 			return left.Count > right.Count
 		}
 
-		priority := map[string]int{"Python": 0, "TypeScript": 1, "JavaScript": 2, "Go": 3}
+		priority := make(map[string]int, len(d.policy.TieBreakOrder))
+		for i, lang := range d.policy.TieBreakOrder {
+			priority[lang] = i
+		}
 		lp, lok := priority[left.Language]
 		rp, rok := priority[right.Language]
 		if lok && rok && lp != rp {
@@ -401,6 +459,7 @@ func (d *RepositoryLanguageDetector) GetLanguageStats(repoPath string) ([]Langua
 		ext := strings.ToLower(filepath.Ext(normalizedPath))
 		role := classifyPathRole(normalizedPath)
 		weight := roleWeight(role)
+		weight *= d.segmentWeight(normalizedPath)
 
 		for _, adapter := range adapters {
 			for _, supportedExt := range adapter.FileExtensions() {
@@ -417,7 +476,7 @@ func (d *RepositoryLanguageDetector) GetLanguageStats(repoPath string) ([]Langua
 				matchedFiles[lang] = append(matchedFiles[lang], normalizedPath)
 				lines, _ := countLines(normalizedPath)
 				stats[lang].Lines += lines
-				stats[lang].Score += 0.35*weight + float64(lines)*weight
+				stats[lang].Score += (0.35*weight + float64(lines)*weight) * d.languageWeight(lang)
 				if role == roleProduct {
 					stats[lang].ProductScore += float64(lines) + 0.35
 				}
