@@ -100,6 +100,60 @@ func TestConfigLoader_MergeWithDefaults(t *testing.T) {
 	}
 }
 
+func TestConfigLoader_MergeWithDefaults_AllSectionsParity(t *testing.T) {
+	loader := NewConfigLoader("")
+	partial := &Config{
+		Size: &SizeConfig{
+			MaxFileLines: 900,
+		},
+		GodObject: &GodObjectConfig{
+			MaxMethods: 20,
+		},
+		Rules: &RulesConfig{},
+		Weights: &WeightsConfig{
+			Size: 9.5,
+		},
+		LanguageDetection: &LanguageDetectionConfig{
+			Weights: map[string]float64{"Go": 2.5},
+		},
+	}
+
+	merged := loader.mergeWithDefaults(partial)
+	defaults := loader.getDefaultConfig()
+
+	if merged.Size.MaxFileLines != 900 {
+		t.Fatalf("expected overridden size.max_file_lines, got %d", merged.Size.MaxFileLines)
+	}
+	if merged.Size.MaxFunctionLines != defaults.Size.MaxFunctionLines {
+		t.Fatalf("expected default size.max_function_lines, got %d", merged.Size.MaxFunctionLines)
+	}
+
+	if merged.GodObject.MaxMethods != 20 {
+		t.Fatalf("expected overridden god_object.max_methods, got %d", merged.GodObject.MaxMethods)
+	}
+	if merged.GodObject.MaxFields != defaults.GodObject.MaxFields {
+		t.Fatalf("expected default god_object.max_fields, got %d", merged.GodObject.MaxFields)
+	}
+
+	if merged.Rules.EnableSizeRule == nil || merged.Rules.EnableGodObjectRule == nil || merged.Rules.EnableCircularRule == nil || merged.Rules.EnableLayerRule == nil {
+		t.Fatal("expected missing rules flags to be defaulted")
+	}
+
+	if merged.Weights.Size != 9.5 {
+		t.Fatalf("expected overridden weights.size, got %.1f", merged.Weights.Size)
+	}
+	if merged.Weights.Circular != defaults.Weights.Circular || merged.Weights.Layer != defaults.Weights.Layer || merged.Weights.GodObject != defaults.Weights.GodObject {
+		t.Fatal("expected unspecified weights to be defaulted")
+	}
+
+	if len(merged.LanguageDetection.Weights) != 1 || merged.LanguageDetection.Weights["Go"] != 2.5 {
+		t.Fatalf("expected explicit language_detection.weights to be preserved, got %#v", merged.LanguageDetection.Weights)
+	}
+	if len(merged.LanguageDetection.TieBreakOrder) == 0 || len(merged.LanguageDetection.SegmentWeights) == 0 {
+		t.Fatal("expected missing language_detection sections to be defaulted")
+	}
+}
+
 func TestGetConfigPath(t *testing.T) {
 	baseDir := "/test/dir"
 	expected := filepath.Join(baseDir, ".repodoctor", "config.yaml")
