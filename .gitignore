@@ -35,3 +35,13 @@ rules/
 specs/
 .opencode-rules
 .repodoctor/
+
+# Private local planning / AI artifacts (never publish)
+todo.md
+**/todo.md
+
+# Debug artifacts (never publish)
+debug/
+*.debug
+debug.log
+*.trace
