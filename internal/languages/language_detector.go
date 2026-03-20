@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"RepoDoctor/internal/domain"
@@ -19,9 +20,70 @@ type RepositoryLanguageDetector struct {
 
 // LanguageStat holds statistics about detected language files
 type LanguageStat struct {
-	Language string
-	Count    int
-	Lines    int
+	Language     string
+	Count        int
+	Lines        int
+	Score        float64
+	ProductScore float64
+}
+
+type pathRole int
+
+const (
+	roleUnknown pathRole = iota
+	roleProduct
+	roleTest
+	roleTooling
+)
+
+func roleWeight(role pathRole) float64 {
+	switch role {
+	case roleProduct:
+		return 1.0
+	case roleTest:
+		return 0.6
+	case roleTooling:
+		return 0.2
+	default:
+		return 0.8
+	}
+}
+
+func classifyPathRole(path string) pathRole {
+	normalized := strings.ToLower(filepath.ToSlash(path))
+	segments := strings.Split(normalized, "/")
+
+	for _, seg := range segments {
+		switch seg {
+		case "src", "app", "pkg":
+			return roleProduct
+		case "test", "tests":
+			return roleTest
+		case "tools", "scripts", "hack", "examples", "third_party":
+			return roleTooling
+		}
+	}
+
+	return roleUnknown
+}
+
+func markerBoost(repoPath, language string) float64 {
+	if language == "Python" {
+		pythonMarkers := []string{"pyproject.toml", "requirements.txt", "setup.py"}
+		for _, marker := range pythonMarkers {
+			if _, err := os.Stat(filepath.Join(repoPath, marker)); err == nil {
+				return 5.0
+			}
+		}
+	}
+
+	if language == "Go" {
+		if _, err := os.Stat(filepath.Join(repoPath, "go.mod")); err == nil {
+			return 5.0
+		}
+	}
+
+	return 0
 }
 
 // NewRepositoryLanguageDetector creates a new language detector
@@ -55,7 +117,7 @@ func (d *RepositoryLanguageDetector) DetectLanguage(repoPath string) (LanguageAd
 			}
 
 			// Check ignore strategy or hidden directories
-			if strings.HasPrefix(dEntry.Name(), ".") || (d.ignoreStrategy != nil && d.ignoreStrategy.ShouldIgnore(dEntry.Name())) {
+			if strings.HasPrefix(dEntry.Name(), ".") || (d.ignoreStrategy != nil && d.ignoreStrategy.ShouldIgnore(path, dEntry.Name())) {
 				return filepath.SkipDir
 			}
 			return nil
@@ -73,22 +135,31 @@ func (d *RepositoryLanguageDetector) DetectLanguage(repoPath string) (LanguageAd
 
 		// Check file extension against registered adapters
 		ext := strings.ToLower(filepath.Ext(path))
+		role := classifyPathRole(path)
+		weight := roleWeight(role)
 		for _, adapter := range d.adapters {
 			for _, supportedExt := range adapter.FileExtensions() {
 				if ext == strings.ToLower(supportedExt) {
 					lang := adapter.Name()
 					if stats[lang] == nil {
 						stats[lang] = &LanguageStat{
-							Language: lang,
-							Count:    0,
-							Lines:    0,
+							Language:     lang,
+							Count:        0,
+							Lines:        0,
+							Score:        0,
+							ProductScore: 0,
 						}
 					}
 					stats[lang].Count++
+					stats[lang].Score += 0.35 * weight
 
 					// Count lines (rough estimate)
 					lines, _ := countLines(path)
 					stats[lang].Lines += lines
+					stats[lang].Score += float64(lines) * weight
+					if role == roleProduct {
+						stats[lang].ProductScore += float64(lines) + 0.35
+					}
 					break
 				}
 			}
@@ -101,6 +172,10 @@ func (d *RepositoryLanguageDetector) DetectLanguage(repoPath string) (LanguageAd
 		return nil, fmt.Errorf("error scanning repository: %w", err)
 	}
 
+	for lang, stat := range stats {
+		stat.Score += markerBoost(repoPath, lang)
+	}
+
 	// Find the dominant language
 	return d.findDominantLanguage(stats)
 }
@@ -111,15 +186,43 @@ func (d *RepositoryLanguageDetector) findDominantLanguage(stats map[string]*Lang
 		return nil, fmt.Errorf("no supported language files found in repository")
 	}
 
-	var dominantLang string
-	maxCount := 0
-
-	for lang, stat := range stats {
-		if stat.Count > maxCount {
-			maxCount = stat.Count
-			dominantLang = lang
-		}
+	candidates := make([]LanguageStat, 0, len(stats))
+	for _, stat := range stats {
+		candidates = append(candidates, *stat)
 	}
+
+	sort.SliceStable(candidates, func(i, j int) bool {
+		left := candidates[i]
+		right := candidates[j]
+
+		if left.ProductScore != right.ProductScore {
+			return left.ProductScore > right.ProductScore
+		}
+
+		if left.Score != right.Score {
+			return left.Score > right.Score
+		}
+		if left.Lines != right.Lines {
+			return left.Lines > right.Lines
+		}
+		if left.Count != right.Count {
+			return left.Count > right.Count
+		}
+
+		priority := map[string]int{
+			"Python": 0,
+			"Go":     1,
+		}
+		lp, lok := priority[left.Language]
+		rp, rok := priority[right.Language]
+		if lok && rok && lp != rp {
+			return lp < rp
+		}
+
+		return left.Language < right.Language
+	})
+
+	dominantLang := candidates[0].Language
 
 	if dominantLang == "" {
 		return nil, fmt.Errorf("could not determine dominant language")
@@ -165,7 +268,7 @@ func (d *RepositoryLanguageDetector) GetLanguageStats(repoPath string) ([]Langua
 			if path == repoPath {
 				return nil
 			}
-			if strings.HasPrefix(dEntry.Name(), ".") || (d.ignoreStrategy != nil && d.ignoreStrategy.ShouldIgnore(dEntry.Name())) {
+			if strings.HasPrefix(dEntry.Name(), ".") || (d.ignoreStrategy != nil && d.ignoreStrategy.ShouldIgnore(path, dEntry.Name())) {
 				return filepath.SkipDir
 			}
 			return nil
@@ -181,20 +284,28 @@ func (d *RepositoryLanguageDetector) GetLanguageStats(repoPath string) ([]Langua
 		}
 
 		ext := strings.ToLower(filepath.Ext(path))
+		role := classifyPathRole(path)
+		weight := roleWeight(role)
 		for _, adapter := range d.adapters {
 			for _, supportedExt := range adapter.FileExtensions() {
 				if ext == strings.ToLower(supportedExt) {
 					lang := adapter.Name()
 					if stats[lang] == nil {
 						stats[lang] = &LanguageStat{
-							Language: lang,
-							Count:    0,
-							Lines:    0,
+							Language:     lang,
+							Count:        0,
+							Lines:        0,
+							Score:        0,
+							ProductScore: 0,
 						}
 					}
 					stats[lang].Count++
 					lines, _ := countLines(path)
 					stats[lang].Lines += lines
+					stats[lang].Score += 0.35*weight + float64(lines)*weight
+					if role == roleProduct {
+						stats[lang].ProductScore += float64(lines) + 0.35
+					}
 					break
 				}
 			}
@@ -205,6 +316,10 @@ func (d *RepositoryLanguageDetector) GetLanguageStats(repoPath string) ([]Langua
 
 	if err != nil {
 		return nil, fmt.Errorf("error scanning repository: %w", err)
+	}
+
+	for lang, stat := range stats {
+		stat.Score += markerBoost(repoPath, lang)
 	}
 
 	result := make([]LanguageStat, 0, len(stats))
