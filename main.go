@@ -64,28 +64,143 @@ func executeCommand(cmd string, args []string) error {
 }
 
 func handleAnalyzeCommand(args []string) error {
-	analyzeCmd := flag.NewFlagSet("analyze", flag.ExitOnError)
+	req, err := composeAnalyzeRequest(args)
+	if err != nil {
+		return err
+	}
+
+	if req.watch {
+		runWatch(req.path)
+		return nil
+	}
+
+	runAnalyze(req.path, req.format, req.verbose, req.colorEnabled, true)
+	return nil
+}
+
+type analyzeCommandRequest struct {
+	path         string
+	format       string
+	verbose      bool
+	colorEnabled bool
+	watch        bool
+}
+
+func composeAnalyzeRequest(args []string) (*analyzeCommandRequest, error) {
+	parsed, err := parseAnalyzeFlags(args)
+	if err != nil {
+		return nil, err
+	}
+
+	resolvedPath := resolveAnalyzePathArg(args, parsed.pathFlag, parsed.positional)
+	normalizedPath, normalizeErr := normalizeAnalyzePathInput(resolvedPath)
+	if normalizeErr != nil {
+		return nil, normalizeErr
+	}
+
+	return &analyzeCommandRequest{
+		path:         normalizedPath,
+		format:       parsed.outputFormat,
+		verbose:      parsed.verbose,
+		colorEnabled: !parsed.noColor,
+		watch:        parsed.watch,
+	}, nil
+}
+
+type analyzeFlagInput struct {
+	pathFlag     string
+	outputFormat string
+	verbose      bool
+	watch        bool
+	noColor      bool
+	positional   []string
+}
+
+func parseAnalyzeFlags(args []string) (*analyzeFlagInput, error) {
+	analyzeCmd := flag.NewFlagSet("analyze", flag.ContinueOnError)
+	analyzeCmd.SetOutput(os.Stderr)
+
 	path := analyzeCmd.String("path", ".", "Path to analyze")
 	format := analyzeCmd.String("format", "text", "Output format (text, json, json-v1)")
 	verbose := analyzeCmd.Bool("verbose", false, "Enable verbose output")
 	jsonOut := analyzeCmd.Bool("json", false, "Output in JSON format")
 	watch := analyzeCmd.Bool("watch", false, "Enable watch mode for continuous analysis")
 	noColor := analyzeCmd.Bool("no-color", false, "Disable colored output")
-	analyzeCmd.Parse(args)
 
-	resolvedPath := resolveAnalyzePathArg(args, *path, analyzeCmd.Args())
+	if err := analyzeCmd.Parse(args); err != nil {
+		return nil, NewCLIError(
+			ErrorCLIUsage,
+			fmt.Sprintf("Invalid analyze arguments: %v", err),
+			"Run 'repodoctor help' to review analyze command usage",
+			err,
+		)
+	}
 
 	outputFormat := *format
 	if *jsonOut {
 		outputFormat = "json"
 	}
-	if *watch {
-		runWatch(resolvedPath)
-		return nil
+
+	return &analyzeFlagInput{
+		pathFlag:     *path,
+		outputFormat: outputFormat,
+		verbose:      *verbose,
+		watch:        *watch,
+		noColor:      *noColor,
+		positional:   analyzeCmd.Args(),
+	}, nil
+}
+
+func normalizeAnalyzePathInput(pathArg string) (string, error) {
+	if strings.TrimSpace(pathArg) == "" {
+		return "", NewCLIError(
+			ErrorInvalidArgument,
+			"Analyze path cannot be empty",
+			"Provide a valid repository path with -path or positional argument",
+			nil,
+		)
 	}
 
-	runAnalyze(resolvedPath, outputFormat, *verbose, !*noColor, true)
-	return nil
+	cleaned := filepath.Clean(pathArg)
+	absPath, err := filepath.Abs(cleaned)
+	if err != nil {
+		return "", HandleInvalidPathError(pathArg, err)
+	}
+	absPath = filepath.Clean(absPath)
+
+	projectRoot, rootErr := filepath.Abs(".")
+	if rootErr != nil {
+		return "", HandleInvalidPathError(".", rootErr)
+	}
+	projectRoot = filepath.Clean(projectRoot)
+
+	if resolvedRoot, err := filepath.EvalSymlinks(projectRoot); err == nil {
+		projectRoot = filepath.Clean(resolvedRoot)
+	}
+
+	candidate := absPath
+	if resolvedCandidate, err := filepath.EvalSymlinks(absPath); err == nil {
+		candidate = filepath.Clean(resolvedCandidate)
+	}
+
+	rel, err := filepath.Rel(projectRoot, candidate)
+	if err == nil {
+		rel = filepath.Clean(rel)
+		if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return "", NewCLIError(
+				ErrorInvalidArgument,
+				fmt.Sprintf("Analyze path escapes current project root: %s", pathArg),
+				"Use a path within the current repository root",
+				nil,
+			)
+		}
+	}
+
+	if rel != "." && rel != "" {
+		return rel, nil
+	}
+
+	return ".", nil
 }
 
 func resolveAnalyzePathArg(rawArgs []string, pathFlag string, positional []string) string {

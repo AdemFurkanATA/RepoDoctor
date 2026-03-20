@@ -1,6 +1,7 @@
 package languages
 
 import (
+	"bufio"
 	"fmt"
 	"io/fs"
 	"os"
@@ -23,6 +24,11 @@ type detectionScanContext struct {
 	stats        map[string]*LanguageStat
 	matchedFiles map[string][]string
 	adapters     []LanguageAdapter
+}
+
+type scanOutcome struct {
+	stats map[string]*LanguageStat
+	files map[string][]string
 }
 
 type DetectionPolicy struct {
@@ -173,21 +179,11 @@ func (d *RepositoryLanguageDetector) RegisterAdapter(adapter LanguageAdapter) {
 
 // DetectLanguage analyzes the repository and returns the primary language adapter.
 func (d *RepositoryLanguageDetector) DetectLanguage(repoPath string) (LanguageAdapter, error) {
-	normalizedRepoPath, err := normalizeRepoRoot(repoPath)
+	result, err := runSharedScanContract(d, repoPath)
 	if err != nil {
 		return nil, err
 	}
-
-	scanCtx := newDetectionScanContext(d.orderedAdapters())
-	err = scanRepository(d, normalizedRepoPath, scanCtx)
-	if err != nil {
-		return nil, fmt.Errorf("error scanning repository: %w", err)
-	}
-
-	d.applyAdapterEvidence(normalizedRepoPath, scanCtx.adapters, scanCtx.matchedFiles, scanCtx.stats)
-	applyMarkerBoost(normalizedRepoPath, scanCtx.stats)
-
-	return d.findDominantLanguage(scanCtx.stats)
+	return d.findDominantLanguage(result.stats)
 }
 
 func newDetectionScanContext(adapters []LanguageAdapter) *detectionScanContext {
@@ -332,6 +328,24 @@ func (d *RepositoryLanguageDetector) applyAdapterEvidence(repoPath string, adapt
 	}
 }
 
+func runSharedScanContract(detector *RepositoryLanguageDetector, repoPath string) (*scanOutcome, error) {
+	normalizedRepoPath, err := normalizeRepoRoot(repoPath)
+	if err != nil {
+		return nil, err
+	}
+
+	scanCtx := newDetectionScanContext(detector.orderedAdapters())
+	err = scanRepository(detector, normalizedRepoPath, scanCtx)
+	if err != nil {
+		return nil, fmt.Errorf("error scanning repository: %w", err)
+	}
+
+	detector.applyAdapterEvidence(normalizedRepoPath, scanCtx.adapters, scanCtx.matchedFiles, scanCtx.stats)
+	applyMarkerBoost(normalizedRepoPath, scanCtx.stats)
+
+	return &scanOutcome{stats: scanCtx.stats, files: scanCtx.matchedFiles}, nil
+}
+
 func normalizeRepoRoot(repoPath string) (string, error) {
 	if strings.TrimSpace(repoPath) == "" {
 		return "", fmt.Errorf("repository path is required")
@@ -435,36 +449,43 @@ func (d *RepositoryLanguageDetector) GetSupportedLanguages() []string {
 
 // countLines counts the number of lines in a file.
 func countLines(path string) (int, error) {
-	data, err := os.ReadFile(path)
+	file, err := os.Open(path)
 	if err != nil {
 		return 0, err
 	}
-	return len(strings.Split(string(data), "\n")), nil
+	defer file.Close()
+
+	count := 0
+	scanner := bufio.NewScanner(file)
+	buf := make([]byte, 0, 64*1024)
+	scanner.Buffer(buf, 1024*1024)
+	for scanner.Scan() {
+		count++
+	}
+	if err := scanner.Err(); err != nil {
+		return 0, err
+	}
+
+	if count == 0 {
+		return 1, nil
+	}
+	return count, nil
 }
 
 // GetLanguageStats returns detailed statistics about languages in the repository.
 func (d *RepositoryLanguageDetector) GetLanguageStats(repoPath string) ([]LanguageStat, error) {
-	normalizedRepoPath, err := normalizeRepoRoot(repoPath)
+	result, err := runSharedScanContract(d, repoPath)
 	if err != nil {
 		return nil, err
 	}
 
-	scanCtx := newDetectionScanContext(d.orderedAdapters())
-	err = scanRepository(d, normalizedRepoPath, scanCtx)
-	if err != nil {
-		return nil, fmt.Errorf("error scanning repository: %w", err)
+	stats := make([]LanguageStat, 0, len(result.stats))
+	for _, stat := range result.stats {
+		stats = append(stats, *stat)
 	}
+	sort.SliceStable(stats, func(i, j int) bool { return stats[i].Language < stats[j].Language })
 
-	d.applyAdapterEvidence(normalizedRepoPath, scanCtx.adapters, scanCtx.matchedFiles, scanCtx.stats)
-	applyMarkerBoost(normalizedRepoPath, scanCtx.stats)
-
-	result := make([]LanguageStat, 0, len(scanCtx.stats))
-	for _, stat := range scanCtx.stats {
-		result = append(result, *stat)
-	}
-	sort.SliceStable(result, func(i, j int) bool { return result[i].Language < result[j].Language })
-
-	return result, nil
+	return stats, nil
 }
 
 // IsMultiLanguageRepository checks if the repository contains multiple supported languages.
