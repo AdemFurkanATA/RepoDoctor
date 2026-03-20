@@ -340,3 +340,41 @@ func TestLanguageDetector_WithPolicy_MonorepoSegmentAware(t *testing.T) {
 		t.Fatalf("expected TypeScript with configured monorepo policy, got %s", adapter.Name())
 	}
 }
+
+func TestLanguageDetector_DetectLanguage_MixedFixtureParity(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "detector_mixed_parity")
+	if err != nil {
+		t.Fatalf("failed creating temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	if err := os.MkdirAll(filepath.Join(tempDir, "src"), 0o755); err != nil {
+		t.Fatalf("failed creating src dir: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(tempDir, "scripts"), 0o755); err != nil {
+		t.Fatalf("failed creating scripts dir: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(tempDir, "src", "app.py"), []byte("from .service import run\n"), 0o644); err != nil {
+		t.Fatalf("failed writing python file: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempDir, "scripts", "main.go"), []byte("package main\n"), 0o644); err != nil {
+		t.Fatalf("failed writing go file: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempDir, "pyproject.toml"), []byte("[project]\nname='demo'\n"), 0o644); err != nil {
+		t.Fatalf("failed writing python marker: %v", err)
+	}
+
+	strategy := domain.NewDefaultIgnoreStrategy(domain.DefaultIgnoredDirs)
+	detector := languages.NewRepositoryLanguageDetector(strategy)
+	detector.RegisterAdapter(languages.NewGoAdapter())
+	detector.RegisterAdapter(languages.NewPythonAdapter())
+
+	adapter, detectErr := detector.DetectLanguage(tempDir)
+	if detectErr != nil {
+		t.Fatalf("detect language failed: %v", detectErr)
+	}
+	if adapter.Name() != "Python" {
+		t.Fatalf("expected Python on mixed fixture parity test, got %s", adapter.Name())
+	}
+}
