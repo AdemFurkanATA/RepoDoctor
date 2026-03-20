@@ -361,3 +361,29 @@ def run(arg1, arg2):
 		t.Fatalf("expected 2 functions, got %d", fm.Functions)
 	}
 }
+
+func TestPythonAdapter_CollectEvidence_MalformedAndOversizedSafeFailure(t *testing.T) {
+	repo := t.TempDir()
+
+	malformed := filepath.Join(repo, "bad.py")
+	if err := os.WriteFile(malformed, []byte("from . import\n"), 0o644); err != nil {
+		t.Fatalf("failed writing malformed fixture: %v", err)
+	}
+
+	oversized := filepath.Join(repo, "huge.py")
+	if err := os.WriteFile(oversized, make([]byte, maxPythonFileBytes+10), 0o644); err != nil {
+		t.Fatalf("failed writing oversized fixture: %v", err)
+	}
+
+	adapter := NewPythonAdapter()
+	signals, warnings, err := adapter.CollectEvidence(repo, []string{malformed, oversized})
+	if err != nil {
+		t.Fatalf("CollectEvidence must fail safely without returning error, got: %v", err)
+	}
+	if len(signals) != 0 {
+		t.Fatalf("expected zero signals for malformed/oversized input, got %d", len(signals))
+	}
+	if len(warnings) == 0 {
+		t.Fatal("expected warnings for malformed/oversized fixtures")
+	}
+}
