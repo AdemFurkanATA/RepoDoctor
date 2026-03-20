@@ -3,6 +3,7 @@ package languages
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"RepoDoctor/internal/domain"
@@ -53,6 +54,53 @@ func TestRepositoryLanguageDetector_GetLanguageStats_SortedAndStable(t *testing.
 				t.Fatalf("stats changed on iteration %d index %d: %+v vs %+v", i, idx, next[idx], first[idx])
 			}
 		}
+	}
+}
+
+func TestRepositoryLanguageDetector_GetLanguageStats_SkipsOutsideSymlinkLoop(t *testing.T) {
+	repo := t.TempDir()
+	outside := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(repo, "main.go"), []byte("package main\n"), 0o644); err != nil {
+		t.Fatalf("failed writing root go file: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(outside, "outside.py"), []byte("print('x')\n"), 0o644); err != nil {
+		t.Fatalf("failed writing outside python file: %v", err)
+	}
+
+	if err := os.Symlink(outside, filepath.Join(repo, "linked_outside")); err != nil {
+		t.Skipf("symlink not supported in this environment: %v", err)
+	}
+
+	detector := NewRepositoryLanguageDetector(domain.NewDefaultIgnoreStrategy(domain.DefaultIgnoredDirs))
+	detector.RegisterAdapter(NewGoAdapter())
+	detector.RegisterAdapter(NewPythonAdapter())
+
+	stats, err := detector.GetLanguageStats(repo)
+	if err != nil {
+		t.Fatalf("GetLanguageStats failed: %v", err)
+	}
+
+	if len(stats) != 1 || stats[0].Language != "Go" {
+		t.Fatalf("expected outside symlink to be skipped and only Go stat kept, got %+v", stats)
+	}
+}
+
+func TestCountLines_StreamedMemoryBoundedBehavior(t *testing.T) {
+	repo := t.TempDir()
+	path := filepath.Join(repo, "large.go")
+
+	lines := strings.Repeat("package main\n", 10000)
+	if err := os.WriteFile(path, []byte(lines), 0o644); err != nil {
+		t.Fatalf("failed writing large fixture: %v", err)
+	}
+
+	count, err := countLines(path)
+	if err != nil {
+		t.Fatalf("countLines failed: %v", err)
+	}
+	if count != 10000 {
+		t.Fatalf("expected streamed line count 10000, got %d", count)
 	}
 }
 
