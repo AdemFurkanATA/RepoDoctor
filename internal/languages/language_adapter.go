@@ -43,6 +43,21 @@ type LanguageAdapter interface {
 	NormalizeImport(importPath string) string
 }
 
+// EvidenceSignal is a language-neutral detection signal produced by adapters.
+// Domain scoring must depend on this structure instead of parser internals.
+type EvidenceSignal struct {
+	Language    string
+	SignalType  string
+	WeightInput float64
+	SourcePath  string
+}
+
+// EvidenceProvider is an optional adapter extension for richer language detection.
+// Implementations must keep output deterministic for the same repository input.
+type EvidenceProvider interface {
+	CollectEvidence(repoPath string, files []string) ([]EvidenceSignal, []string, error)
+}
+
 // AdapterCapabilities declares optional, stable extension points for adapters.
 type AdapterCapabilities struct {
 	SupportsDependencyGraph bool

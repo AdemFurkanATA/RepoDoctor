@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"RepoDoctor/internal/model"
@@ -17,10 +18,17 @@ type PythonAdapter struct {
 }
 
 const maxPythonFileBytes = 2 * 1024 * 1024
+const maxPythonEvidenceFiles = 5000
 
 // pythonImportExtractor helps extract imports from Python files
 type pythonImportExtractor struct {
 	patterns []*regexp.Regexp
+}
+
+type importEvidence struct {
+	modulePath string
+	relative   bool
+	level      int
 }
 
 // newPythonImportExtractor creates a new import extractor
@@ -376,6 +384,197 @@ func (a *PythonAdapter) NormalizeImport(importPath string) string {
 		return ""
 	}
 	return strings.Split(trimmed, ".")[0]
+}
+
+// CollectEvidence extracts normalized import evidence for language detection.
+func (a *PythonAdapter) CollectEvidence(repoPath string, files []string) ([]EvidenceSignal, []string, error) {
+	root, err := normalizeRepoRoot(repoPath)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	sortedFiles := append([]string(nil), files...)
+	sort.Strings(sortedFiles)
+
+	if len(sortedFiles) > maxPythonEvidenceFiles {
+		sortedFiles = sortedFiles[:maxPythonEvidenceFiles]
+	}
+
+	signals := make([]EvidenceSignal, 0, len(sortedFiles)*2)
+	warnings := make([]string, 0)
+
+	for _, file := range sortedFiles {
+		normalizedPath, ok := normalizePathWithinRoot(root, file)
+		if !ok {
+			warnings = append(warnings, fmt.Sprintf("skipped path outside repo root: %s", file))
+			continue
+		}
+
+		info, statErr := os.Lstat(normalizedPath)
+		if statErr != nil {
+			warnings = append(warnings, fmt.Sprintf("failed to stat python file: %s", normalizedPath))
+			continue
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			warnings = append(warnings, fmt.Sprintf("skipped symlink python file: %s", normalizedPath))
+			continue
+		}
+		if info.Size() > maxPythonFileBytes {
+			warnings = append(warnings, fmt.Sprintf("skipped oversized python file: %s", normalizedPath))
+			continue
+		}
+
+		evidence, parseErr := parsePythonImportEvidence(normalizedPath)
+		if parseErr != nil {
+			warnings = append(warnings, fmt.Sprintf("failed to parse python imports: %s", normalizedPath))
+			continue
+		}
+
+		moduleRoot := detectPythonModuleRoot(root, normalizedPath)
+		for _, item := range evidence {
+			weight := 0.40
+			signalType := "python_import_absolute"
+			if item.relative {
+				signalType = "python_import_relative"
+				weight = 2.10
+			}
+
+			normalizedImport := normalizePythonImport(item, normalizedPath, root, moduleRoot)
+			if normalizedImport == "" {
+				continue
+			}
+
+			signals = append(signals, EvidenceSignal{
+				Language:    "Python",
+				SignalType:  signalType,
+				WeightInput: weight,
+				SourcePath:  normalizedPath,
+			})
+		}
+	}
+
+	return signals, warnings, nil
+}
+
+func parsePythonImportEvidence(path string) ([]importEvidence, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	result := make([]importEvidence, 0)
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		if strings.HasPrefix(line, "import ") {
+			entry := strings.TrimSpace(strings.TrimPrefix(line, "import "))
+			for _, part := range strings.Split(entry, ",") {
+				modulePath := strings.TrimSpace(strings.Split(strings.TrimSpace(part), " as ")[0])
+				if modulePath == "" {
+					continue
+				}
+				result = append(result, importEvidence{modulePath: modulePath})
+			}
+			continue
+		}
+
+		if strings.HasPrefix(line, "from ") {
+			remainder := strings.TrimSpace(strings.TrimPrefix(line, "from "))
+			parts := strings.SplitN(remainder, " import ", 2)
+			if len(parts) != 2 {
+				continue
+			}
+			fromModule := strings.TrimSpace(parts[0])
+			level := 0
+			for level < len(fromModule) && fromModule[level] == '.' {
+				level++
+			}
+			modulePath := strings.TrimPrefix(fromModule, strings.Repeat(".", level))
+			result = append(result, importEvidence{
+				modulePath: modulePath,
+				relative:   level > 0,
+				level:      level,
+			})
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func detectPythonModuleRoot(repoRoot, filePath string) string {
+	current := filepath.Dir(filePath)
+	moduleRoot := current
+
+	for {
+		candidate := filepath.Join(current, "__init__.py")
+		if _, err := os.Stat(candidate); err != nil {
+			break
+		}
+		moduleRoot = current
+		if current == repoRoot {
+			break
+		}
+		next := filepath.Dir(current)
+		if next == current {
+			break
+		}
+		current = next
+	}
+
+	return moduleRoot
+}
+
+func normalizePythonImport(item importEvidence, filePath, repoRoot, moduleRoot string) string {
+	if !item.relative {
+		normalized := strings.TrimSpace(item.modulePath)
+		if normalized == "" {
+			return ""
+		}
+		parts := strings.Split(normalized, ".")
+		return strings.TrimSpace(parts[0])
+	}
+
+	base := filepath.Dir(filePath)
+	for i := 1; i < item.level; i++ {
+		next := filepath.Dir(base)
+		if next == base || len(next) < len(moduleRoot) {
+			break
+		}
+		base = next
+	}
+
+	rel, err := filepath.Rel(repoRoot, base)
+	if err != nil {
+		return ""
+	}
+	rel = filepath.ToSlash(rel)
+	if strings.HasPrefix(rel, "../") || rel == ".." {
+		return ""
+	}
+
+	if strings.TrimSpace(item.modulePath) != "" {
+		if rel == "." {
+			rel = item.modulePath
+		} else {
+			rel = rel + "." + item.modulePath
+		}
+	}
+
+	if rel == "." || rel == "" {
+		return ""
+	}
+	root := strings.Split(strings.ReplaceAll(rel, "/", "."), ".")[0]
+	return strings.TrimSpace(root)
 }
 
 // DetectPythonVersion attempts to detect Python version from the repository.
