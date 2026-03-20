@@ -307,11 +307,21 @@ func extractImports(absPath string, verbose bool) map[string]*ImportMetadata {
 	return imports
 }
 
-func runAdapterPipeline(absPath string) (*analysis.Result, error) {
+func runAdapterPipeline(absPath string, verbose bool) (*analysis.Result, error) {
 	ignoreStrategy := domain.NewDefaultIgnoreStrategy(domain.DefaultIgnoredDirs)
 	detector := languages.NewRepositoryLanguageDetector(ignoreStrategy)
 	detector.RegisterAdapter(languages.NewGoAdapter())
 	detector.RegisterAdapter(languages.NewPythonAdapter())
+
+	if verbose {
+		stats, err := detector.GetLanguageStats(absPath)
+		if err == nil {
+			fmt.Printf("%s\n", ColorInfo("Language stats: "))
+			for _, stat := range stats {
+				fmt.Printf("  - %s: %d files (%d lines)\n", stat.Language, stat.Count, stat.Lines)
+			}
+		}
+	}
 
 	orchestrator := analysis.NewOrchestrator(detector)
 	return orchestrator.Analyze(absPath)
