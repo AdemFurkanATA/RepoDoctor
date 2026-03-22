@@ -4,6 +4,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -42,7 +43,7 @@ func (r *SizeRule) Severity() string {
 }
 
 func (r *SizeRule) Capabilities() RuleCapabilities {
-	return RuleCapabilities{SupportedLanguages: []string{"Go"}, SupportsMultipleLanguages: false}
+	return RuleCapabilities{SupportedLanguages: []string{"Go", "Python"}, SupportsMultipleLanguages: false}
 }
 
 // Evaluate executes the rule logic against the provided context
@@ -90,6 +91,12 @@ func (r *SizeRule) countNonEmptyLines(content string) int {
 
 // checkFunctions checks function sizes in a file
 func (r *SizeRule) checkFunctions(file RepositoryFile, violations *[]model.Violation) {
+	ext := strings.ToLower(filepath.Ext(file.Path))
+	if ext == ".py" {
+		r.checkPythonFunctions(file, violations)
+		return
+	}
+
 	// Parse AST
 	node, err := parser.ParseFile(r.fset, file.Path, file.Content, 0)
 	if err != nil {
@@ -121,4 +128,66 @@ func (r *SizeRule) checkFunctions(file RepositoryFile, violations *[]model.Viola
 
 		return true
 	})
+}
+
+func (r *SizeRule) checkPythonFunctions(file RepositoryFile, violations *[]model.Violation) {
+	lines := strings.Split(file.Content, "\n")
+	for i := 0; i < len(lines); i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if !(strings.HasPrefix(trimmed, "def ") || strings.HasPrefix(trimmed, "async def ")) {
+			continue
+		}
+
+		startLine := i + 1
+		startIndent := leadingSpaces(lines[i])
+		endLine := startLine
+
+		for j := i + 1; j < len(lines); j++ {
+			candidate := lines[j]
+			candidateTrimmed := strings.TrimSpace(candidate)
+			if candidateTrimmed == "" || strings.HasPrefix(candidateTrimmed, "#") {
+				endLine = j + 1
+				continue
+			}
+
+			if leadingSpaces(candidate) <= startIndent {
+				break
+			}
+			endLine = j + 1
+		}
+
+		funcLines := endLine - startLine + 1
+		if funcLines > r.MaxFunctionLines {
+			name := extractPythonFunctionName(trimmed)
+			*violations = append(*violations, model.Violation{
+				RuleID:      r.ID(),
+				Severity:    model.SeverityWarning,
+				Message:     "Function '" + name + "' has " + strconv.Itoa(funcLines) + " lines (threshold: " + strconv.Itoa(r.MaxFunctionLines) + ")",
+				File:        file.Path,
+				Line:        startLine,
+				ScoreImpact: -3.0,
+			})
+		}
+	}
+}
+
+func leadingSpaces(line string) int {
+	count := 0
+	for _, ch := range line {
+		if ch != ' ' {
+			break
+		}
+		count++
+	}
+	return count
+}
+
+func extractPythonFunctionName(trimmedDef string) string {
+	namePart := strings.TrimSpace(trimmedDef)
+	namePart = strings.TrimPrefix(namePart, "async ")
+	namePart = strings.TrimPrefix(namePart, "def ")
+	if idx := strings.Index(namePart, "("); idx > 0 {
+		return strings.TrimSpace(namePart[:idx])
+	}
+	return "unknown"
 }
