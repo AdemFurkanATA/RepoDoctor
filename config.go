@@ -17,6 +17,11 @@ type Config struct {
 	Rules             *RulesConfig             `yaml:"rules,omitempty"`
 	Weights           *WeightsConfig           `yaml:"weights,omitempty"`
 	LanguageDetection *LanguageDetectionConfig `yaml:"language_detection,omitempty"`
+	Architecture      *ArchitectureConfig      `yaml:"architecture,omitempty"`
+}
+
+type ArchitectureConfig struct {
+	Profile string `yaml:"profile,omitempty"`
 }
 
 type LanguageDetectionConfig struct {
@@ -174,6 +179,15 @@ func (l *ConfigLoader) validate(cfg *Config) error {
 		}
 	}
 
+	if cfg.Architecture != nil {
+		if strings.TrimSpace(cfg.Architecture.Profile) != "" {
+			profile := strings.TrimSpace(cfg.Architecture.Profile)
+			if !isValidArchitectureProfile(profile) {
+				return fmt.Errorf("architecture.profile must be one of: clean, layered, modular-monolith")
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -227,6 +241,7 @@ func (l *ConfigLoader) getDefaultConfig() *Config {
 				"scripts": 0.2,
 			},
 		},
+		Architecture: &ArchitectureConfig{Profile: "layered"},
 	}
 }
 
@@ -239,6 +254,7 @@ func (l *ConfigLoader) mergeWithDefaults(cfg *Config) *Config {
 	mergeRulesConfig(cfg, defaults)
 	mergeWeightsConfig(cfg, defaults)
 	mergeLanguageDetectionConfig(cfg, defaults)
+	mergeArchitectureConfig(cfg, defaults)
 
 	return cfg
 }
@@ -335,6 +351,16 @@ func mergeLanguageDetectionConfig(cfg, defaults *Config) {
 	}
 }
 
+func mergeArchitectureConfig(cfg, defaults *Config) {
+	if cfg.Architecture == nil {
+		cfg.Architecture = defaults.Architecture
+		return
+	}
+	if strings.TrimSpace(cfg.Architecture.Profile) == "" {
+		cfg.Architecture.Profile = defaults.Architecture.Profile
+	}
+}
+
 func rejectUnknownConfigKeys(data []byte) error {
 	var raw map[string]interface{}
 	if err := yaml.Unmarshal(data, &raw); err != nil {
@@ -342,11 +368,23 @@ func rejectUnknownConfigKeys(data []byte) error {
 	}
 
 	allowed := map[string]bool{
-		"size": true, "god_object": true, "rules": true, "weights": true, "language_detection": true,
+		"size": true, "god_object": true, "rules": true, "weights": true, "language_detection": true, "architecture": true,
 	}
 	for key := range raw {
 		if !allowed[key] {
 			return fmt.Errorf("config validation error: unknown config key '%s'", key)
+		}
+	}
+
+	if archRaw, ok := raw["architecture"]; ok {
+		encoded, _ := json.Marshal(archRaw)
+		var arch map[string]interface{}
+		_ = json.Unmarshal(encoded, &arch)
+		allowedArch := map[string]bool{"profile": true}
+		for key := range arch {
+			if !allowedArch[key] {
+				return fmt.Errorf("config validation error: unknown architecture key '%s'", key)
+			}
 		}
 	}
 
@@ -363,6 +401,16 @@ func rejectUnknownConfigKeys(data []byte) error {
 	}
 
 	return nil
+}
+
+func isValidArchitectureProfile(profile string) bool {
+	allowed := map[string]struct{}{
+		"clean":            {},
+		"layered":          {},
+		"modular-monolith": {},
+	}
+	_, ok := allowed[profile]
+	return ok
 }
 
 // GetConfigPath returns the default config path for a given directory
