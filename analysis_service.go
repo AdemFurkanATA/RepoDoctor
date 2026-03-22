@@ -61,7 +61,7 @@ func (s *AnalysisService) Run(request AnalyzeRequest) int {
 	config := loadConfiguration(absPath, request.Verbose)
 
 	progress.Start("Running rules", getStageCount("Running rules", absPath))
-	ruleSummary := runInternalRulePipeline(absPath, graph)
+	ruleSummary := runInternalRulePipeline(absPath, graph, analysisResult.AdapterName)
 	progress.SetProgress(progress.totalSteps / 2)
 
 	report := generateRuleEngineReport(absPath, request.Format, request.Verbose, request.ColorEnabled, config, ruleSummary)

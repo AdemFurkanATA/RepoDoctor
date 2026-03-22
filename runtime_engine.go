@@ -16,7 +16,7 @@ type runtimeRuleSummary struct {
 	rulesInScope int
 }
 
-func runInternalRulePipeline(absPath string, graph Graph) *runtimeRuleSummary {
+func runInternalRulePipeline(absPath string, graph Graph, primaryLanguage string) *runtimeRuleSummary {
 	registry := rules.NewRuleRegistry()
 	for _, rule := range rules.GetDefaultRegistry().GetAll() {
 		registry.MustRegister(rule)
@@ -24,7 +24,7 @@ func runInternalRulePipeline(absPath string, graph Graph) *runtimeRuleSummary {
 	registry.MustRegister(rules.NewCircularDependencyRule(toRulesDependencyGraph(graph)))
 
 	executor := engine.NewRuleExecutor(registry)
-	context := buildRulesAnalysisContext(absPath, graph)
+	context := buildRulesAnalysisContext(absPath, graph, primaryLanguage)
 	result := executor.Execute(context)
 	sortViolations(result.Violations)
 
@@ -34,7 +34,7 @@ func runInternalRulePipeline(absPath string, graph Graph) *runtimeRuleSummary {
 	}
 }
 
-func buildRulesAnalysisContext(absPath string, graph Graph) rules.AnalysisContext {
+func buildRulesAnalysisContext(absPath string, graph Graph, primaryLanguage string) rules.AnalysisContext {
 	nodes := graph.GetAllNodes()
 	sort.Strings(nodes)
 
@@ -52,11 +52,16 @@ func buildRulesAnalysisContext(absPath string, graph Graph) rules.AnalysisContex
 		})
 	}
 
+	languages := []string{"Go", "Python", "JavaScript", "TypeScript"}
+	if primaryLanguage != "" {
+		languages = []string{primaryLanguage}
+	}
+
 	return rules.AnalysisContext{
 		RepositoryFiles: repoFiles,
 		DependencyGraph: toRulesDependencyGraph(graph),
 		Configuration:   rules.Configuration{"repositoryPath": absPath},
-		Languages:       []string{"Go", "Python", "JavaScript", "TypeScript"},
+		Languages:       languages,
 	}
 }
 
