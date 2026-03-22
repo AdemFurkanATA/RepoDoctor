@@ -24,41 +24,7 @@ func parsePythonImportEvidence(path string) ([]importEvidence, error) {
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-
-		if strings.HasPrefix(line, "import ") {
-			entry := strings.TrimSpace(strings.TrimPrefix(line, "import "))
-			for _, part := range strings.Split(entry, ",") {
-				modulePath := strings.TrimSpace(strings.Split(strings.TrimSpace(part), " as ")[0])
-				if modulePath == "" {
-					continue
-				}
-				result = append(result, importEvidence{modulePath: modulePath})
-			}
-			continue
-		}
-
-		if strings.HasPrefix(line, "from ") {
-			remainder := strings.TrimSpace(strings.TrimPrefix(line, "from "))
-			parts := strings.SplitN(remainder, " import ", 2)
-			if len(parts) != 2 {
-				continue
-			}
-			fromModule := strings.TrimSpace(parts[0])
-			level := 0
-			for level < len(fromModule) && fromModule[level] == '.' {
-				level++
-			}
-			modulePath := strings.TrimPrefix(fromModule, strings.Repeat(".", level))
-			result = append(result, importEvidence{
-				modulePath: modulePath,
-				relative:   level > 0,
-				level:      level,
-			})
-		}
+		result = append(result, parsePythonImportLine(scanner.Text())...)
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -66,6 +32,132 @@ func parsePythonImportEvidence(path string) ([]importEvidence, error) {
 	}
 
 	return result, nil
+}
+
+func parsePythonImportLine(raw string) []importEvidence {
+	line := strings.TrimSpace(raw)
+	if line == "" || strings.HasPrefix(line, "#") {
+		return nil
+	}
+
+	if dynamic := parsePythonDynamicImport(line); dynamic != "" {
+		return []importEvidence{{modulePath: dynamic}}
+	}
+
+	if strings.HasPrefix(line, "import ") {
+		return parsePythonDirectImportLine(line)
+	}
+
+	if strings.HasPrefix(line, "from ") {
+		return parsePythonFromImportLine(line)
+	}
+
+	return nil
+}
+
+func parsePythonDirectImportLine(line string) []importEvidence {
+	entry := strings.TrimSpace(strings.TrimPrefix(line, "import "))
+	parts := strings.Split(entry, ",")
+	result := make([]importEvidence, 0, len(parts))
+	for _, part := range parts {
+		modulePath := strings.TrimSpace(strings.Split(strings.TrimSpace(part), " as ")[0])
+		if modulePath == "" {
+			continue
+		}
+		result = append(result, importEvidence{modulePath: modulePath})
+	}
+	return result
+}
+
+func parsePythonFromImportLine(line string) []importEvidence {
+	remainder := strings.TrimSpace(strings.TrimPrefix(line, "from "))
+	parts := strings.SplitN(remainder, " import ", 2)
+	if len(parts) != 2 {
+		return nil
+	}
+	fromModule := strings.TrimSpace(parts[0])
+	targets := parsePythonImportTargets(parts[1])
+	level := parsePythonRelativeLevel(fromModule)
+	modulePath := strings.TrimPrefix(fromModule, strings.Repeat(".", level))
+
+	if len(targets) == 0 {
+		return []importEvidence{{
+			modulePath: modulePath,
+			relative:   level > 0,
+			level:      level,
+		}}
+	}
+
+	result := make([]importEvidence, 0, len(targets))
+	for _, target := range targets {
+		if target == "*" {
+			continue
+		}
+		combined := modulePath
+		if combined == "" {
+			combined = target
+		} else {
+			combined = combined + "." + target
+		}
+		result = append(result, importEvidence{
+			modulePath: combined,
+			relative:   level > 0,
+			level:      level,
+		})
+	}
+	return result
+}
+
+func parsePythonRelativeLevel(fromModule string) int {
+	level := 0
+	for level < len(fromModule) && fromModule[level] == '.' {
+		level++
+	}
+	return level
+}
+
+func parsePythonImportTargets(importPart string) []string {
+	parts := strings.Split(importPart, ",")
+	targets := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(strings.Split(strings.TrimSpace(part), " as ")[0])
+		if trimmed == "" {
+			continue
+		}
+		targets = append(targets, trimmed)
+	}
+	return targets
+}
+
+func parsePythonDynamicImport(line string) string {
+	if !strings.Contains(line, "import_module(") && !strings.Contains(line, "__import__(") {
+		return ""
+	}
+
+	for _, prefix := range []string{"importlib.import_module", "__import__"} {
+		idx := strings.Index(line, prefix+"(")
+		if idx < 0 {
+			continue
+		}
+		args := line[idx+len(prefix)+1:]
+		for _, quote := range []string{"'", "\""} {
+			start := strings.Index(args, quote)
+			if start < 0 {
+				continue
+			}
+			end := strings.Index(args[start+1:], quote)
+			if end < 0 {
+				continue
+			}
+			candidate := strings.TrimSpace(args[start+1 : start+1+end])
+			if candidate == "" || strings.HasPrefix(candidate, ".") {
+				return ""
+			}
+			return candidate
+		}
+	}
+
+	return ""
 }
 
 func detectPythonModuleRoot(repoRoot, filePath string) string {
