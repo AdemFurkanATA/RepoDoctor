@@ -2,9 +2,9 @@ name: RepoDoctor Analysis
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, dev]
   pull_request:
-    branches: [main, develop]
+    branches: [main, dev]
 
 jobs:
   repodoctor:
@@ -26,8 +26,17 @@ jobs:
       - name: Build RepoDoctor
         run: go build .
 
+      - name: Run unit and integration tests
+        run: go test ./...
+
+      - name: Run static checks
+        run: go vet ./...
+
+      - name: Run non-Go integration confidence suites
+        run: go test ./... -run "TestRunInternalRulePipeline_MultiLanguageMixedFixtureDeterministic|TestJSTSParity_DeterministicAcrossRepeatedRuns"
+
       - name: Run RepoDoctor analysis
-        run: ./RepoDoctor analyze -path . -format text || ./RepoDoctor analyze -path . -format text
+        run: ./RepoDoctor analyze -path . -format text
 
       - name: Run RepoDoctor analysis (JSON output)
         run: ./RepoDoctor analyze -path . -format json -verbose || true
