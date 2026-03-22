@@ -168,39 +168,11 @@ func normalizeAnalyzePathInput(pathArg string) (string, error) {
 	}
 	absPath = filepath.Clean(absPath)
 
-	projectRoot, rootErr := filepath.Abs(".")
-	if rootErr != nil {
-		return "", HandleInvalidPathError(".", rootErr)
-	}
-	projectRoot = filepath.Clean(projectRoot)
-
-	if resolvedRoot, err := filepath.EvalSymlinks(projectRoot); err == nil {
-		projectRoot = filepath.Clean(resolvedRoot)
+	if resolvedPath, err := filepath.EvalSymlinks(absPath); err == nil {
+		return filepath.Clean(resolvedPath), nil
 	}
 
-	candidate := absPath
-	if resolvedCandidate, err := filepath.EvalSymlinks(absPath); err == nil {
-		candidate = filepath.Clean(resolvedCandidate)
-	}
-
-	rel, err := filepath.Rel(projectRoot, candidate)
-	if err == nil {
-		rel = filepath.Clean(rel)
-		if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-			return "", NewCLIError(
-				ErrorInvalidArgument,
-				fmt.Sprintf("Analyze path escapes current project root: %s", pathArg),
-				"Use a path within the current repository root",
-				nil,
-			)
-		}
-	}
-
-	if rel != "." && rel != "" {
-		return rel, nil
-	}
-
-	return ".", nil
+	return absPath, nil
 }
 
 func resolveAnalyzePathArg(rawArgs []string, pathFlag string, positional []string) string {

@@ -79,10 +79,13 @@ func TestComposeAnalyzeRequest_PathParityVariants(t *testing.T) {
 	}
 }
 
-func TestComposeAnalyzeRequest_RejectsPathTraversalOutsideRoot(t *testing.T) {
-	_, err := composeAnalyzeRequest([]string{"-path", ".."})
-	if err == nil {
-		t.Fatal("expected traversal outside root to be rejected")
+func TestComposeAnalyzeRequest_AllowsParentPathWhenExists(t *testing.T) {
+	req, err := composeAnalyzeRequest([]string{"-path", ".."})
+	if err != nil {
+		t.Fatalf("expected parent path to be allowed, got error: %v", err)
+	}
+	if req.path == "" {
+		t.Fatal("expected normalized path to be non-empty")
 	}
 }
 
