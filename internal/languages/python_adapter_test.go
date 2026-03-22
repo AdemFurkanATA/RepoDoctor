@@ -387,3 +387,55 @@ func TestPythonAdapter_CollectEvidence_MalformedAndOversizedSafeFailure(t *testi
 		t.Fatal("expected warnings for malformed/oversized fixtures")
 	}
 }
+
+func TestParsePythonImportEvidence_AbsoluteRelativeAndDynamic(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "imports.py")
+
+	content := strings.Join([]string{
+		"from pkg.services import service_a, service_b as alias",
+		"from .local import helper",
+		"from ..shared import common as c",
+		"module = importlib.import_module('requests.sessions')",
+		"loaded = __import__(\"json.encoder\")",
+	}, "\n")
+
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write fixture: %v", err)
+	}
+
+	evidence, err := parsePythonImportEvidence(path)
+	if err != nil {
+		t.Fatalf("parsePythonImportEvidence failed: %v", err)
+	}
+
+	joined := make([]string, 0, len(evidence))
+	for _, e := range evidence {
+		joined = append(joined, e.modulePath)
+	}
+
+	mustContain := []string{"pkg.services.service_a", "pkg.services.service_b", "local.helper", "shared.common", "requests.sessions", "json.encoder"}
+	combined := strings.Join(joined, "|")
+	for _, expected := range mustContain {
+		if !strings.Contains(combined, expected) {
+			t.Fatalf("expected module path %q in parsed evidence %v", expected, joined)
+		}
+	}
+}
+
+func TestParsePythonImportEvidence_IgnoresUnsafeDynamicRelative(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "unsafe.py")
+	content := "mod = importlib.import_module('.private')\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write fixture: %v", err)
+	}
+
+	evidence, err := parsePythonImportEvidence(path)
+	if err != nil {
+		t.Fatalf("parsePythonImportEvidence failed: %v", err)
+	}
+	if len(evidence) != 0 {
+		t.Fatalf("expected unsafe dynamic relative import to be ignored, got %v", evidence)
+	}
+}
