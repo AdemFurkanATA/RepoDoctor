@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -108,6 +109,9 @@ func (a *jsTsAdapter) CollectMetrics(files []string) (*model.RepositoryMetrics, 
 
 func (a *jsTsAdapter) BuildDependencyGraph(files []string) (*model.DependencyGraph, error) {
 	graph := model.NewDependencyGraph()
+	requireRe := regexp.MustCompile("require\\(\\s*['\\\"`]([^'\\\"`]+)['\\\"`]\\s*\\)")
+	dynamicImportRe := regexp.MustCompile("import\\(\\s*['\\\"`]([^'\\\"`]+)['\\\"`]\\s*\\)")
+
 	for _, file := range files {
 		node := graph.AddNode(file, file, filepath.Base(filepath.Dir(file)))
 		content, err := os.ReadFile(file)
@@ -117,6 +121,8 @@ func (a *jsTsAdapter) BuildDependencyGraph(files []string) (*model.DependencyGra
 		lines := strings.Split(string(content), "\n")
 		for _, line := range lines {
 			trimmed := strings.TrimSpace(line)
+
+			// import x from 'pkg' / import {x} from 'pkg'
 			if strings.HasPrefix(trimmed, "import ") && strings.Contains(trimmed, " from ") {
 				parts := strings.Split(trimmed, " from ")
 				candidate := strings.Trim(parts[len(parts)-1], " ';\"")
@@ -126,9 +132,65 @@ func (a *jsTsAdapter) BuildDependencyGraph(files []string) (*model.DependencyGra
 					graph.AddEdge(file, normalized)
 				}
 			}
+
+			// import 'pkg' (side-effect imports)
+			if strings.HasPrefix(trimmed, "import ") && !strings.Contains(trimmed, " from ") {
+				if quoted := extractQuotedJSImport(trimmed); quoted != "" {
+					normalized := a.NormalizeImport(quoted)
+					node.Imports = append(node.Imports, normalized)
+					graph.AddEdge(file, normalized)
+				}
+			}
+
+			// export ... from 'pkg'
+			if strings.HasPrefix(trimmed, "export ") && strings.Contains(trimmed, " from ") {
+				parts := strings.Split(trimmed, " from ")
+				candidate := strings.Trim(parts[len(parts)-1], " ';\"")
+				if candidate != "" {
+					normalized := a.NormalizeImport(candidate)
+					node.Imports = append(node.Imports, normalized)
+					graph.AddEdge(file, normalized)
+				}
+			}
+
+			// const x = require('pkg') / require("pkg")
+			for _, m := range requireRe.FindAllStringSubmatch(trimmed, -1) {
+				if len(m) > 1 {
+					normalized := a.NormalizeImport(m[1])
+					node.Imports = append(node.Imports, normalized)
+					graph.AddEdge(file, normalized)
+				}
+			}
+
+			// import('pkg') dynamic import safe subset
+			for _, m := range dynamicImportRe.FindAllStringSubmatch(trimmed, -1) {
+				if len(m) > 1 {
+					normalized := a.NormalizeImport(m[1])
+					node.Imports = append(node.Imports, normalized)
+					graph.AddEdge(file, normalized)
+				}
+			}
 		}
 	}
 	return graph, nil
+}
+
+func extractQuotedJSImport(line string) string {
+	for _, quote := range []string{"'", "\"", "`"} {
+		start := strings.Index(line, quote)
+		if start < 0 {
+			continue
+		}
+		end := strings.Index(line[start+1:], quote)
+		if end < 0 {
+			continue
+		}
+		value := strings.TrimSpace(line[start+1 : start+1+end])
+		if value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func (a *jsTsAdapter) IsStdlibPackage(importPath string) bool {

@@ -176,3 +176,37 @@ func TestJSTSAdapter_MetadataDepthGuard(t *testing.T) {
 		t.Fatalf("expected depth warning, got %v", warnings)
 	}
 }
+
+func TestJSTSAdapter_BuildDependencyGraph_ImportRequireCoverage(t *testing.T) {
+	repo := t.TempDir()
+	fixture := strings.Join([]string{
+		"import React from 'react'",
+		"import 'reflect-metadata'",
+		"export { x } from '@scope/pkg/utils'",
+		"const lodash = require('lodash/fp')",
+		"async function load() { return import('dayjs/plugin/utc') }",
+	}, "\n")
+
+	file := filepath.Join(repo, "app.ts")
+	if err := os.WriteFile(file, []byte(fixture), 0o644); err != nil {
+		t.Fatalf("failed writing fixture: %v", err)
+	}
+
+	adapter := NewTypeScriptAdapter()
+	graph, err := adapter.BuildDependencyGraph([]string{file})
+	if err != nil {
+		t.Fatalf("BuildDependencyGraph failed: %v", err)
+	}
+
+	node := graph.GetNode(file)
+	if node == nil {
+		t.Fatalf("expected node for file %s", file)
+	}
+
+	joined := strings.Join(node.Imports, "|")
+	for _, expected := range []string{"react", "reflect-metadata", "@scope/pkg", "lodash", "dayjs"} {
+		if !strings.Contains(joined, expected) {
+			t.Fatalf("expected import %q in node imports %v", expected, node.Imports)
+		}
+	}
+}
