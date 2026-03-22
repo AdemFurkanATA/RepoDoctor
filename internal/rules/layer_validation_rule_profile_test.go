@@ -59,3 +59,23 @@ func TestLayerValidationRule_PythonProfileAlignment(t *testing.T) {
 		t.Fatalf("expected clean profile marker in violation message, got %q", violations[0].Message)
 	}
 }
+
+func TestLayerValidationRule_JSTSProfileAlignment(t *testing.T) {
+	rule := NewLayerValidationRule()
+	ctx := AnalysisContext{
+		Configuration: Configuration{"architectureProfile": "layered"},
+		RepositoryFiles: []RepositoryFile{{
+			Path:    "repo/repo/user_repo.ts",
+			Imports: []string{"handler/user_handler.ts"},
+		}},
+		Languages: []string{"TypeScript"},
+	}
+
+	violations := rule.Evaluate(ctx)
+	if len(violations) == 0 {
+		t.Fatal("expected layer violation for layered profile in js/ts context")
+	}
+	if !strings.Contains(violations[0].Message, "[profile:layered]") {
+		t.Fatalf("expected layered profile marker in violation message, got %q", violations[0].Message)
+	}
+}
