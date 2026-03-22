@@ -65,6 +65,7 @@ func (s *AnalysisService) Run(request AnalyzeRequest) int {
 	progress.SetProgress(progress.totalSteps / 2)
 
 	report := generateRuleEngineReport(absPath, request.Format, request.Verbose, request.ColorEnabled, config, ruleSummary)
+	report.Language = collectLanguageEvidenceSummary(absPath, analysisResult.AdapterName)
 	progress.SetProgress(progress.totalSteps)
 	progress.Complete()
 

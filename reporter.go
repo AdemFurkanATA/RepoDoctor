@@ -56,8 +56,9 @@ type ReportSummary struct {
 }
 
 type LanguageEvidenceSummary struct {
-	DetectedLanguage string  `json:"detectedLanguage"`
-	Confidence       float64 `json:"confidence"`
+	DetectedLanguage string   `json:"detectedLanguage"`
+	Confidence       float64  `json:"confidence"`
+	ReasonCodes      []string `json:"reasonCodes,omitempty"`
 }
 
 // Reporter handles formatting and displaying structural analysis results
@@ -169,6 +170,7 @@ func (r *Reporter) formatJSON(report *StructuralReport) string {
 		"language": map[string]interface{}{
 			"detectedLanguage": report.Language.DetectedLanguage,
 			"confidence":       report.Language.Confidence,
+			"reasonCodes":      append([]string(nil), report.Language.ReasonCodes...),
 		},
 		"circularViolations":  sortedCircular(report.Circular),
 		"layerViolations":     sortedLayer(report.Layer),
