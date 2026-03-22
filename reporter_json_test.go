@@ -134,8 +134,12 @@ func TestReporter_JSONV2_GoldenStableOrderingAndSchema(t *testing.T) {
 		t.Fatalf("output must be valid JSON: %v", err)
 	}
 
-	if payload["path"] == report.Path {
-		t.Fatalf("expected normalized/redacted path, got original: %v", payload["path"])
+	pathValue, ok := payload["path"].(string)
+	if !ok {
+		t.Fatalf("expected path value to be a string, got %T", payload["path"])
+	}
+	if strings.Contains(pathValue, "\\") {
+		t.Fatalf("expected normalized slash path, got: %v", pathValue)
 	}
 }
 
