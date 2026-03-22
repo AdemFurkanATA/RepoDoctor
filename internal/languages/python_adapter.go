@@ -99,11 +99,12 @@ func collectPythonFileMetrics(path string) (*model.FileMetrics, error) {
 	}
 
 	lines := strings.Split(string(content), "\n")
+	signals := collectPythonSignalsBounded(content)
 	fm := &model.FileMetrics{
 		Path:      path,
 		Lines:     len(lines),
-		Functions: 0,
-		Imports:   0,
+		Functions: signals.funcs,
+		Imports:   signals.imports,
 	}
 
 	localMetrics := model.NewRepositoryMetrics()
@@ -117,14 +118,8 @@ func collectPythonFileMetrics(path string) (*model.FileMetrics, error) {
 			continue
 		}
 
-		// Count imports
-		if strings.HasPrefix(trimmed, "import ") || strings.HasPrefix(trimmed, "from ") {
-			fm.Imports++
-		}
-
-		// Count function definitions
+		// Function definitions
 		if strings.HasPrefix(trimmed, "def ") {
-			fm.Functions++
 			funcMetrics := pyExtractFunctionMetrics(trimmed, path, i+1)
 			localMetrics.AddFunctionMetrics(*funcMetrics)
 		}
