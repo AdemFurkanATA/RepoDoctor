@@ -31,6 +31,10 @@ type scanOutcome struct {
 	files map[string][]string
 }
 
+type languageTieBreakPolicy struct {
+	priority map[string]int
+}
+
 type DetectionPolicy struct {
 	LanguageWeights map[string]float64
 	TieBreakOrder   []string
@@ -393,6 +397,7 @@ func (d *RepositoryLanguageDetector) findDominantLanguage(stats map[string]*Lang
 	for _, stat := range stats {
 		candidates = append(candidates, *stat)
 	}
+	policy := newLanguageTieBreakPolicy(d.policy)
 
 	sort.SliceStable(candidates, func(i, j int) bool {
 		left := candidates[i]
@@ -411,12 +416,8 @@ func (d *RepositoryLanguageDetector) findDominantLanguage(stats map[string]*Lang
 			return left.Count > right.Count
 		}
 
-		priority := make(map[string]int, len(d.policy.TieBreakOrder))
-		for i, lang := range d.policy.TieBreakOrder {
-			priority[lang] = i
-		}
-		lp, lok := priority[left.Language]
-		rp, rok := priority[right.Language]
+		lp, lok := policy.priority[left.Language]
+		rp, rok := policy.priority[right.Language]
 		if lok && rok && lp != rp {
 			return lp < rp
 		}
@@ -435,6 +436,15 @@ func (d *RepositoryLanguageDetector) findDominantLanguage(stats map[string]*Lang
 	}
 
 	return adapter, nil
+}
+
+func newLanguageTieBreakPolicy(policy DetectionPolicy) languageTieBreakPolicy {
+	priority := make(map[string]int, len(policy.TieBreakOrder))
+	for i, lang := range policy.TieBreakOrder {
+		priority[lang] = i
+	}
+
+	return languageTieBreakPolicy{priority: priority}
 }
 
 // GetSupportedLanguages returns a list of all supported language names.
