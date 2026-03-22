@@ -24,7 +24,11 @@ func runInternalRulePipeline(absPath string, graph Graph, primaryLanguage string
 	registry.MustRegister(rules.NewCircularDependencyRule(toRulesDependencyGraph(graph)))
 
 	executor := engine.NewRuleExecutor(registry)
-	context := buildRulesAnalysisContext(absPath, graph, primaryLanguage)
+	context := buildUnifiedRulesAnalysisContext(runtimeAnalysisContextInput{
+		RepositoryPath:  absPath,
+		Graph:           graph,
+		PrimaryLanguage: primaryLanguage,
+	})
 	result := executor.Execute(context)
 	sortViolations(result.Violations)
 
@@ -35,21 +39,34 @@ func runInternalRulePipeline(absPath string, graph Graph, primaryLanguage string
 }
 
 func buildRulesAnalysisContext(absPath string, graph Graph, primaryLanguage string) rules.AnalysisContext {
+	// Backward-compatible delegate retained for tests/legacy callers.
+	return buildUnifiedRulesAnalysisContext(runtimeAnalysisContextInput{
+		RepositoryPath:  absPath,
+		Graph:           graph,
+		PrimaryLanguage: primaryLanguage,
+	})
+}
+
+func readRepositoryFileForContext(graph Graph, node string) rules.RepositoryFile {
+	content := ""
+	if data, err := os.ReadFile(node); err == nil {
+		content = string(data)
+	}
+
+	return rules.RepositoryFile{
+		Path:    node,
+		Content: content,
+		Imports: graph.GetDependencies(node),
+	}
+}
+
+func legacyBuildRulesAnalysisContext(absPath string, graph Graph, primaryLanguage string) rules.AnalysisContext {
 	nodes := graph.GetAllNodes()
 	sort.Strings(nodes)
 
 	repoFiles := make([]rules.RepositoryFile, 0, len(nodes))
 	for _, node := range nodes {
-		content := ""
-		if data, err := os.ReadFile(node); err == nil {
-			content = string(data)
-		}
-
-		repoFiles = append(repoFiles, rules.RepositoryFile{
-			Path:    node,
-			Content: content,
-			Imports: graph.GetDependencies(node),
-		})
+		repoFiles = append(repoFiles, readRepositoryFileForContext(graph, node))
 	}
 
 	languages := []string{"Go", "Python", "JavaScript", "TypeScript"}
