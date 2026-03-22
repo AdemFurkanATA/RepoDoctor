@@ -210,3 +210,39 @@ func TestJSTSAdapter_BuildDependencyGraph_ImportRequireCoverage(t *testing.T) {
 		}
 	}
 }
+
+func TestJSTSAdapter_BuildDependencyGraph_ExportFromAndSafeRequireSubset(t *testing.T) {
+	repo := t.TempDir()
+	file := filepath.Join(repo, "mod.ts")
+	fixture := strings.Join([]string{
+		"export * from 'rxjs/operators'",
+		"export * as utils from '@scope/pkg/utils'",
+		"const stable = require('axios/lib/core')",
+		"const dynamic = require('./' + name)",
+	}, "\n")
+
+	if err := os.WriteFile(file, []byte(fixture), 0o644); err != nil {
+		t.Fatalf("failed writing fixture: %v", err)
+	}
+
+	adapter := NewTypeScriptAdapter()
+	graph, err := adapter.BuildDependencyGraph([]string{file})
+	if err != nil {
+		t.Fatalf("BuildDependencyGraph failed: %v", err)
+	}
+	node := graph.GetNode(file)
+	if node == nil {
+		t.Fatalf("expected node for %s", file)
+	}
+
+	joined := strings.Join(node.Imports, "|")
+	for _, expected := range []string{"rxjs", "@scope/pkg", "axios"} {
+		if !strings.Contains(joined, expected) {
+			t.Fatalf("expected normalized import %q in %v", expected, node.Imports)
+		}
+	}
+
+	if strings.Contains(joined, "./") {
+		t.Fatalf("expected dynamic require subset to be ignored, got %v", node.Imports)
+	}
+}
