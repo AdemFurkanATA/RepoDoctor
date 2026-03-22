@@ -7,9 +7,10 @@ import (
 )
 
 type runtimeAnalysisContextInput struct {
-	RepositoryPath  string
-	Graph           Graph
-	PrimaryLanguage string
+	RepositoryPath      string
+	Graph               Graph
+	PrimaryLanguage     string
+	ArchitectureProfile string
 }
 
 func buildUnifiedRulesAnalysisContext(input runtimeAnalysisContextInput) rules.AnalysisContext {
@@ -19,7 +20,7 @@ func buildUnifiedRulesAnalysisContext(input runtimeAnalysisContextInput) rules.A
 	return rules.AnalysisContext{
 		RepositoryFiles: repositoryFiles,
 		DependencyGraph: toRulesDependencyGraph(input.Graph),
-		Configuration:   rules.Configuration{"repositoryPath": input.RepositoryPath},
+		Configuration:   rules.Configuration{"repositoryPath": input.RepositoryPath, "architectureProfile": input.ArchitectureProfile},
 		Languages:       languages,
 	}
 }
