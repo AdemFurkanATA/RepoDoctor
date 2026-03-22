@@ -120,59 +120,69 @@ func (a *jsTsAdapter) BuildDependencyGraph(files []string) (*model.DependencyGra
 		}
 		lines := strings.Split(string(content), "\n")
 		for _, line := range lines {
-			trimmed := strings.TrimSpace(line)
-
-			// import x from 'pkg' / import {x} from 'pkg'
-			if strings.HasPrefix(trimmed, "import ") && strings.Contains(trimmed, " from ") {
-				parts := strings.Split(trimmed, " from ")
-				candidate := strings.Trim(parts[len(parts)-1], " ';\"")
-				if candidate != "" {
-					normalized := a.NormalizeImport(candidate)
-					node.Imports = append(node.Imports, normalized)
-					graph.AddEdge(file, normalized)
-				}
-			}
-
-			// import 'pkg' (side-effect imports)
-			if strings.HasPrefix(trimmed, "import ") && !strings.Contains(trimmed, " from ") {
-				if quoted := extractQuotedJSImport(trimmed); quoted != "" {
-					normalized := a.NormalizeImport(quoted)
-					node.Imports = append(node.Imports, normalized)
-					graph.AddEdge(file, normalized)
-				}
-			}
-
-			// export ... from 'pkg'
-			if strings.HasPrefix(trimmed, "export ") && strings.Contains(trimmed, " from ") {
-				parts := strings.Split(trimmed, " from ")
-				candidate := strings.Trim(parts[len(parts)-1], " ';\"")
-				if candidate != "" {
-					normalized := a.NormalizeImport(candidate)
-					node.Imports = append(node.Imports, normalized)
-					graph.AddEdge(file, normalized)
-				}
-			}
-
-			// const x = require('pkg') / require("pkg")
-			for _, m := range requireRe.FindAllStringSubmatch(trimmed, -1) {
-				if len(m) > 1 {
-					normalized := a.NormalizeImport(m[1])
-					node.Imports = append(node.Imports, normalized)
-					graph.AddEdge(file, normalized)
-				}
-			}
-
-			// import('pkg') dynamic import safe subset
-			for _, m := range dynamicImportRe.FindAllStringSubmatch(trimmed, -1) {
-				if len(m) > 1 {
-					normalized := a.NormalizeImport(m[1])
-					node.Imports = append(node.Imports, normalized)
-					graph.AddEdge(file, normalized)
-				}
-			}
+			collectJSImportLine(a, file, strings.TrimSpace(line), node, graph, requireRe, dynamicImportRe)
 		}
 	}
 	return graph, nil
+}
+
+func collectJSImportLine(a *jsTsAdapter, file, trimmed string, node *model.Node, graph *model.DependencyGraph, requireRe, dynamicImportRe *regexp.Regexp) {
+	if strings.HasPrefix(trimmed, "//") {
+		return
+	}
+
+	collectStaticJSImport(a, file, trimmed, node, graph)
+	collectStaticExportFrom(a, file, trimmed, node, graph)
+	collectRequireImports(a, file, trimmed, node, graph, requireRe)
+	collectDynamicImports(a, file, trimmed, node, graph, dynamicImportRe)
+}
+
+func collectStaticJSImport(a *jsTsAdapter, file, trimmed string, node *model.Node, graph *model.DependencyGraph) {
+	if strings.HasPrefix(trimmed, "import ") && strings.Contains(trimmed, " from ") {
+		parts := strings.Split(trimmed, " from ")
+		candidate := strings.Trim(parts[len(parts)-1], " ';\"")
+		appendJSImportDependency(a, file, candidate, node, graph)
+	}
+
+	if strings.HasPrefix(trimmed, "import ") && !strings.Contains(trimmed, " from ") {
+		appendJSImportDependency(a, file, extractQuotedJSImport(trimmed), node, graph)
+	}
+}
+
+func collectStaticExportFrom(a *jsTsAdapter, file, trimmed string, node *model.Node, graph *model.DependencyGraph) {
+	if strings.HasPrefix(trimmed, "export ") && strings.Contains(trimmed, " from ") {
+		parts := strings.Split(trimmed, " from ")
+		candidate := strings.Trim(parts[len(parts)-1], " ';\"")
+		appendJSImportDependency(a, file, candidate, node, graph)
+	}
+}
+
+func collectRequireImports(a *jsTsAdapter, file, trimmed string, node *model.Node, graph *model.DependencyGraph, requireRe *regexp.Regexp) {
+	if strings.Contains(trimmed, "require(") && strings.Contains(trimmed, "+") {
+		return
+	}
+	for _, m := range requireRe.FindAllStringSubmatch(trimmed, -1) {
+		if len(m) > 1 {
+			appendJSImportDependency(a, file, m[1], node, graph)
+		}
+	}
+}
+
+func collectDynamicImports(a *jsTsAdapter, file, trimmed string, node *model.Node, graph *model.DependencyGraph, dynamicImportRe *regexp.Regexp) {
+	for _, m := range dynamicImportRe.FindAllStringSubmatch(trimmed, -1) {
+		if len(m) > 1 {
+			appendJSImportDependency(a, file, m[1], node, graph)
+		}
+	}
+}
+
+func appendJSImportDependency(a *jsTsAdapter, file, raw string, node *model.Node, graph *model.DependencyGraph) {
+	if raw == "" {
+		return
+	}
+	normalized := a.NormalizeImport(raw)
+	node.Imports = append(node.Imports, normalized)
+	graph.AddEdge(file, normalized)
 }
 
 func extractQuotedJSImport(line string) string {
