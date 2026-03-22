@@ -16,7 +16,11 @@ type runtimeRuleSummary struct {
 	rulesInScope int
 }
 
-func runInternalRulePipeline(absPath string, graph Graph, primaryLanguage string, architectureProfile string) *runtimeRuleSummary {
+func runInternalRulePipeline(absPath string, graph Graph, primaryLanguage string) *runtimeRuleSummary {
+	return runInternalRulePipelineWithProfile(absPath, graph, primaryLanguage, "")
+}
+
+func runInternalRulePipelineWithProfile(absPath string, graph Graph, primaryLanguage string, architectureProfile string) *runtimeRuleSummary {
 	registry := rules.NewRuleRegistry()
 	for _, rule := range rules.GetDefaultRegistry().GetAll() {
 		registry.MustRegister(rule)

@@ -65,7 +65,7 @@ func (s *AnalysisService) Run(request AnalyzeRequest) int {
 	if config != nil && config.Architecture != nil {
 		profile = config.Architecture.Profile
 	}
-	ruleSummary := runInternalRulePipeline(absPath, graph, analysisResult.AdapterName, profile)
+	ruleSummary := runInternalRulePipelineWithProfile(absPath, graph, analysisResult.AdapterName, profile)
 	progress.SetProgress(progress.totalSteps / 2)
 
 	report := generateRuleEngineReport(absPath, request.Format, request.Verbose, request.ColorEnabled, config, ruleSummary)
