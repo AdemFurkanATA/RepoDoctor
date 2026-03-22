@@ -205,6 +205,10 @@ func goParseFileAndAddToGraph(fset *token.FileSet, path string, graph *model.Dep
 	for _, imp := range node.Imports {
 		importPath := strings.Trim(imp.Path.Value, "\"")
 		graphNode.Imports = append(graphNode.Imports, importPath)
+		if graphNode.Metadata == nil {
+			graphNode.Metadata = make(map[string]string)
+		}
+		graphNode.Metadata["import_class:"+importPath] = string(classifyGoImport(importPath))
 	}
 
 	return graphNode, nil
