@@ -16,7 +16,7 @@ type runtimeRuleSummary struct {
 	rulesInScope int
 }
 
-func runInternalRulePipeline(absPath string, graph Graph, primaryLanguage string) *runtimeRuleSummary {
+func runInternalRulePipeline(absPath string, graph Graph, primaryLanguage string, architectureProfile string) *runtimeRuleSummary {
 	registry := rules.NewRuleRegistry()
 	for _, rule := range rules.GetDefaultRegistry().GetAll() {
 		registry.MustRegister(rule)
@@ -25,9 +25,10 @@ func runInternalRulePipeline(absPath string, graph Graph, primaryLanguage string
 
 	executor := engine.NewRuleExecutor(registry)
 	context := buildUnifiedRulesAnalysisContext(runtimeAnalysisContextInput{
-		RepositoryPath:  absPath,
-		Graph:           graph,
-		PrimaryLanguage: primaryLanguage,
+		RepositoryPath:      absPath,
+		Graph:               graph,
+		PrimaryLanguage:     primaryLanguage,
+		ArchitectureProfile: architectureProfile,
 	})
 	result := executor.Execute(context)
 	sortViolations(result.Violations)
