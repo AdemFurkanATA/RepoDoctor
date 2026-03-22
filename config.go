@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"RepoDoctor/internal/domain"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -182,8 +184,8 @@ func (l *ConfigLoader) validate(cfg *Config) error {
 	if cfg.Architecture != nil {
 		if strings.TrimSpace(cfg.Architecture.Profile) != "" {
 			profile := strings.TrimSpace(cfg.Architecture.Profile)
-			if !isValidArchitectureProfile(profile) {
-				return fmt.Errorf("architecture.profile must be one of: clean, layered, modular-monolith")
+			if _, err := domain.ParseArchitectureProfile(profile); err != nil {
+				return err
 			}
 		}
 	}
@@ -401,16 +403,6 @@ func rejectUnknownConfigKeys(data []byte) error {
 	}
 
 	return nil
-}
-
-func isValidArchitectureProfile(profile string) bool {
-	allowed := map[string]struct{}{
-		"clean":            {},
-		"layered":          {},
-		"modular-monolith": {},
-	}
-	_, ok := allowed[profile]
-	return ok
 }
 
 // GetConfigPath returns the default config path for a given directory
