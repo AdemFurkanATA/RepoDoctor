@@ -39,3 +39,23 @@ func TestLayerValidationRule_ProfileLayeredIncludesReasonMarker(t *testing.T) {
 		t.Fatalf("expected profile marker in violation message, got %q", got)
 	}
 }
+
+func TestLayerValidationRule_PythonProfileAlignment(t *testing.T) {
+	rule := NewLayerValidationRule()
+	ctx := AnalysisContext{
+		Configuration: Configuration{"architectureProfile": "clean"},
+		RepositoryFiles: []RepositoryFile{{
+			Path:    "repo/repo/user_repo.py",
+			Imports: []string{"handler/user_handler.py"},
+		}},
+		Languages: []string{"Python"},
+	}
+
+	violations := rule.Evaluate(ctx)
+	if len(violations) == 0 {
+		t.Fatal("expected layer violation for clean profile in python context")
+	}
+	if !strings.Contains(violations[0].Message, "[profile:clean]") {
+		t.Fatalf("expected clean profile marker in violation message, got %q", violations[0].Message)
+	}
+}
