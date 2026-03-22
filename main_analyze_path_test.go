@@ -2,6 +2,7 @@ package main
 
 import (
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -51,8 +52,13 @@ func TestComposeAnalyzeRequest_PathParityVariants(t *testing.T) {
 		args []string
 	}{
 		{name: "dot slash", args: []string{"-path", "./"}},
-		{name: "dot backslash", args: []string{"-path", ".\\"}},
 		{name: "absolute", args: []string{"-path", abs}},
+	}
+	if runtime.GOOS == "windows" {
+		tests = append(tests, struct {
+			name string
+			args []string
+		}{name: "dot backslash", args: []string{"-path", ".\\"}})
 	}
 
 	var baseline *analyzeCommandRequest
