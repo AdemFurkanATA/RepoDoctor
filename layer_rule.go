@@ -5,6 +5,7 @@ type LayerViolation struct {
 	From    string
 	To      string
 	Message string
+	Hint    string
 }
 
 // LayerConvention represents the allowed dependency direction
