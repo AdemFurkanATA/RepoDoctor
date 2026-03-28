@@ -314,6 +314,11 @@ func (a *PythonAdapter) CollectEvidence(repoPath string, files []string) ([]Evid
 
 		moduleRoot := detectPythonModuleRoot(root, normalizedPath)
 		for _, item := range evidence {
+			if item.unsupportedReason != "" {
+				warnings = append(warnings, fmt.Sprintf("python dynamic import unsupported: %s (%s)", item.unsupportedReason, normalizedPath))
+				continue
+			}
+
 			weight := 0.40
 			signalType := "python_import_absolute"
 			if item.relative {
