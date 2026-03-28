@@ -27,13 +27,27 @@ func TestClassifyGoImport(t *testing.T) {
 	}
 }
 
+func TestClassifyGoImportWithModulePath(t *testing.T) {
+	if got := classifyGoImportWithModule("github.com/myorg/repo/pkg/domain", "github.com/myorg/repo"); got != GoImportInternal {
+		t.Fatalf("expected module-scoped import to be internal, got %s", got)
+	}
+	if got := classifyGoImportWithModule("github.com/other/repo/pkg", "github.com/myorg/repo"); got != GoImportExternal {
+		t.Fatalf("expected external import outside module, got %s", got)
+	}
+}
+
 func TestGoAdapter_BuildDependencyGraph_StoresImportClassificationMetadata(t *testing.T) {
 	repo := t.TempDir()
+	goMod := filepath.Join(repo, "go.mod")
+	if err := os.WriteFile(goMod, []byte("module github.com/myorg/repo\n\ngo 1.21\n"), 0o644); err != nil {
+		t.Fatalf("failed writing go.mod: %v", err)
+	}
 	path := filepath.Join(repo, "main.go")
 	content := `package main
 import (
   "fmt"
   "github.com/pkg/errors"
+  "github.com/myorg/repo/pkg/domain"
   "github.com/myorg/repo/internal/service"
 )
 func main() { _, _, _ = fmt.Println, errors.New, service.Run }
@@ -61,5 +75,8 @@ func main() { _, _, _ = fmt.Println, errors.New, service.Run }
 	}
 	if got := node.Metadata["import_class:github.com/myorg/repo/internal/service"]; got != string(GoImportInternal) {
 		t.Fatalf("expected internal classification for internal import, got %q", got)
+	}
+	if got := node.Metadata["import_class:github.com/myorg/repo/pkg/domain"]; got != string(GoImportInternal) {
+		t.Fatalf("expected module-path import to be internal, got %q", got)
 	}
 }

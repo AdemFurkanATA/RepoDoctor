@@ -1,6 +1,7 @@
 package languages
 
 import (
+	"bufio"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -165,9 +166,10 @@ func goExtractStructMetrics(fset *token.FileSet, typeSpec *ast.TypeSpec, structT
 // BuildDependencyGraph constructs a dependency graph from Go imports
 func (a *GoAdapter) BuildDependencyGraph(files []string) (*model.DependencyGraph, error) {
 	graph := model.NewDependencyGraph()
+	modulePath := resolveGoModulePath(files)
 
 	for _, file := range files {
-		node, err := goParseFileAndAddToGraph(a.fset, file, graph)
+		node, err := goParseFileAndAddToGraph(a.fset, file, modulePath, graph)
 		if err != nil {
 			continue
 		}
@@ -185,7 +187,7 @@ func (a *GoAdapter) BuildDependencyGraph(files []string) (*model.DependencyGraph
 
 // goParseFileAndAddToGraph parses a Go file and adds it to the dependency graph.
 // Package-level helper to keep GoAdapter method count within SRP bounds.
-func goParseFileAndAddToGraph(fset *token.FileSet, path string, graph *model.DependencyGraph) (*model.Node, error) {
+func goParseFileAndAddToGraph(fset *token.FileSet, path, modulePath string, graph *model.DependencyGraph) (*model.Node, error) {
 	node, err := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
 	if err != nil {
 		return nil, err
@@ -208,10 +210,46 @@ func goParseFileAndAddToGraph(fset *token.FileSet, path string, graph *model.Dep
 		if graphNode.Metadata == nil {
 			graphNode.Metadata = make(map[string]string)
 		}
-		graphNode.Metadata["import_class:"+importPath] = string(classifyGoImport(importPath))
+		graphNode.Metadata["import_class:"+importPath] = string(classifyGoImportWithModule(importPath, modulePath))
 	}
 
 	return graphNode, nil
+}
+
+func resolveGoModulePath(files []string) string {
+	if len(files) == 0 {
+		return ""
+	}
+	start := filepath.Dir(files[0])
+	for {
+		goModPath := filepath.Join(start, "go.mod")
+		if module := readGoModuleName(goModPath); module != "" {
+			return module
+		}
+		parent := filepath.Dir(start)
+		if parent == start {
+			break
+		}
+		start = parent
+	}
+	return ""
+}
+
+func readGoModuleName(goModPath string) string {
+	file, err := os.Open(goModPath)
+	if err != nil {
+		return ""
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if strings.HasPrefix(line, "module ") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "module "))
+		}
+	}
+	return ""
 }
 
 // IsStdlibPackage checks if a package is part of Go standard library

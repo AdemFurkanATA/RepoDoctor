@@ -12,6 +12,10 @@ const (
 )
 
 func classifyGoImport(importPath string) GoImportClass {
+	return classifyGoImportWithModule(importPath, "")
+}
+
+func classifyGoImportWithModule(importPath, modulePath string) GoImportClass {
 	normalized := strings.TrimSpace(importPath)
 	if normalized == "" {
 		return GoImportExternal
@@ -23,6 +27,13 @@ func classifyGoImport(importPath string) GoImportClass {
 
 	if strings.Contains(normalized, "/internal/") || strings.HasSuffix(normalized, "/internal") {
 		return GoImportInternal
+	}
+
+	modulePath = strings.TrimSpace(modulePath)
+	if modulePath != "" {
+		if normalized == modulePath || strings.HasPrefix(normalized, modulePath+"/") {
+			return GoImportInternal
+		}
 	}
 
 	return GoImportExternal
