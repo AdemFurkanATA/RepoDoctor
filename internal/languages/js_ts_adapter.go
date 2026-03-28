@@ -218,6 +218,15 @@ func (a *jsTsAdapter) NormalizeImport(importPath string) string {
 		return ""
 	}
 	trimmed = strings.TrimPrefix(trimmed, "node:")
+	if strings.HasPrefix(trimmed, "@/") {
+		return "@/"
+	}
+	if strings.HasPrefix(trimmed, "~/") {
+		return "~/"
+	}
+	if strings.HasPrefix(trimmed, "#/") {
+		return "#/"
+	}
 	if strings.HasPrefix(trimmed, "./") || strings.HasPrefix(trimmed, "../") {
 		return strings.TrimSpace(trimmed)
 	}

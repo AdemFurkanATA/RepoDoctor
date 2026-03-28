@@ -246,3 +246,23 @@ func TestJSTSAdapter_BuildDependencyGraph_ExportFromAndSafeRequireSubset(t *test
 		t.Fatalf("expected dynamic require subset to be ignored, got %v", node.Imports)
 	}
 }
+
+func TestJSTSAdapter_NormalizeImport_PathMappedAndScopedPrecision(t *testing.T) {
+	adapter := NewTypeScriptAdapter()
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{input: "@/components/button", expected: "@/"},
+		{input: "~/utils/date", expected: "~/"},
+		{input: "#/domain/user", expected: "#/"},
+		{input: "@scope/pkg/utils", expected: "@scope/pkg"},
+		{input: "node:fs", expected: "fs"},
+	}
+
+	for _, tt := range tests {
+		if got := adapter.NormalizeImport(tt.input); got != tt.expected {
+			t.Fatalf("NormalizeImport(%q) expected %q, got %q", tt.input, tt.expected, got)
+		}
+	}
+}
