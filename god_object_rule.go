@@ -15,6 +15,7 @@ type GodObjectViolation struct {
 	File        string
 	FieldCount  int
 	MethodCount int
+	Hint        string
 }
 
 // GodObjectRule detects structs that violate single responsibility principle

@@ -4,6 +4,7 @@ package main
 type CycleViolation struct {
 	Path     []string
 	Severity string
+	Hint     string
 }
 
 // CircularDependencyRule detects circular dependencies in a graph
