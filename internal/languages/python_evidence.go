@@ -8,9 +8,10 @@ import (
 )
 
 type importEvidence struct {
-	modulePath string
-	relative   bool
-	level      int
+	modulePath        string
+	relative          bool
+	level             int
+	unsupportedReason string
 }
 
 func parsePythonImportEvidence(path string) ([]importEvidence, error) {
@@ -40,8 +41,8 @@ func parsePythonImportLine(raw string) []importEvidence {
 		return nil
 	}
 
-	if dynamic := parsePythonDynamicImport(line); dynamic != "" {
-		return []importEvidence{{modulePath: dynamic}}
+	if dynamic, reason := parsePythonDynamicImport(line); dynamic != "" || reason != "" {
+		return []importEvidence{{modulePath: dynamic, unsupportedReason: reason}}
 	}
 
 	if strings.HasPrefix(line, "import ") {
@@ -129,9 +130,9 @@ func parsePythonImportTargets(importPart string) []string {
 	return targets
 }
 
-func parsePythonDynamicImport(line string) string {
+func parsePythonDynamicImport(line string) (string, string) {
 	if !strings.Contains(line, "import_module(") && !strings.Contains(line, "__import__(") {
-		return ""
+		return "", ""
 	}
 
 	for _, prefix := range []string{"importlib.import_module", "__import__"} {
@@ -151,13 +152,19 @@ func parsePythonDynamicImport(line string) string {
 			}
 			candidate := strings.TrimSpace(args[start+1 : start+1+end])
 			if candidate == "" || strings.HasPrefix(candidate, ".") {
-				return ""
+				return "", "RELATIVE_DYNAMIC_IMPORT_UNSUPPORTED"
 			}
-			return candidate
+			return candidate, ""
 		}
+
+		if strings.Contains(args, "+") || strings.Contains(args, "%") || strings.Contains(args, "format(") {
+			return "", "DYNAMIC_IMPORT_EXPRESSION_UNSUPPORTED"
+		}
+
+		return "", "DYNAMIC_IMPORT_UNPARSEABLE"
 	}
 
-	return ""
+	return "", "DYNAMIC_IMPORT_UNPARSEABLE"
 }
 
 func detectPythonModuleRoot(repoRoot, filePath string) string {

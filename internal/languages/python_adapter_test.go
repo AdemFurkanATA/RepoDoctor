@@ -435,7 +435,35 @@ func TestParsePythonImportEvidence_IgnoresUnsafeDynamicRelative(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parsePythonImportEvidence failed: %v", err)
 	}
-	if len(evidence) != 0 {
-		t.Fatalf("expected unsafe dynamic relative import to be ignored, got %v", evidence)
+	if len(evidence) != 1 {
+		t.Fatalf("expected one unsupported marker evidence, got %v", evidence)
+	}
+	if evidence[0].modulePath != "" {
+		t.Fatalf("expected unsupported dynamic import to not resolve module path, got %q", evidence[0].modulePath)
+	}
+	if evidence[0].unsupportedReason != "RELATIVE_DYNAMIC_IMPORT_UNSUPPORTED" {
+		t.Fatalf("expected unsupported reason marker, got %q", evidence[0].unsupportedReason)
+	}
+}
+
+func TestPythonAdapter_CollectEvidence_ReportsUnsupportedDynamicImportMarker(t *testing.T) {
+	repo := t.TempDir()
+	file := filepath.Join(repo, "dynamic.py")
+	content := "mod = importlib.import_module('.private')\n"
+	if err := os.WriteFile(file, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write fixture: %v", err)
+	}
+
+	adapter := NewPythonAdapter()
+	signals, warnings, err := adapter.CollectEvidence(repo, []string{file})
+	if err != nil {
+		t.Fatalf("CollectEvidence failed: %v", err)
+	}
+	if len(signals) != 0 {
+		t.Fatalf("expected no evidence signals for unsupported dynamic import, got %v", signals)
+	}
+	joined := strings.Join(warnings, "|")
+	if !strings.Contains(joined, "RELATIVE_DYNAMIC_IMPORT_UNSUPPORTED") {
+		t.Fatalf("expected warning marker for unsupported dynamic import, got %v", warnings)
 	}
 }
