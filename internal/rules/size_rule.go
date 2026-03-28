@@ -4,6 +4,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -42,7 +43,7 @@ func (r *SizeRule) Severity() string {
 }
 
 func (r *SizeRule) Capabilities() RuleCapabilities {
-	return RuleCapabilities{SupportedLanguages: []string{"Go"}, SupportsMultipleLanguages: false}
+	return RuleCapabilities{SupportedLanguages: []string{"Go", "Python", "JavaScript", "TypeScript"}, SupportsMultipleLanguages: false}
 }
 
 // Evaluate executes the rule logic against the provided context
@@ -90,6 +91,16 @@ func (r *SizeRule) countNonEmptyLines(content string) int {
 
 // checkFunctions checks function sizes in a file
 func (r *SizeRule) checkFunctions(file RepositoryFile, violations *[]model.Violation) {
+	ext := strings.ToLower(filepath.Ext(file.Path))
+	if ext == ".py" {
+		r.checkPythonFunctions(file, violations)
+		return
+	}
+	if ext == ".js" || ext == ".jsx" || ext == ".ts" || ext == ".tsx" {
+		r.checkJSTSFunctions(file, violations)
+		return
+	}
+
 	// Parse AST
 	node, err := parser.ParseFile(r.fset, file.Path, file.Content, 0)
 	if err != nil {
@@ -121,4 +132,139 @@ func (r *SizeRule) checkFunctions(file RepositoryFile, violations *[]model.Viola
 
 		return true
 	})
+}
+
+func (r *SizeRule) checkJSTSFunctions(file RepositoryFile, violations *[]model.Violation) {
+	lines := strings.Split(file.Content, "\n")
+	for i := 0; i < len(lines); i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if !looksLikeJSTSFunctionStart(trimmed) {
+			continue
+		}
+
+		startLine := i + 1
+		braceDepth := 0
+		seenOpen := false
+		endLine := startLine
+
+		for j := i; j < len(lines); j++ {
+			line := lines[j]
+			for _, ch := range line {
+				switch ch {
+				case '{':
+					braceDepth++
+					seenOpen = true
+				case '}':
+					if braceDepth > 0 {
+						braceDepth--
+					}
+				}
+			}
+			endLine = j + 1
+			if seenOpen && braceDepth == 0 {
+				break
+			}
+		}
+
+		funcLines := endLine - startLine + 1
+		if funcLines > r.MaxFunctionLines {
+			*violations = append(*violations, model.Violation{
+				RuleID:      r.ID(),
+				Severity:    model.SeverityWarning,
+				Message:     "Function '" + extractJSTSFunctionName(trimmed) + "' has " + strconv.Itoa(funcLines) + " lines (threshold: " + strconv.Itoa(r.MaxFunctionLines) + ")",
+				File:        file.Path,
+				Line:        startLine,
+				ScoreImpact: -3.0,
+			})
+		}
+	}
+}
+
+func looksLikeJSTSFunctionStart(trimmed string) bool {
+	return strings.HasPrefix(trimmed, "function ") ||
+		strings.Contains(trimmed, "=>") ||
+		strings.HasPrefix(trimmed, "async function ") ||
+		strings.Contains(trimmed, " = function")
+}
+
+func extractJSTSFunctionName(trimmed string) string {
+	if strings.HasPrefix(trimmed, "async function ") {
+		trimmed = strings.TrimPrefix(trimmed, "async ")
+	}
+	if strings.HasPrefix(trimmed, "function ") {
+		rest := strings.TrimSpace(strings.TrimPrefix(trimmed, "function "))
+		if idx := strings.Index(rest, "("); idx > 0 {
+			return strings.TrimSpace(rest[:idx])
+		}
+	}
+	if idx := strings.Index(trimmed, "="); idx > 0 {
+		left := strings.TrimSpace(trimmed[:idx])
+		parts := strings.Fields(left)
+		if len(parts) > 0 {
+			return parts[len(parts)-1]
+		}
+	}
+	return "anonymous"
+}
+
+func (r *SizeRule) checkPythonFunctions(file RepositoryFile, violations *[]model.Violation) {
+	lines := strings.Split(file.Content, "\n")
+	for i := 0; i < len(lines); i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if !(strings.HasPrefix(trimmed, "def ") || strings.HasPrefix(trimmed, "async def ")) {
+			continue
+		}
+
+		startLine := i + 1
+		startIndent := leadingSpaces(lines[i])
+		endLine := startLine
+
+		for j := i + 1; j < len(lines); j++ {
+			candidate := lines[j]
+			candidateTrimmed := strings.TrimSpace(candidate)
+			if candidateTrimmed == "" || strings.HasPrefix(candidateTrimmed, "#") {
+				endLine = j + 1
+				continue
+			}
+
+			if leadingSpaces(candidate) <= startIndent {
+				break
+			}
+			endLine = j + 1
+		}
+
+		funcLines := endLine - startLine + 1
+		if funcLines > r.MaxFunctionLines {
+			name := extractPythonFunctionName(trimmed)
+			*violations = append(*violations, model.Violation{
+				RuleID:      r.ID(),
+				Severity:    model.SeverityWarning,
+				Message:     "Function '" + name + "' has " + strconv.Itoa(funcLines) + " lines (threshold: " + strconv.Itoa(r.MaxFunctionLines) + ")",
+				File:        file.Path,
+				Line:        startLine,
+				ScoreImpact: -3.0,
+			})
+		}
+	}
+}
+
+func leadingSpaces(line string) int {
+	count := 0
+	for _, ch := range line {
+		if ch != ' ' {
+			break
+		}
+		count++
+	}
+	return count
+}
+
+func extractPythonFunctionName(trimmedDef string) string {
+	namePart := strings.TrimSpace(trimmedDef)
+	namePart = strings.TrimPrefix(namePart, "async ")
+	namePart = strings.TrimPrefix(namePart, "def ")
+	if idx := strings.Index(namePart, "("); idx > 0 {
+		return strings.TrimSpace(namePart[:idx])
+	}
+	return "unknown"
 }

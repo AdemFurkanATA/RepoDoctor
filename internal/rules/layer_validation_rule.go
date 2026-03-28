@@ -1,6 +1,10 @@
 package rules
 
-import "RepoDoctor/internal/model"
+import (
+	"RepoDoctor/internal/model"
+	"fmt"
+	"strings"
+)
 
 // LayerConvention represents the allowed dependency direction
 type LayerConvention string
@@ -48,6 +52,7 @@ func (r *LayerValidationRule) Capabilities() RuleCapabilities {
 // Evaluate executes the rule logic against the provided context
 func (r *LayerValidationRule) Evaluate(context AnalysisContext) []model.Violation {
 	var violations []model.Violation
+	profile := resolveArchitectureProfile(context)
 
 	// Check all files and their imports
 	for _, file := range context.RepositoryFiles {
@@ -57,11 +62,11 @@ func (r *LayerValidationRule) Evaluate(context AnalysisContext) []model.Violatio
 			toLayer := detectLayer(imp)
 
 			// Check if this is an upward import (forbidden)
-			if isUpwardImport(fromLayer, toLayer) {
+			if isUpwardImportWithProfile(fromLayer, toLayer, profile) {
 				violations = append(violations, model.Violation{
 					RuleID:      r.ID(),
 					Severity:    model.SeverityError,
-					Message:     formatLayerViolation(file.Path, imp, fromLayer, toLayer),
+					Message:     formatLayerViolation(file.Path, imp, fromLayer, toLayer, profile),
 					File:        file.Path,
 					Line:        0,
 					ScoreImpact: -5.0,
@@ -71,6 +76,21 @@ func (r *LayerValidationRule) Evaluate(context AnalysisContext) []model.Violatio
 	}
 
 	return violations
+}
+
+func resolveArchitectureProfile(context AnalysisContext) string {
+	if context.Configuration == nil {
+		return "layered"
+	}
+	raw, ok := context.Configuration["architectureProfile"]
+	if !ok {
+		return "layered"
+	}
+	profile, ok := raw.(string)
+	if !ok || strings.TrimSpace(profile) == "" {
+		return "layered"
+	}
+	return strings.ToLower(strings.TrimSpace(profile))
 }
 
 // detectLayer detects the layer of a package based on its path
@@ -124,7 +144,17 @@ func isUpwardImport(from, to LayerConvention) bool {
 	return toLevel < fromLevel
 }
 
+func isUpwardImportWithProfile(from, to LayerConvention, profile string) bool {
+	if profile == "modular-monolith" {
+		return false
+	}
+	return isUpwardImport(from, to)
+}
+
 // formatLayerViolation formats a layer violation message
-func formatLayerViolation(from, to string, fromLayer, toLayer LayerConvention) string {
-	return from + " (" + string(fromLayer) + ") -> " + to + " (" + string(toLayer) + "): upward import not allowed"
+func formatLayerViolation(from, to string, fromLayer, toLayer LayerConvention, profile string) string {
+	if strings.TrimSpace(profile) == "" {
+		profile = "layered"
+	}
+	return fmt.Sprintf("%s (%s) -> %s (%s): upward import not allowed [profile:%s]", from, fromLayer, to, toLayer, profile)
 }

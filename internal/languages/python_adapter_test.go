@@ -387,3 +387,107 @@ func TestPythonAdapter_CollectEvidence_MalformedAndOversizedSafeFailure(t *testi
 		t.Fatal("expected warnings for malformed/oversized fixtures")
 	}
 }
+
+func TestParsePythonImportEvidence_AbsoluteRelativeAndDynamic(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "imports.py")
+
+	content := strings.Join([]string{
+		"from pkg.services import service_a, service_b as alias",
+		"from .local import helper",
+		"from ..shared import common as c",
+		"module = importlib.import_module('requests.sessions')",
+		"loaded = __import__(\"json.encoder\")",
+	}, "\n")
+
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write fixture: %v", err)
+	}
+
+	evidence, err := parsePythonImportEvidence(path)
+	if err != nil {
+		t.Fatalf("parsePythonImportEvidence failed: %v", err)
+	}
+
+	joined := make([]string, 0, len(evidence))
+	for _, e := range evidence {
+		joined = append(joined, e.modulePath)
+	}
+
+	mustContain := []string{"pkg.services.service_a", "pkg.services.service_b", "local.helper", "shared.common", "requests.sessions", "json.encoder"}
+	combined := strings.Join(joined, "|")
+	for _, expected := range mustContain {
+		if !strings.Contains(combined, expected) {
+			t.Fatalf("expected module path %q in parsed evidence %v", expected, joined)
+		}
+	}
+}
+
+func TestParsePythonImportEvidence_IgnoresUnsafeDynamicRelative(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "unsafe.py")
+	content := "mod = importlib.import_module('.private')\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write fixture: %v", err)
+	}
+
+	evidence, err := parsePythonImportEvidence(path)
+	if err != nil {
+		t.Fatalf("parsePythonImportEvidence failed: %v", err)
+	}
+	if len(evidence) != 1 {
+		t.Fatalf("expected one unsupported marker evidence, got %v", evidence)
+	}
+	if evidence[0].modulePath != "" {
+		t.Fatalf("expected unsupported dynamic import to not resolve module path, got %q", evidence[0].modulePath)
+	}
+	if evidence[0].unsupportedReason != "RELATIVE_DYNAMIC_IMPORT_UNSUPPORTED" {
+		t.Fatalf("expected unsupported reason marker, got %q", evidence[0].unsupportedReason)
+	}
+}
+
+func TestPythonAdapter_CollectEvidence_ReportsUnsupportedDynamicImportMarker(t *testing.T) {
+	repo := t.TempDir()
+	file := filepath.Join(repo, "dynamic.py")
+	content := "mod = importlib.import_module('.private')\n"
+	if err := os.WriteFile(file, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write fixture: %v", err)
+	}
+
+	adapter := NewPythonAdapter()
+	signals, warnings, err := adapter.CollectEvidence(repo, []string{file})
+	if err != nil {
+		t.Fatalf("CollectEvidence failed: %v", err)
+	}
+	if len(signals) != 0 {
+		t.Fatalf("expected no evidence signals for unsupported dynamic import, got %v", signals)
+	}
+	joined := strings.Join(warnings, "|")
+	if !strings.Contains(joined, "RELATIVE_DYNAMIC_IMPORT_UNSUPPORTED") {
+		t.Fatalf("expected warning marker for unsupported dynamic import, got %v", warnings)
+	}
+}
+
+func TestParsePythonImportEvidence_HardeningSkipsNulAndCapsLines(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "large.py")
+	var sb strings.Builder
+	for i := 0; i < maxPythonEvidenceLines+50; i++ {
+		sb.WriteString("import os\n")
+	}
+	sb.WriteString("\x00from bad import x\n")
+	if err := os.WriteFile(path, []byte(sb.String()), 0o644); err != nil {
+		t.Fatalf("failed writing fixture: %v", err)
+	}
+
+	evidence, err := parsePythonImportEvidence(path)
+	if err != nil {
+		t.Fatalf("parsePythonImportEvidence failed: %v", err)
+	}
+	if len(evidence) == 0 {
+		t.Fatal("expected evidence entries from capped import lines")
+	}
+	if len(evidence) > maxPythonEvidenceLines {
+		t.Fatalf("expected evidence to be capped, got %d", len(evidence))
+	}
+}

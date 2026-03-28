@@ -15,6 +15,7 @@ type SizeViolation struct {
 	Function  string
 	Lines     int
 	Threshold int
+	Hint      string
 }
 
 // SizeRule checks file and function size thresholds

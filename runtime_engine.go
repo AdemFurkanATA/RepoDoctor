@@ -16,7 +16,11 @@ type runtimeRuleSummary struct {
 	rulesInScope int
 }
 
-func runInternalRulePipeline(absPath string, graph Graph) *runtimeRuleSummary {
+func runInternalRulePipeline(absPath string, graph Graph, primaryLanguage string) *runtimeRuleSummary {
+	return runInternalRulePipelineWithProfile(absPath, graph, primaryLanguage, "")
+}
+
+func runInternalRulePipelineWithProfile(absPath string, graph Graph, primaryLanguage string, architectureProfile string) *runtimeRuleSummary {
 	registry := rules.NewRuleRegistry()
 	for _, rule := range rules.GetDefaultRegistry().GetAll() {
 		registry.MustRegister(rule)
@@ -24,7 +28,12 @@ func runInternalRulePipeline(absPath string, graph Graph) *runtimeRuleSummary {
 	registry.MustRegister(rules.NewCircularDependencyRule(toRulesDependencyGraph(graph)))
 
 	executor := engine.NewRuleExecutor(registry)
-	context := buildRulesAnalysisContext(absPath, graph)
+	context := buildUnifiedRulesAnalysisContext(runtimeAnalysisContextInput{
+		RepositoryPath:      absPath,
+		Graph:               graph,
+		PrimaryLanguage:     primaryLanguage,
+		ArchitectureProfile: architectureProfile,
+	})
 	result := executor.Execute(context)
 	sortViolations(result.Violations)
 
@@ -34,29 +43,47 @@ func runInternalRulePipeline(absPath string, graph Graph) *runtimeRuleSummary {
 	}
 }
 
-func buildRulesAnalysisContext(absPath string, graph Graph) rules.AnalysisContext {
+func buildRulesAnalysisContext(absPath string, graph Graph, primaryLanguage string) rules.AnalysisContext {
+	// Backward-compatible delegate retained for tests/legacy callers.
+	return buildUnifiedRulesAnalysisContext(runtimeAnalysisContextInput{
+		RepositoryPath:  absPath,
+		Graph:           graph,
+		PrimaryLanguage: primaryLanguage,
+	})
+}
+
+func readRepositoryFileForContext(graph Graph, node string) rules.RepositoryFile {
+	content := ""
+	if data, err := os.ReadFile(node); err == nil {
+		content = string(data)
+	}
+
+	return rules.RepositoryFile{
+		Path:    node,
+		Content: content,
+		Imports: graph.GetDependencies(node),
+	}
+}
+
+func legacyBuildRulesAnalysisContext(absPath string, graph Graph, primaryLanguage string) rules.AnalysisContext {
 	nodes := graph.GetAllNodes()
 	sort.Strings(nodes)
 
 	repoFiles := make([]rules.RepositoryFile, 0, len(nodes))
 	for _, node := range nodes {
-		content := ""
-		if data, err := os.ReadFile(node); err == nil {
-			content = string(data)
-		}
+		repoFiles = append(repoFiles, readRepositoryFileForContext(graph, node))
+	}
 
-		repoFiles = append(repoFiles, rules.RepositoryFile{
-			Path:    node,
-			Content: content,
-			Imports: graph.GetDependencies(node),
-		})
+	languages := []string{"Go", "Python", "JavaScript", "TypeScript"}
+	if primaryLanguage != "" {
+		languages = []string{primaryLanguage}
 	}
 
 	return rules.AnalysisContext{
 		RepositoryFiles: repoFiles,
 		DependencyGraph: toRulesDependencyGraph(graph),
 		Configuration:   rules.Configuration{"repositoryPath": absPath},
-		Languages:       []string{"Go", "Python", "JavaScript", "TypeScript"},
+		Languages:       languages,
 	}
 }
 
@@ -99,9 +126,9 @@ func buildReportFromRuleViolations(path string, version string, cfg *Config, vio
 	for _, v := range violations {
 		switch v.RuleID {
 		case "rule.circular-dependency":
-			report.Circular = append(report.Circular, CycleViolation{Path: []string{v.File}, Severity: string(v.Severity)})
+			report.Circular = append(report.Circular, CycleViolation{Path: []string{v.File}, Severity: string(v.Severity), Hint: remediationHintForViolation(v)})
 		case "rule.layer-validation":
-			report.Layer = append(report.Layer, LayerViolation{From: v.File, To: "", Message: v.Message})
+			report.Layer = append(report.Layer, LayerViolation{From: v.File, To: "", Message: v.Message, Hint: remediationHintForViolation(v)})
 		case "rule.size":
 			report.Size = append(report.Size, parseSizeViolation(v))
 		case "rule.god-object":
@@ -136,7 +163,7 @@ var (
 // parseSizeViolation extracts Lines, Threshold, and Function from a size
 // violation message instead of using hardcoded placeholder values.
 func parseSizeViolation(v model.Violation) SizeViolation {
-	sv := SizeViolation{File: v.File}
+	sv := SizeViolation{File: v.File, Hint: remediationHintForViolation(v)}
 
 	// Try function-level match first (more specific)
 	if m := sizeFuncRe.FindStringSubmatch(v.Message); len(m) == 4 {
@@ -183,7 +210,23 @@ func mergeGodObjectViolation(m map[string]*GodObjectViolation, v model.Violation
 			File:        v.File,
 			FieldCount:  fieldCount,
 			MethodCount: methodCount,
+			Hint:        remediationHintForViolation(v),
 		}
+	}
+}
+
+func remediationHintForViolation(v model.Violation) string {
+	switch v.RuleID {
+	case "rule.circular-dependency":
+		return "Break the dependency cycle by moving shared contracts to a lower-level package and injecting dependencies inward."
+	case "rule.layer-validation":
+		return "Move the dependency to an allowed lower layer or introduce an interface boundary to preserve dependency direction."
+	case "rule.size":
+		return "Split oversized files/functions into focused units with one responsibility each."
+	case "rule.god-object":
+		return "Extract cohesive responsibilities into dedicated types and keep each object focused on one concern."
+	default:
+		return ""
 	}
 }
 

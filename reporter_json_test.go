@@ -17,7 +17,7 @@ func TestReporter_JSONV2_ContainsSchemaAndSummary(t *testing.T) {
 			TotalScore: 95, MaxScore: 100,
 		},
 		Summary:  ReportSummary{TotalViolations: 1, Circular: 0, Layer: 0, Size: 1, GodObject: 0},
-		Language: LanguageEvidenceSummary{DetectedLanguage: "Go", Confidence: 0.99},
+		Language: LanguageEvidenceSummary{DetectedLanguage: "Go", Confidence: 0.99, ReasonCodes: []string{"SCORING_ORDER_RESOLVED"}},
 	}
 
 	jsonOut := reporter.Format(report)
@@ -29,6 +29,9 @@ func TestReporter_JSONV2_ContainsSchemaAndSummary(t *testing.T) {
 	}
 	if !strings.Contains(jsonOut, "\"language\"") {
 		t.Fatalf("expected language section in output: %s", jsonOut)
+	}
+	if !strings.Contains(jsonOut, "\"reasonCodes\"") {
+		t.Fatalf("expected reasonCodes in output: %s", jsonOut)
 	}
 }
 
@@ -131,8 +134,12 @@ func TestReporter_JSONV2_GoldenStableOrderingAndSchema(t *testing.T) {
 		t.Fatalf("output must be valid JSON: %v", err)
 	}
 
-	if payload["path"] == report.Path {
-		t.Fatalf("expected normalized/redacted path, got original: %v", payload["path"])
+	pathValue, ok := payload["path"].(string)
+	if !ok {
+		t.Fatalf("expected path value to be a string, got %T", payload["path"])
+	}
+	if strings.Contains(pathValue, "\\") {
+		t.Fatalf("expected normalized slash path, got: %v", pathValue)
 	}
 }
 

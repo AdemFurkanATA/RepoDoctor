@@ -398,3 +398,55 @@ language_detection:
 		t.Fatalf("expected deterministic nested unknown-key error, got: %v", err)
 	}
 }
+
+func TestConfigLoader_ArchitectureProfileDefaultsAndValidation(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+
+	validCfg := `
+architecture:
+  profile: clean
+`
+	if err := os.WriteFile(configPath, []byte(validCfg), 0o644); err != nil {
+		t.Fatalf("failed writing config: %v", err)
+	}
+
+	loader := NewConfigLoader(configPath)
+	cfg, err := loader.Load()
+	if err != nil {
+		t.Fatalf("expected valid architecture profile, got error: %v", err)
+	}
+	if cfg.Architecture == nil || cfg.Architecture.Profile != "clean" {
+		t.Fatalf("expected architecture profile clean, got %+v", cfg.Architecture)
+	}
+
+	invalidCfg := `
+architecture:
+  profile: hexagonal
+`
+	if err := os.WriteFile(configPath, []byte(invalidCfg), 0o644); err != nil {
+		t.Fatalf("failed writing invalid config: %v", err)
+	}
+
+	if _, err := loader.Load(); err == nil {
+		t.Fatal("expected invalid architecture profile to fail validation")
+	}
+}
+
+func TestConfigLoader_UnknownArchitectureKeyRejected(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	cfg := `
+architecture:
+  profile: layered
+  mode: strict
+`
+	if err := os.WriteFile(configPath, []byte(cfg), 0o644); err != nil {
+		t.Fatalf("failed writing config: %v", err)
+	}
+
+	loader := NewConfigLoader(configPath)
+	if _, err := loader.Load(); err == nil {
+		t.Fatal("expected unknown architecture key to be rejected")
+	}
+}

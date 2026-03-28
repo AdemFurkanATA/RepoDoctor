@@ -1,10 +1,13 @@
 package main
 
+import "strconv"
+
 // LayerViolation represents a layer constraint violation
 type LayerViolation struct {
 	From    string
 	To      string
 	Message string
+	Hint    string
 }
 
 // LayerConvention represents the allowed dependency direction
@@ -87,7 +90,7 @@ func (r *LayerValidationRule) Message() string {
 
 	msg := "Layer violations found:\n"
 	for i, v := range r.violations {
-		msg += "[" + string(rune(i+48)) + "] " + v.Message + "\n"
+		msg += "[" + strconv.Itoa(i+1) + "] " + v.Message + "\n"
 	}
 
 	return msg

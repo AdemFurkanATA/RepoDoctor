@@ -2,13 +2,17 @@ name: RepoDoctor Analysis
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, dev]
   pull_request:
-    branches: [main, develop]
+    branches: [main, dev]
 
 jobs:
   repodoctor:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     
     steps:
       - name: Checkout code
@@ -26,17 +30,26 @@ jobs:
       - name: Build RepoDoctor
         run: go build .
 
+      - name: Run unit and integration tests
+        run: go test ./...
+
+      - name: Run static checks
+        run: go vet ./...
+
+      - name: Run non-Go integration confidence suites
+        run: go test ./... -run "TestRunInternalRulePipeline_MultiLanguageMixedFixtureDeterministic|TestJSTSParity_DeterministicAcrossRepeatedRuns"
+
       - name: Run RepoDoctor analysis
-        run: ./RepoDoctor analyze -path . -format text || ./RepoDoctor analyze -path . -format text
+        run: go run . analyze -path . -format text
 
       - name: Run RepoDoctor analysis (JSON output)
-        run: ./RepoDoctor analyze -path . -format json -verbose || true
+        run: go run . analyze -path . -format json -verbose || true
         if: always()
 
       - name: Upload analysis results
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: repodoctor-report
+          name: repodoctor-report-${{ matrix.os }}
           path: repodoctor-report.json
           retention-days: 30

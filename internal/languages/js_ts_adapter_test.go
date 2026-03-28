@@ -176,3 +176,125 @@ func TestJSTSAdapter_MetadataDepthGuard(t *testing.T) {
 		t.Fatalf("expected depth warning, got %v", warnings)
 	}
 }
+
+func TestJSTSAdapter_BuildDependencyGraph_ImportRequireCoverage(t *testing.T) {
+	repo := t.TempDir()
+	fixture := strings.Join([]string{
+		"import React from 'react'",
+		"import 'reflect-metadata'",
+		"export { x } from '@scope/pkg/utils'",
+		"const lodash = require('lodash/fp')",
+		"async function load() { return import('dayjs/plugin/utc') }",
+	}, "\n")
+
+	file := filepath.Join(repo, "app.ts")
+	if err := os.WriteFile(file, []byte(fixture), 0o644); err != nil {
+		t.Fatalf("failed writing fixture: %v", err)
+	}
+
+	adapter := NewTypeScriptAdapter()
+	graph, err := adapter.BuildDependencyGraph([]string{file})
+	if err != nil {
+		t.Fatalf("BuildDependencyGraph failed: %v", err)
+	}
+
+	node := graph.GetNode(file)
+	if node == nil {
+		t.Fatalf("expected node for file %s", file)
+	}
+
+	joined := strings.Join(node.Imports, "|")
+	for _, expected := range []string{"react", "reflect-metadata", "@scope/pkg", "lodash", "dayjs"} {
+		if !strings.Contains(joined, expected) {
+			t.Fatalf("expected import %q in node imports %v", expected, node.Imports)
+		}
+	}
+}
+
+func TestJSTSAdapter_BuildDependencyGraph_ExportFromAndSafeRequireSubset(t *testing.T) {
+	repo := t.TempDir()
+	file := filepath.Join(repo, "mod.ts")
+	fixture := strings.Join([]string{
+		"export * from 'rxjs/operators'",
+		"export * as utils from '@scope/pkg/utils'",
+		"const stable = require('axios/lib/core')",
+		"const dynamic = require('./' + name)",
+	}, "\n")
+
+	if err := os.WriteFile(file, []byte(fixture), 0o644); err != nil {
+		t.Fatalf("failed writing fixture: %v", err)
+	}
+
+	adapter := NewTypeScriptAdapter()
+	graph, err := adapter.BuildDependencyGraph([]string{file})
+	if err != nil {
+		t.Fatalf("BuildDependencyGraph failed: %v", err)
+	}
+	node := graph.GetNode(file)
+	if node == nil {
+		t.Fatalf("expected node for %s", file)
+	}
+
+	joined := strings.Join(node.Imports, "|")
+	for _, expected := range []string{"rxjs", "@scope/pkg", "axios"} {
+		if !strings.Contains(joined, expected) {
+			t.Fatalf("expected normalized import %q in %v", expected, node.Imports)
+		}
+	}
+
+	if strings.Contains(joined, "./") {
+		t.Fatalf("expected dynamic require subset to be ignored, got %v", node.Imports)
+	}
+}
+
+func TestJSTSAdapter_NormalizeImport_PathMappedAndScopedPrecision(t *testing.T) {
+	adapter := NewTypeScriptAdapter()
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{input: "@/components/button", expected: "@/"},
+		{input: "~/utils/date", expected: "~/"},
+		{input: "#/domain/user", expected: "#/"},
+		{input: "@scope/pkg/utils", expected: "@scope/pkg"},
+		{input: "node:fs", expected: "fs"},
+	}
+
+	for _, tt := range tests {
+		if got := adapter.NormalizeImport(tt.input); got != tt.expected {
+			t.Fatalf("NormalizeImport(%q) expected %q, got %q", tt.input, tt.expected, got)
+		}
+	}
+}
+
+func TestJSTSAdapter_BuildDependencyGraph_HardeningSkipsNulAndCapsLines(t *testing.T) {
+	repo := t.TempDir()
+	file := filepath.Join(repo, "large.ts")
+	var sb strings.Builder
+	for i := 0; i < maxJSTSImportEvidenceLines+100; i++ {
+		sb.WriteString("import x from 'react'\n")
+	}
+	sb.WriteString("\x00import y from 'broken'\n")
+
+	if err := os.WriteFile(file, []byte(sb.String()), 0o644); err != nil {
+		t.Fatalf("failed writing fixture: %v", err)
+	}
+
+	adapter := NewTypeScriptAdapter()
+	graph, err := adapter.BuildDependencyGraph([]string{file})
+	if err != nil {
+		t.Fatalf("BuildDependencyGraph failed: %v", err)
+	}
+	node := graph.GetNode(file)
+	if node == nil {
+		t.Fatalf("expected graph node for %s", file)
+	}
+	if len(node.Imports) > maxJSTSImportEvidenceLines+1 {
+		t.Fatalf("expected imports to be capped, got %d", len(node.Imports))
+	}
+	for _, imp := range node.Imports {
+		if strings.Contains(imp, "broken") {
+			t.Fatalf("expected nul-tainted import to be skipped, got %v", node.Imports)
+		}
+	}
+}

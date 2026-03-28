@@ -1,9 +1,12 @@
 package main
 
+import "strconv"
+
 // CycleViolation represents a circular dependency violation
 type CycleViolation struct {
 	Path     []string
 	Severity string
+	Hint     string
 }
 
 // CircularDependencyRule detects circular dependencies in a graph
@@ -81,5 +84,5 @@ func formatCycle(index int, path []string) string {
 		cyclePath += " → " + path[0]
 	}
 
-	return "[" + string(rune(index)) + "] " + cyclePath + "\n"
+	return "[" + strconv.Itoa(index) + "] " + cyclePath + "\n"
 }
