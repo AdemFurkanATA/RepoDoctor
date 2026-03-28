@@ -1,0 +1,54 @@
+[
+  {
+    "adapter": "Go",
+    "detectFiles": [
+      "go/app/broken.go"
+    ],
+    "fileNodes": []
+  },
+  {
+    "adapter": "JavaScript",
+    "detectFiles": [
+      "web/src/broken.js"
+    ],
+    "fileNodes": [
+      {
+        "path": "web/src/broken.js",
+        "imports": [
+          "x",
+          "x"
+        ]
+      }
+    ]
+  },
+  {
+    "adapter": "Python",
+    "detectFiles": [
+      "python/pkg/broken.py"
+    ],
+    "fileNodes": [
+      {
+        "path": "python/pkg/broken.py",
+        "imports": [
+          "",
+          ""
+        ]
+      }
+    ]
+  },
+  {
+    "adapter": "TypeScript",
+    "detectFiles": [
+      "web/src/broken.ts"
+    ],
+    "fileNodes": [
+      {
+        "path": "web/src/broken.ts",
+        "imports": [
+          "pkg",
+          "pkg"
+        ]
+      }
+    ]
+  }
+]
