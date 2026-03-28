@@ -1,0 +1,82 @@
+[
+  {
+    "adapter": "Go",
+    "detectFiles": [
+      "go/app/main.go"
+    ],
+    "fileNodes": [
+      {
+        "path": "go/app/main.go",
+        "imports": [
+          "fmt",
+          "net/http",
+          "github.com/acme/lib",
+          "fmt",
+          "net/http",
+          "github.com/acme/lib"
+        ]
+      }
+    ]
+  },
+  {
+    "adapter": "JavaScript",
+    "detectFiles": [
+      "web/src/main.js"
+    ],
+    "fileNodes": [
+      {
+        "path": "web/src/main.js",
+        "imports": [
+          "react",
+          "react",
+          "@scope/pkg",
+          "@scope/pkg",
+          "./feature/module",
+          "./feature/module",
+          "lodash",
+          "lodash"
+        ]
+      }
+    ]
+  },
+  {
+    "adapter": "Python",
+    "detectFiles": [
+      "python/pkg/main.py"
+    ],
+    "fileNodes": [
+      {
+        "path": "python/pkg/main.py",
+        "imports": [
+          "os",
+          "os",
+          "collections",
+          "collections",
+          "app",
+          "app"
+        ]
+      }
+    ]
+  },
+  {
+    "adapter": "TypeScript",
+    "detectFiles": [
+      "web/src/main.ts"
+    ],
+    "fileNodes": [
+      {
+        "path": "web/src/main.ts",
+        "imports": [
+          "fs",
+          "fs",
+          "@/",
+          "@/",
+          "~/",
+          "~/",
+          "#/",
+          "#/"
+        ]
+      }
+    ]
+  }
+]
