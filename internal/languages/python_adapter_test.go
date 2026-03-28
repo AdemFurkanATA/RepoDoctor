@@ -467,3 +467,27 @@ func TestPythonAdapter_CollectEvidence_ReportsUnsupportedDynamicImportMarker(t *
 		t.Fatalf("expected warning marker for unsupported dynamic import, got %v", warnings)
 	}
 }
+
+func TestParsePythonImportEvidence_HardeningSkipsNulAndCapsLines(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "large.py")
+	var sb strings.Builder
+	for i := 0; i < maxPythonEvidenceLines+50; i++ {
+		sb.WriteString("import os\n")
+	}
+	sb.WriteString("\x00from bad import x\n")
+	if err := os.WriteFile(path, []byte(sb.String()), 0o644); err != nil {
+		t.Fatalf("failed writing fixture: %v", err)
+	}
+
+	evidence, err := parsePythonImportEvidence(path)
+	if err != nil {
+		t.Fatalf("parsePythonImportEvidence failed: %v", err)
+	}
+	if len(evidence) == 0 {
+		t.Fatal("expected evidence entries from capped import lines")
+	}
+	if len(evidence) > maxPythonEvidenceLines {
+		t.Fatalf("expected evidence to be capped, got %d", len(evidence))
+	}
+}

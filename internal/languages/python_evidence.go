@@ -7,6 +7,11 @@ import (
 	"strings"
 )
 
+const (
+	maxPythonEvidenceLines      = 10000
+	maxPythonEvidenceLineBuffer = 256 * 1024
+)
+
 type importEvidence struct {
 	modulePath        string
 	relative          bool
@@ -23,8 +28,15 @@ func parsePythonImportEvidence(path string) ([]importEvidence, error) {
 
 	result := make([]importEvidence, 0)
 	scanner := bufio.NewScanner(file)
+	buf := make([]byte, 0, 64*1024)
+	scanner.Buffer(buf, maxPythonEvidenceLineBuffer)
+	linesRead := 0
 
 	for scanner.Scan() {
+		linesRead++
+		if linesRead > maxPythonEvidenceLines {
+			break
+		}
 		result = append(result, parsePythonImportLine(scanner.Text())...)
 	}
 
@@ -38,6 +50,9 @@ func parsePythonImportEvidence(path string) ([]importEvidence, error) {
 func parsePythonImportLine(raw string) []importEvidence {
 	line := strings.TrimSpace(raw)
 	if line == "" || strings.HasPrefix(line, "#") {
+		return nil
+	}
+	if strings.ContainsRune(line, '\x00') {
 		return nil
 	}
 
