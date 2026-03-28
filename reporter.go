@@ -3,9 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
-	"sort"
 	"strings"
 )
 
@@ -147,7 +144,7 @@ func formatCyclePath(path []string) string {
 
 // formatJSON formats the report as JSON
 func (r *Reporter) formatJSON(report *StructuralReport) string {
-	relPath := normalizeReportPath(report.Path)
+	relPath := normalizeReportPathDeterministic(report.Path)
 	payload := map[string]interface{}{
 		"version":       report.Version,
 		"schemaVersion": report.SchemaVersion,
@@ -172,10 +169,10 @@ func (r *Reporter) formatJSON(report *StructuralReport) string {
 			"confidence":       report.Language.Confidence,
 			"reasonCodes":      append([]string(nil), report.Language.ReasonCodes...),
 		},
-		"circularViolations":  sortedCircular(report.Circular),
-		"layerViolations":     sortedLayer(report.Layer),
-		"sizeViolations":      sortedSize(report.Size),
-		"godObjectViolations": sortedGodObject(report.GodObject),
+		"circularViolations":  sortedCircularViolations(report.Circular),
+		"layerViolations":     sortedLayerViolations(report.Layer),
+		"sizeViolations":      sortedSizeViolations(report.Size),
+		"godObjectViolations": sortedGodObjectViolations(report.GodObject),
 	}
 	data, err := json.MarshalIndent(payload, "", "  ")
 	if err != nil {
@@ -201,65 +198,6 @@ func (r *Reporter) formatJSONV1(report *StructuralReport) string {
 	sb.WriteString("}\n")
 
 	return sb.String()
-}
-
-func normalizeReportPath(path string) string {
-	cleaned := filepath.ToSlash(filepath.Clean(path))
-	if wd, err := os.Getwd(); err == nil {
-		if rel, relErr := filepath.Rel(wd, cleaned); relErr == nil && !strings.HasPrefix(rel, "..") {
-			return filepath.ToSlash(rel)
-		}
-	}
-	return cleaned
-}
-
-func sortedCircular(in []CycleViolation) []CycleViolation {
-	result := append([]CycleViolation(nil), in...)
-	sort.SliceStable(result, func(i, j int) bool {
-		left := strings.Join(result[i].Path, "/")
-		right := strings.Join(result[j].Path, "/")
-		return left < right
-	})
-	return result
-}
-
-func sortedLayer(in []LayerViolation) []LayerViolation {
-	result := append([]LayerViolation(nil), in...)
-	sort.SliceStable(result, func(i, j int) bool {
-		if result[i].From != result[j].From {
-			return result[i].From < result[j].From
-		}
-		if result[i].To != result[j].To {
-			return result[i].To < result[j].To
-		}
-		return result[i].Message < result[j].Message
-	})
-	return result
-}
-
-func sortedSize(in []SizeViolation) []SizeViolation {
-	result := append([]SizeViolation(nil), in...)
-	sort.SliceStable(result, func(i, j int) bool {
-		if result[i].File != result[j].File {
-			return result[i].File < result[j].File
-		}
-		if result[i].Function != result[j].Function {
-			return result[i].Function < result[j].Function
-		}
-		return result[i].Lines < result[j].Lines
-	})
-	return result
-}
-
-func sortedGodObject(in []GodObjectViolation) []GodObjectViolation {
-	result := append([]GodObjectViolation(nil), in...)
-	sort.SliceStable(result, func(i, j int) bool {
-		if result[i].File != result[j].File {
-			return result[i].File < result[j].File
-		}
-		return result[i].StructName < result[j].StructName
-	})
-	return result
 }
 
 // formatScoreSection formats the score section of JSON output

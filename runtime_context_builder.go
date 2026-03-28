@@ -1,8 +1,6 @@
 package main
 
 import (
-	"sort"
-
 	"RepoDoctor/internal/rules"
 )
 
@@ -27,7 +25,7 @@ func buildUnifiedRulesAnalysisContext(input runtimeAnalysisContextInput) rules.A
 
 func buildContextRepositoryFiles(graph Graph) []rules.RepositoryFile {
 	nodes := graph.GetAllNodes()
-	sort.Strings(nodes)
+	nodes = sortedStringCopy(nodes)
 
 	repositoryFiles := make([]rules.RepositoryFile, 0, len(nodes))
 	for _, node := range nodes {
