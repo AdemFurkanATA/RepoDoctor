@@ -266,3 +266,35 @@ func TestJSTSAdapter_NormalizeImport_PathMappedAndScopedPrecision(t *testing.T) 
 		}
 	}
 }
+
+func TestJSTSAdapter_BuildDependencyGraph_HardeningSkipsNulAndCapsLines(t *testing.T) {
+	repo := t.TempDir()
+	file := filepath.Join(repo, "large.ts")
+	var sb strings.Builder
+	for i := 0; i < maxJSTSImportEvidenceLines+100; i++ {
+		sb.WriteString("import x from 'react'\n")
+	}
+	sb.WriteString("\x00import y from 'broken'\n")
+
+	if err := os.WriteFile(file, []byte(sb.String()), 0o644); err != nil {
+		t.Fatalf("failed writing fixture: %v", err)
+	}
+
+	adapter := NewTypeScriptAdapter()
+	graph, err := adapter.BuildDependencyGraph([]string{file})
+	if err != nil {
+		t.Fatalf("BuildDependencyGraph failed: %v", err)
+	}
+	node := graph.GetNode(file)
+	if node == nil {
+		t.Fatalf("expected graph node for %s", file)
+	}
+	if len(node.Imports) > maxJSTSImportEvidenceLines+1 {
+		t.Fatalf("expected imports to be capped, got %d", len(node.Imports))
+	}
+	for _, imp := range node.Imports {
+		if strings.Contains(imp, "broken") {
+			t.Fatalf("expected nul-tainted import to be skipped, got %v", node.Imports)
+		}
+	}
+}

@@ -15,6 +15,7 @@ import (
 
 const maxMetadataBytes = 2 * 1024 * 1024
 const maxMetadataDepth = 8
+const maxJSTSImportEvidenceLines = 20000
 
 type metadataCacheEntry struct {
 	packageJSON bool
@@ -119,7 +120,10 @@ func (a *jsTsAdapter) BuildDependencyGraph(files []string) (*model.DependencyGra
 			continue
 		}
 		lines := strings.Split(string(content), "\n")
-		for _, line := range lines {
+		for i, line := range lines {
+			if i >= maxJSTSImportEvidenceLines {
+				break
+			}
 			collectJSImportLine(a, file, strings.TrimSpace(line), node, graph, requireRe, dynamicImportRe)
 		}
 	}
@@ -128,6 +132,9 @@ func (a *jsTsAdapter) BuildDependencyGraph(files []string) (*model.DependencyGra
 
 func collectJSImportLine(a *jsTsAdapter, file, trimmed string, node *model.Node, graph *model.DependencyGraph, requireRe, dynamicImportRe *regexp.Regexp) {
 	if strings.HasPrefix(trimmed, "//") {
+		return
+	}
+	if strings.ContainsRune(trimmed, '\x00') {
 		return
 	}
 
