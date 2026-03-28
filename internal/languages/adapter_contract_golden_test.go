@@ -75,12 +75,17 @@ func TestAdapterContract_GoldenSnapshots(t *testing.T) {
 				t.Fatalf("failed to read golden file %s: %v", tc.golden, err)
 			}
 
-			want := strings.TrimSpace(string(wantBytes))
-			if strings.TrimSpace(got) != want {
+			want := canonicalizeGoldenText(string(wantBytes))
+			if canonicalizeGoldenText(got) != want {
 				t.Fatalf("golden mismatch for %s\nwant:\n%s\n\ngot:\n%s", tc.name, want, got)
 			}
 		})
 	}
+}
+
+func canonicalizeGoldenText(value string) string {
+	value = strings.ReplaceAll(value, "\r\n", "\n")
+	return strings.TrimSpace(value)
 }
 
 func writeFixtures(t *testing.T, repo string, files map[string]string) {
