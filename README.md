@@ -6,7 +6,8 @@ RepoDoctor is a CLI tool that analyzes your repository’s architectural health 
 
 It is intentionally **not** a style linter. RepoDoctor focuses on higher-level design quality: cycles, layering violations, oversized units, and god object drift.
 
-![Version](https://img.shields.io/badge/version-v0.9.0--dev-blue)
+![CLI Version](https://img.shields.io/badge/cli-0.5.0--dev-blue)
+![Roadmap Milestone](https://img.shields.io/badge/roadmap-v0.17-complete-brightgreen)
 [![Go Version](https://img.shields.io/badge/go-1.21+-00ADD8)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Structural Health](https://img.shields.io/badge/structural--health-100%2F100-brightgreen)]()
@@ -27,6 +28,7 @@ It is intentionally **not** a style linter. RepoDoctor focuses on higher-level d
 - [Project Structure](#project-structure)
 - [Development & Quality Gates](#development--quality-gates)
 - [CI Integration (GitHub Actions)](#ci-integration-github-actions)
+- [Release Maturity](#release-maturity)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
 - [Privacy & Repository Hygiene](#privacy--repository-hygiene)
@@ -153,6 +155,9 @@ repodoctor analyze -path .
 # JSON output
 repodoctor analyze -path ./my-repo -format json
 
+# legacy JSON schema output (compat mode)
+repodoctor analyze -path ./my-repo -format json-v1
+
 # verbose mode
 repodoctor analyze -path . -verbose
 
@@ -168,6 +173,7 @@ repodoctor analyze -path . -no-color
 ```bash
 repodoctor interactive
 repodoctor extract -path . -module RepoDoctor
+repodoctor report -path repodoctor-report.json -format text
 repodoctor history -path .
 repodoctor generate rule my-custom-rule
 repodoctor version
@@ -191,7 +197,32 @@ god_object:
 rules:
   enable_size_rule: true
   enable_god_object_rule: true
+
+weights:
+  circular: 10
+  layer: 5
+  size: 3
+  god_object: 5
+
+language_detection:
+  weights:
+    Go: 1.0
+    Python: 1.0
+    JavaScript: 1.0
+    TypeScript: 1.0
+  tie_break_order: [Python, TypeScript, JavaScript, Go]
+  segment_weights:
+    src: 1.0
+    app: 1.0
+    pkg: 1.0
+    tools: 0.2
+    scripts: 0.2
+
+architecture:
+  profile: layered
 ```
+
+Supported `architecture.profile` values: `clean`, `layered`, `modular-monolith`.
 
 You can keep defaults and only override needed thresholds.
 
@@ -206,24 +237,41 @@ You can keep defaults and only override needed thresholds.
 | `0` | No critical violations |
 | `2` | Critical violations detected |
 
-### JSON Output (example shape)
+### JSON Output (v2 example shape)
 
 ```json
 {
-  "version": "0.9.0-dev",
+  "version": "0.5.0-dev",
+  "schemaVersion": "v2",
   "path": "/repo",
   "score": {
     "total": 100.0,
-    "max": 100.0
+    "max": 100.0,
+    "circularPenalty": 0,
+    "layerPenalty": 0,
+    "sizePenalty": 0,
+    "godObjectPenalty": 0
   },
-  "violations": {
+  "summary": {
+    "totalViolations": 0,
     "circular": 0,
     "layer": 0,
     "size": 0,
     "godObject": 0
-  }
+  },
+  "language": {
+    "detectedLanguage": "Go",
+    "confidence": 1,
+    "reasonCodes": ["go.mod"]
+  },
+  "circularViolations": [],
+  "layerViolations": [],
+  "sizeViolations": [],
+  "godObjectViolations": []
 }
 ```
+
+Use `-format json-v1` only when a legacy integration still depends on the previous schema.
 
 ---
 
@@ -306,6 +354,14 @@ go test -race ./...
 
 ## CI Integration (GitHub Actions)
 
+Current workflow highlights:
+
+- Linux + Windows matrix (`ubuntu-latest`, `windows-latest`)
+- `go test ./...`
+- `go vet ./...`
+- deterministic multi-language confidence suite
+- text + JSON analysis output artifact upload
+
 Minimal example:
 
 ```yaml
@@ -317,7 +373,11 @@ on:
 
 jobs:
   repodoctor:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -325,8 +385,20 @@ jobs:
           go-version: '1.21'
       - run: go test ./...
       - run: go vet ./...
+      - run: go test ./... -run "TestRunInternalRulePipeline_MultiLanguageMixedFixtureDeterministic|TestJSTSParity_DeterministicAcrossRepeatedRuns"
       - run: go run . analyze -path .
 ```
+
+---
+
+## Release Maturity
+
+- Roadmap release train (`v0.10` to `v0.17`) is complete.
+- Current release maturity report: `RELEASE_MATURITY_v0.17.md`.
+- Release close gate status:
+  - `go test ./...` pass
+  - `go vet ./...` pass
+  - `go run . analyze -path .` pass (`100/100`)
 
 ---
 
@@ -336,12 +408,13 @@ jobs:
 
 - v0.8: structural stabilization and 100/100 recovery
 - v0.9: architecture hardening, invariants, and output stability improvements
+- v0.10-v0.17: 8-sprint roadmap completed (adapter contracts, rule parity, orchestration confidence, incremental foundations, architecture profiles, precision/explainability hardening, release maturity)
 
 ### Next
 
-- richer architecture profiles
-- expanded rule packs
-- tighter CI policy templates
+- next release planning starts after v0.17 stabilization window
+- expanded rule packs and profile refinements
+- tighter CI policy templates and release automation
 
 ---
 
