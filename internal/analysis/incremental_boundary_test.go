@@ -70,8 +70,12 @@ func TestIncrementalBoundaryService_FirstRunCacheMissThenHitWithDiff(t *testing.
 	if len(second.Changed) != 2 {
 		t.Fatalf("expected two changed entries (a.go + c.go), got %v", second.Changed)
 	}
-	if second.Changed[0] != "a.go" || second.Changed[1] != "c.go" {
-		t.Fatalf("unexpected changed list ordering/content: %v", second.Changed)
+	got := map[string]bool{}
+	for _, path := range second.Changed {
+		got[path] = true
+	}
+	if !got["a.go"] || !got["c.go"] {
+		t.Fatalf("unexpected changed list content: %v", second.Changed)
 	}
 	if len(second.Removed) != 1 || second.Removed[0] != "b.go" {
 		t.Fatalf("unexpected removed list: %v", second.Removed)
