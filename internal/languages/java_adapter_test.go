@@ -83,6 +83,31 @@ func TestJavaAdapter_BuildDependencyGraph_Deterministic(t *testing.T) {
 	}
 }
 
+func TestJavaAdapter_CollectMetrics_ExtractsTypesAndMethods(t *testing.T) {
+	repo := t.TempDir()
+	file := filepath.Join(repo, "Service.java")
+	content := strings.Join([]string{
+		"package app.core;",
+		"import java.util.List;",
+		"public class Service {",
+		"  public Service() {}",
+		"  public int run(String a, int b) { return b; }",
+		"}",
+	}, "\n")
+	if err := os.WriteFile(file, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed writing java fixture: %v", err)
+	}
+
+	adapter := NewJavaAdapter()
+	metrics, err := adapter.CollectMetrics([]string{file})
+	if err != nil {
+		t.Fatalf("CollectMetrics failed: %v", err)
+	}
+	if metrics.TotalFiles != 1 || metrics.TotalFunctions == 0 || metrics.TotalStructs == 0 {
+		t.Fatalf("expected java metrics extraction, got files=%d funcs=%d structs=%d", metrics.TotalFiles, metrics.TotalFunctions, metrics.TotalStructs)
+	}
+}
+
 func adapterDetectFilesForTest(adapter LanguageAdapter, repo string) ([]string, error) {
 	return adapter.DetectFiles(repo)
 }

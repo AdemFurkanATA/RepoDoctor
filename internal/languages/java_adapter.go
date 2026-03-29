@@ -19,6 +19,7 @@ const (
 var (
 	javaPackagePattern = regexp.MustCompile(`^\s*package\s+([A-Za-z_][\w.]*)\s*;`)
 	javaImportPattern  = regexp.MustCompile(`^\s*import\s+(?:static\s+)?([A-Za-z_][\w.*]*)\s*;`)
+	javaTypePattern    = regexp.MustCompile(`\b(class|interface|enum|record)\s+([A-Za-z_][\w]*)`)
 	javaMethodPattern  = regexp.MustCompile(`\b(?:public|protected|private)?\s*(?:static\s+)?(?:final\s+)?[A-Za-z_][\w<>\[\]]*\s+([A-Za-z_][\w]*)\s*\(`)
 )
 
@@ -66,25 +67,43 @@ func (a *JavaAdapter) DetectFiles(repoPath string) ([]string, error) {
 func (a *JavaAdapter) CollectMetrics(files []string) (*model.RepositoryMetrics, error) {
 	metrics := model.NewRepositoryMetrics()
 	for _, file := range files {
-		fm, err := a.collectFileMetrics(file)
+		fm, functions, structs, err := a.collectFileMetrics(file)
 		if err != nil {
 			continue
 		}
 		metrics.AddFileMetrics(*fm)
+		for _, fn := range functions {
+			metrics.AddFunctionMetrics(fn)
+		}
+		for _, st := range structs {
+			metrics.AddStructMetrics(st)
+		}
 	}
 	return metrics, nil
 }
 
-func (a *JavaAdapter) collectFileMetrics(path string) (*model.FileMetrics, error) {
+func (a *JavaAdapter) collectFileMetrics(path string) (*model.FileMetrics, []model.FunctionMetrics, []model.StructMetrics, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 	if len(content) > maxJavaFileBytes {
-		return nil, fmt.Errorf("java file too large for safe parsing: %s", path)
+		return nil, nil, nil, fmt.Errorf("java file too large for safe parsing: %s", path)
 	}
 
 	lines := strings.Split(string(content), "\n")
+	functions, imports := countJavaFunctionsAndImports(lines)
+	functionMetrics, structMetrics := extractJavaSymbolMetrics(path, lines)
+
+	return &model.FileMetrics{
+		Path:      path,
+		Lines:     len(lines),
+		Functions: functions,
+		Imports:   imports,
+	}, functionMetrics, structMetrics, nil
+}
+
+func countJavaFunctionsAndImports(lines []string) (int, int) {
 	functions := 0
 	imports := 0
 	for _, line := range lines {
@@ -99,13 +118,49 @@ func (a *JavaAdapter) collectFileMetrics(path string) (*model.FileMetrics, error
 			functions++
 		}
 	}
+	return functions, imports
+}
 
-	return &model.FileMetrics{
-		Path:      path,
-		Lines:     len(lines),
-		Functions: functions,
-		Imports:   imports,
-	}, nil
+func extractJavaSymbolMetrics(path string, lines []string) ([]model.FunctionMetrics, []model.StructMetrics) {
+	functionMetrics := make([]model.FunctionMetrics, 0)
+	structMetrics := make([]model.StructMetrics, 0)
+	structMethods := make(map[string]int)
+
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "//") || strings.HasPrefix(trimmed, "*") {
+			continue
+		}
+		if m := javaTypePattern.FindStringSubmatch(trimmed); len(m) == 3 {
+			structMetrics = append(structMetrics, model.StructMetrics{Name: m[2], File: path, Line: i + 1, Exported: true})
+			continue
+		}
+		if m := javaMethodPattern.FindStringSubmatch(trimmed); len(m) == 2 {
+			functionMetrics = append(functionMetrics, model.FunctionMetrics{Name: m[1], File: path, Line: i + 1, Parameters: javaMethodParameterCount(trimmed)})
+			if len(structMetrics) > 0 {
+				owner := structMetrics[len(structMetrics)-1].Name
+				structMethods[owner]++
+			}
+		}
+	}
+
+	for i := range structMetrics {
+		structMetrics[i].Methods = structMethods[structMetrics[i].Name]
+	}
+	return functionMetrics, structMetrics
+}
+
+func javaMethodParameterCount(signature string) int {
+	open := strings.Index(signature, "(")
+	close := strings.Index(signature, ")")
+	if open < 0 || close <= open {
+		return 0
+	}
+	params := strings.TrimSpace(signature[open+1 : close])
+	if params == "" {
+		return 0
+	}
+	return strings.Count(params, ",") + 1
 }
 
 func (a *JavaAdapter) BuildDependencyGraph(files []string) (*model.DependencyGraph, error) {
