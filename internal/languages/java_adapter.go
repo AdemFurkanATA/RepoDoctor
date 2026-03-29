@@ -13,7 +13,9 @@ import (
 )
 
 const (
-	maxJavaFileBytes = 2 * 1024 * 1024
+	maxJavaFileBytes  = 2 * 1024 * 1024
+	maxJavaFilesScan  = 10000
+	maxJavaImportRows = 50000
 )
 
 var (
@@ -39,6 +41,7 @@ func (a *JavaAdapter) FileExtensions() []string {
 
 func (a *JavaAdapter) DetectFiles(repoPath string) ([]string, error) {
 	javaFiles := make([]string, 0)
+	seen := 0
 	err := filepath.WalkDir(repoPath, func(path string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -53,6 +56,10 @@ func (a *JavaAdapter) DetectFiles(repoPath string) ([]string, error) {
 			return nil
 		}
 		if strings.ToLower(filepath.Ext(path)) == ".java" {
+			seen++
+			if seen > maxJavaFilesScan {
+				return nil
+			}
 			javaFiles = append(javaFiles, filepath.Clean(path))
 		}
 		return nil
@@ -176,7 +183,6 @@ func (a *JavaAdapter) BuildDependencyGraph(files []string) (*model.DependencyGra
 			if normalized == "" {
 				continue
 			}
-			node.Imports = append(node.Imports, normalized)
 			if node.Metadata == nil {
 				node.Metadata = make(map[string]string)
 			}
@@ -199,7 +205,12 @@ func (a *JavaAdapter) extractFilePackageAndImports(path string) (string, []strin
 	scanner := bufio.NewScanner(file)
 	buf := make([]byte, 0, 64*1024)
 	scanner.Buffer(buf, 1024*1024)
+	rows := 0
 	for scanner.Scan() {
+		rows++
+		if rows > maxJavaImportRows {
+			break
+		}
 		line := scanner.Text()
 		if strings.ContainsRune(line, '\x00') {
 			continue
