@@ -53,6 +53,14 @@ jobs:
           GOMAXPROCS: 1
         run: ./scripts/v019_benchmark_gate.ps1
 
+      - name: Run v0.19 release stabilization gate
+        shell: pwsh
+        env:
+          TZ: UTC
+          LC_ALL: C
+          GOMAXPROCS: 1
+        run: ./scripts/v019_release_stabilization_gate.ps1
+
       - name: Run RepoDoctor analysis
         run: go run . analyze -path . -format text
 
