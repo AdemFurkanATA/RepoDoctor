@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main, dev]
 
+permissions:
+  contents: read
+
 jobs:
   repodoctor:
     strategy:
@@ -16,10 +19,12 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: '1.21'
           cache: true
@@ -46,10 +51,23 @@ jobs:
         run: go run . analyze -path . -format json -verbose || true
         if: always()
 
+      - name: Generate analysis artifact checksum
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path "repodoctor-report.json") {
+            $hash = (Get-FileHash "repodoctor-report.json" -Algorithm SHA256).Hash.ToLower()
+            Set-Content -Path "repodoctor-report.sha256" -Value $hash -NoNewline -Encoding ascii
+          } else {
+            Set-Content -Path "repodoctor-report.sha256" -Value "missing-report" -NoNewline -Encoding ascii
+          }
+
       - name: Upload analysis results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: repodoctor-report-${{ matrix.os }}
-          path: repodoctor-report.json
+          path: |
+            repodoctor-report.json
+            repodoctor-report.sha256
           retention-days: 30
