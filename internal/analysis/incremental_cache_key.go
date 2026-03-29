@@ -11,8 +11,10 @@ import (
 
 type IncrementalCacheKeyInput struct {
 	AnalyzerVersion   string
+	CacheSchema       string
 	RepositoryPath    string
 	ConfigFingerprint string
+	RuleFingerprint   string
 }
 
 func BuildIncrementalCacheKey(input IncrementalCacheKeyInput) (string, error) {
@@ -31,7 +33,17 @@ func BuildIncrementalCacheKey(input IncrementalCacheKeyInput) (string, error) {
 		configHash = HashConfigBytes(nil)
 	}
 
-	payload := strings.Join([]string{version, normalizedPath, configHash}, "|")
+	ruleHash := strings.TrimSpace(input.RuleFingerprint)
+	if ruleHash == "" {
+		ruleHash = HashConfigBytes(nil)
+	}
+
+	cacheSchema := strings.TrimSpace(input.CacheSchema)
+	if cacheSchema == "" {
+		cacheSchema = IncrementalCacheSchemaVersion
+	}
+
+	payload := strings.Join([]string{version, cacheSchema, normalizedPath, configHash, ruleHash}, "|")
 	sum := sha256.Sum256([]byte(payload))
 	return hex.EncodeToString(sum[:]), nil
 }

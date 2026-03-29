@@ -41,7 +41,10 @@ func TestIncrementalBoundaryService_RequiresDependencies(t *testing.T) {
 func TestIncrementalBoundaryService_FirstRunCacheMissThenHitWithDiff(t *testing.T) {
 	store := NewInMemoryIncrementalSnapshotStore()
 	service, err := NewIncrementalBoundaryService(store, stubFingerprintProvider{
-		state: map[string]string{"a.go": "h1", "b.go": "h2"},
+		state: map[string]string{
+			"a.go": "1111111111111111111111111111111111111111111111111111111111111111",
+			"b.go": "2222222222222222222222222222222222222222222222222222222222222222",
+		},
 	})
 	if err != nil {
 		t.Fatalf("failed to create boundary service: %v", err)
@@ -58,7 +61,10 @@ func TestIncrementalBoundaryService_FirstRunCacheMissThenHitWithDiff(t *testing.
 		t.Fatalf("first compute must not return stale diffs, changed=%v removed=%v", first.Changed, first.Removed)
 	}
 
-	service.provider = stubFingerprintProvider{state: map[string]string{"a.go": "h1-changed", "c.go": "h3"}}
+	service.provider = stubFingerprintProvider{state: map[string]string{
+		"a.go": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"c.go": "3333333333333333333333333333333333333333333333333333333333333333",
+	}}
 	second, err := service.Compute("/repo", "cache-key")
 	if err != nil {
 		t.Fatalf("second compute failed: %v", err)
@@ -96,12 +102,12 @@ func TestIncrementalBoundaryService_PropagatesBuildErrors(t *testing.T) {
 
 func TestInMemoryIncrementalSnapshotStore_ClonesOnSaveAndLoad(t *testing.T) {
 	store := NewInMemoryIncrementalSnapshotStore()
-	original := NewIncrementalCacheSnapshot("cache-key", map[string]string{"a.go": "h1"})
+	original := NewIncrementalCacheSnapshot("cache-key", map[string]string{"a.go": "1111111111111111111111111111111111111111111111111111111111111111"})
 	if err := store.Save(original); err != nil {
 		t.Fatalf("save failed: %v", err)
 	}
 
-	original.Fingerprints["a.go"] = "tampered"
+	original.Fingerprints["a.go"] = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	loaded, found, err := store.Load("cache-key")
 	if err != nil {
 		t.Fatalf("load failed: %v", err)
@@ -109,11 +115,11 @@ func TestInMemoryIncrementalSnapshotStore_ClonesOnSaveAndLoad(t *testing.T) {
 	if !found {
 		t.Fatal("expected stored snapshot to be found")
 	}
-	if loaded.Fingerprints["a.go"] != "h1" {
+	if loaded.Fingerprints["a.go"] != "1111111111111111111111111111111111111111111111111111111111111111" {
 		t.Fatalf("store must clone on save, got %s", loaded.Fingerprints["a.go"])
 	}
 
-	loaded.Fingerprints["a.go"] = "modified-after-load"
+	loaded.Fingerprints["a.go"] = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 	reloaded, found, err := store.Load("cache-key")
 	if err != nil {
 		t.Fatalf("reload failed: %v", err)
@@ -121,7 +127,7 @@ func TestInMemoryIncrementalSnapshotStore_ClonesOnSaveAndLoad(t *testing.T) {
 	if !found {
 		t.Fatal("expected snapshot on reload")
 	}
-	if reloaded.Fingerprints["a.go"] != "h1" {
+	if reloaded.Fingerprints["a.go"] != "1111111111111111111111111111111111111111111111111111111111111111" {
 		t.Fatalf("store must clone on load, got %s", reloaded.Fingerprints["a.go"])
 	}
 }

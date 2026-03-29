@@ -3,6 +3,8 @@ package analysis
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
+	"strings"
 )
 
 const IncrementalCacheSchemaVersion = "v1"
@@ -35,6 +37,17 @@ func (s IncrementalCacheSnapshot) Validate() error {
 	if s.Fingerprints == nil {
 		return fmt.Errorf("incremental cache snapshot fingerprints cannot be nil")
 	}
+	for path, hash := range s.Fingerprints {
+		if strings.TrimSpace(path) == "" {
+			return fmt.Errorf("incremental cache snapshot contains empty fingerprint path")
+		}
+		if filepath.Clean(path) != path {
+			return fmt.Errorf("incremental cache snapshot path must be clean: %s", path)
+		}
+		if len(hash) != 64 || !isLowerHex(hash) {
+			return fmt.Errorf("incremental cache snapshot hash must be 64-char lowercase hex")
+		}
+	}
 	return nil
 }
 
@@ -54,4 +67,23 @@ func UnmarshalIncrementalCacheSnapshot(data []byte) (IncrementalCacheSnapshot, e
 		return IncrementalCacheSnapshot{}, err
 	}
 	return snapshot, nil
+}
+
+// UnmarshalIncrementalCacheSnapshotSafe never panics and returns ok=false
+// for malformed, unsupported, or suspicious cache payloads.
+func UnmarshalIncrementalCacheSnapshotSafe(data []byte) (snapshot IncrementalCacheSnapshot, ok bool) {
+	snapshot, err := UnmarshalIncrementalCacheSnapshot(data)
+	if err != nil {
+		return IncrementalCacheSnapshot{}, false
+	}
+	return snapshot, true
+}
+
+func isLowerHex(value string) bool {
+	for _, ch := range value {
+		if (ch < '0' || ch > '9') && (ch < 'a' || ch > 'f') {
+			return false
+		}
+	}
+	return true
 }

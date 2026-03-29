@@ -16,8 +16,10 @@ func TestIncrementalCorrectness_ColdAndIncrementalFingerprintStateParity(t *test
 
 	key, err := BuildIncrementalCacheKey(IncrementalCacheKeyInput{
 		AnalyzerVersion:   "0.14.0-dev",
+		CacheSchema:       IncrementalCacheSchemaVersion,
 		RepositoryPath:    repo,
 		ConfigFingerprint: HashConfigBytes([]byte("rules:default")),
+		RuleFingerprint:   HashConfigBytes([]byte("rule-pack:v1")),
 	})
 	if err != nil {
 		t.Fatalf("BuildIncrementalCacheKey failed: %v", err)
