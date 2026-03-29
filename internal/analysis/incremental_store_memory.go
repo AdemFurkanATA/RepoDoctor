@@ -1,11 +1,15 @@
 package analysis
 
-import "fmt"
+import (
+	"fmt"
+	"sync"
+)
 
 // InMemoryIncrementalSnapshotStore is a deterministic test-friendly store
 // implementation kept within analysis boundaries.
 type InMemoryIncrementalSnapshotStore struct {
 	snapshots map[string]IncrementalCacheSnapshot
+	mu        sync.RWMutex
 }
 
 func NewInMemoryIncrementalSnapshotStore() *InMemoryIncrementalSnapshotStore {
@@ -22,6 +26,9 @@ func (s *InMemoryIncrementalSnapshotStore) Load(cacheKey string) (IncrementalCac
 		return IncrementalCacheSnapshot{}, false, fmt.Errorf("cache key is required")
 	}
 
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	snapshot, ok := s.snapshots[cacheKey]
 	if !ok {
 		return IncrementalCacheSnapshot{}, false, nil
@@ -36,6 +43,10 @@ func (s *InMemoryIncrementalSnapshotStore) Save(snapshot IncrementalCacheSnapsho
 	if err := snapshot.Validate(); err != nil {
 		return err
 	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	s.snapshots[snapshot.CacheKey] = cloneSnapshot(snapshot)
 	return nil
 }

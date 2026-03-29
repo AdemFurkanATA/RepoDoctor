@@ -2,6 +2,8 @@ package analysis
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -129,5 +131,44 @@ func TestInMemoryIncrementalSnapshotStore_ClonesOnSaveAndLoad(t *testing.T) {
 	}
 	if reloaded.Fingerprints["a.go"] != "1111111111111111111111111111111111111111111111111111111111111111" {
 		t.Fatalf("store must clone on load, got %s", reloaded.Fingerprints["a.go"])
+	}
+}
+
+func TestIncrementalBoundaryService_FileStoreRoundTrip(t *testing.T) {
+	baseDir := filepath.Join(t.TempDir(), "cache")
+	if err := os.MkdirAll(baseDir, 0o755); err != nil {
+		t.Fatalf("failed to create cache dir: %v", err)
+	}
+
+	store, err := NewFileIncrementalSnapshotStore(baseDir)
+	if err != nil {
+		t.Fatalf("failed to create file snapshot store: %v", err)
+	}
+
+	cacheKey := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	service, err := NewIncrementalBoundaryService(store, stubFingerprintProvider{state: map[string]string{
+		"a.go": "1111111111111111111111111111111111111111111111111111111111111111",
+	}})
+	if err != nil {
+		t.Fatalf("failed to create boundary service: %v", err)
+	}
+
+	first, err := service.Compute(baseDir, cacheKey)
+	if err != nil {
+		t.Fatalf("first compute failed: %v", err)
+	}
+	if first.CacheHit {
+		t.Fatal("first compute must be cache miss")
+	}
+
+	second, err := service.Compute(baseDir, cacheKey)
+	if err != nil {
+		t.Fatalf("second compute failed: %v", err)
+	}
+	if !second.CacheHit {
+		t.Fatal("second compute must be cache hit")
+	}
+	if len(second.Changed) != 0 || len(second.Removed) != 0 {
+		t.Fatalf("expected no diff on repeated run, changed=%v removed=%v", second.Changed, second.Removed)
 	}
 }
