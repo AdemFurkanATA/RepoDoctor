@@ -9,4 +9,4 @@ Bu dosya sürüm bazlı ilerleme/rapor özetini tek yerde takip etmek için tutu
 | v0.19 | M1: v0.19 Incremental & Performance | Completed | RD-1901..RD-1908 merged; release stabilization gate and benchmark+memory CI budgets active. |
 | v0.20 | M2: v0.20 Java Pilot (Gated) | Completed (Gated GO) | RD-2001..RD-2007 completed; decision memo published (`JAVA_PILOT_DECISION_v0.20.md`), pilot remains default-off. |
 | v1.0 | M3: v1.0 UX & Polish | In Progress | RD-10001..RD-10004 merged into `dev`; RD-10005 stabilization/docs in progress. |
-| v1.1+ | M4: v1.1+ Scale (Use-case gated) | Planned | Issues RD-11001..RD-11003 created. |
+| v1.1+ | M4: v1.1+ Scale (Use-case gated) | In Progress | RD-11001 and RD-11002 merged into `dev`; RD-11003 release gate wiring in progress. |
