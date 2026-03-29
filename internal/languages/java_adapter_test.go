@@ -3,6 +3,7 @@ package languages
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -110,4 +111,64 @@ func TestJavaAdapter_CollectMetrics_ExtractsTypesAndMethods(t *testing.T) {
 
 func adapterDetectFilesForTest(adapter LanguageAdapter, repo string) ([]string, error) {
 	return adapter.DetectFiles(repo)
+}
+
+func TestJavaAdapter_CollectMetrics_FailSoftOnOversizedFile(t *testing.T) {
+	repo := t.TempDir()
+	file := filepath.Join(repo, "Huge.java")
+	big := strings.Repeat("a", maxJavaFileBytes+1)
+	if err := os.WriteFile(file, []byte(big), 0o644); err != nil {
+		t.Fatalf("failed writing oversized fixture: %v", err)
+	}
+
+	adapter := NewJavaAdapter()
+	metrics, err := adapter.CollectMetrics([]string{file})
+	if err != nil {
+		t.Fatalf("CollectMetrics should fail-soft and return no error, got: %v", err)
+	}
+	if metrics.TotalFiles != 0 {
+		t.Fatalf("oversized file should be skipped, got files=%d", metrics.TotalFiles)
+	}
+}
+
+func TestJavaAdapter_DetectFiles_BoundedByMaxScanLimit(t *testing.T) {
+	repo := t.TempDir()
+	for i := 0; i < maxJavaFilesScan+100; i++ {
+		path := filepath.Join(repo, "src", "F"+strconv.Itoa(i)+".java")
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatalf("failed creating fixture dir: %v", err)
+		}
+		if err := os.WriteFile(path, []byte("class F{}\n"), 0o644); err != nil {
+			t.Fatalf("failed writing fixture file: %v", err)
+		}
+	}
+
+	files, err := NewJavaAdapter().DetectFiles(repo)
+	if err != nil {
+		t.Fatalf("DetectFiles failed: %v", err)
+	}
+	if len(files) != maxJavaFilesScan {
+		t.Fatalf("expected bounded java scan size %d, got %d", maxJavaFilesScan, len(files))
+	}
+}
+
+func TestJavaAdapter_BuildDependencyGraph_SkipsNULImportLines(t *testing.T) {
+	repo := t.TempDir()
+	file := filepath.Join(repo, "App.java")
+	content := "package a;\nimport com.acme.Ok;\nimport bad\x00line;\n"
+	if err := os.WriteFile(file, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed writing fixture: %v", err)
+	}
+
+	graph, err := NewJavaAdapter().BuildDependencyGraph([]string{file})
+	if err != nil {
+		t.Fatalf("BuildDependencyGraph failed: %v", err)
+	}
+	node := graph.GetNode(file)
+	if node == nil {
+		t.Fatalf("expected node for %s", file)
+	}
+	if len(node.Imports) != 1 || node.Imports[0] != "com.acme.Ok" {
+		t.Fatalf("expected only safe import to survive NUL filtering, got %v", node.Imports)
+	}
 }
