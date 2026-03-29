@@ -5,8 +5,10 @@ import "testing"
 func TestBuildIncrementalCacheKey_Deterministic(t *testing.T) {
 	input := IncrementalCacheKeyInput{
 		AnalyzerVersion:   "0.14.0-dev",
+		CacheSchema:       IncrementalCacheSchemaVersion,
 		RepositoryPath:    ".",
 		ConfigFingerprint: HashConfigBytes([]byte("a: 1")),
+		RuleFingerprint:   HashConfigBytes([]byte("rules: default")),
 	}
 
 	first, err := BuildIncrementalCacheKey(input)
@@ -25,7 +27,7 @@ func TestBuildIncrementalCacheKey_Deterministic(t *testing.T) {
 }
 
 func TestBuildIncrementalCacheKey_ChangesWithVersionOrConfig(t *testing.T) {
-	base := IncrementalCacheKeyInput{AnalyzerVersion: "0.14.0-dev", RepositoryPath: ".", ConfigFingerprint: HashConfigBytes([]byte("a:1"))}
+	base := IncrementalCacheKeyInput{AnalyzerVersion: "0.14.0-dev", CacheSchema: IncrementalCacheSchemaVersion, RepositoryPath: ".", ConfigFingerprint: HashConfigBytes([]byte("a:1")), RuleFingerprint: HashConfigBytes([]byte("rules:a"))}
 	keyA, err := BuildIncrementalCacheKey(base)
 	if err != nil {
 		t.Fatalf("BuildIncrementalCacheKey failed: %v", err)
@@ -49,5 +51,25 @@ func TestBuildIncrementalCacheKey_ChangesWithVersionOrConfig(t *testing.T) {
 	}
 	if keyA == keyC {
 		t.Fatal("expected key to change when config hash changes")
+	}
+
+	variantSchema := base
+	variantSchema.CacheSchema = "v2"
+	keyD, err := BuildIncrementalCacheKey(variantSchema)
+	if err != nil {
+		t.Fatalf("BuildIncrementalCacheKey failed: %v", err)
+	}
+	if keyA == keyD {
+		t.Fatal("expected key to change when schema changes")
+	}
+
+	variantRules := base
+	variantRules.RuleFingerprint = HashConfigBytes([]byte("rules:b"))
+	keyE, err := BuildIncrementalCacheKey(variantRules)
+	if err != nil {
+		t.Fatalf("BuildIncrementalCacheKey failed: %v", err)
+	}
+	if keyA == keyE {
+		t.Fatal("expected key to change when rule hash changes")
 	}
 }
