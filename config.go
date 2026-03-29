@@ -236,7 +236,7 @@ func (l *ConfigLoader) getDefaultConfig() *Config {
 				"TypeScript": 1.0,
 				"Java":       0.8,
 			},
-			TieBreakOrder: []string{"Python", "TypeScript", "JavaScript", "Go"},
+			TieBreakOrder: []string{"Python", "TypeScript", "JavaScript", "Go", "Java"},
 			SegmentWeights: map[string]float64{
 				"src":     1.0,
 				"app":     1.0,

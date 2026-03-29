@@ -151,8 +151,8 @@ func NewRepositoryLanguageDetectorWithPolicy(ignoreStrategy domain.IgnoreStrateg
 
 func defaultDetectionPolicy() DetectionPolicy {
 	return DetectionPolicy{
-		LanguageWeights: map[string]float64{"Go": 1, "Python": 1, "JavaScript": 1, "TypeScript": 1},
-		TieBreakOrder:   []string{"Python", "TypeScript", "JavaScript", "Go"},
+		LanguageWeights: map[string]float64{"Go": 1, "Python": 1, "JavaScript": 1, "TypeScript": 1, "Java": 0.8},
+		TieBreakOrder:   []string{"Python", "TypeScript", "JavaScript", "Go", "Java"},
 		SegmentWeights:  map[string]float64{"src": 1.0, "app": 1.0, "pkg": 1.0, "tools": 0.2, "scripts": 0.2},
 	}
 }

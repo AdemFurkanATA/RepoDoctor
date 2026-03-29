@@ -73,7 +73,7 @@ func legacyBuildRulesAnalysisContext(absPath string, graph Graph, primaryLanguag
 		repoFiles = append(repoFiles, readRepositoryFileForContext(graph, node))
 	}
 
-	languages := []string{"Go", "Python", "JavaScript", "TypeScript"}
+	languages := []string{"Go", "Python", "JavaScript", "TypeScript", "Java"}
 	if primaryLanguage != "" {
 		languages = []string{primaryLanguage}
 	}

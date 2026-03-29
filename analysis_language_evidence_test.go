@@ -13,7 +13,7 @@ func TestRankLanguageStats_DeterministicAndReasonableOrder(t *testing.T) {
 		{Language: "TypeScript", ProductScore: 8, Score: 30, Lines: 120, Count: 6},
 	}
 
-	ranked := rankLanguageStats(stats, []string{"Python", "TypeScript", "JavaScript", "Go"})
+	ranked := rankLanguageStats(stats, []string{"Python", "TypeScript", "JavaScript", "Go", "Java"})
 	if len(ranked) != 3 {
 		t.Fatalf("expected 3 ranked stats, got %d", len(ranked))
 	}
