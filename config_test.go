@@ -297,6 +297,38 @@ language_detection:
 	}
 }
 
+func TestConfigLoader_JavaPilotFlagDefaultsToDisabled(t *testing.T) {
+	loader := NewConfigLoader(filepath.Join(t.TempDir(), "missing.yaml"))
+	cfg, err := loader.Load()
+	if err != nil {
+		t.Fatalf("unexpected load error: %v", err)
+	}
+	if cfg.LanguageDetection == nil || cfg.LanguageDetection.JavaPilot == nil {
+		t.Fatal("expected java pilot flag to be defaulted")
+	}
+	if *cfg.LanguageDetection.JavaPilot {
+		t.Fatal("expected java pilot to be disabled by default")
+	}
+}
+
+func TestConfigLoader_JavaPilotFlagCanBeEnabled(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	configContent := "language_detection:\n  java_pilot_enabled: true\n"
+	if err := os.WriteFile(configPath, []byte(configContent), 0o644); err != nil {
+		t.Fatalf("failed writing config: %v", err)
+	}
+
+	loader := NewConfigLoader(configPath)
+	cfg, err := loader.Load()
+	if err != nil {
+		t.Fatalf("expected java pilot config to load, got: %v", err)
+	}
+	if cfg.LanguageDetection == nil || cfg.LanguageDetection.JavaPilot == nil || !*cfg.LanguageDetection.JavaPilot {
+		t.Fatalf("expected java pilot flag enabled, got %+v", cfg.LanguageDetection)
+	}
+}
+
 func TestConfigLoader_MergeWithDefaults_TableDrivenInvariants(t *testing.T) {
 	loader := NewConfigLoader("")
 	enabled := false

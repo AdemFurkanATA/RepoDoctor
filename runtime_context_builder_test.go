@@ -55,3 +55,13 @@ func TestBuildUnifiedRulesAnalysisContext_ConfigurationContractKeys(t *testing.T
 		t.Fatalf("configuration key %q drifted: got %v want %v", "architectureProfile", architectureProfile, "layered")
 	}
 }
+
+func TestResolveContextLanguages_DefaultIncludesJavaPilotLanguage(t *testing.T) {
+	languages := resolveContextLanguages("")
+	if len(languages) != 5 {
+		t.Fatalf("expected 5 default languages including Java, got %v", languages)
+	}
+	if languages[4] != "Java" {
+		t.Fatalf("expected Java in default language set tail, got %v", languages)
+	}
+}

@@ -30,6 +30,7 @@ type LanguageDetectionConfig struct {
 	Weights        map[string]float64 `yaml:"weights,omitempty"`
 	TieBreakOrder  []string           `yaml:"tie_break_order,omitempty"`
 	SegmentWeights map[string]float64 `yaml:"segment_weights,omitempty"`
+	JavaPilot      *bool              `yaml:"java_pilot_enabled,omitempty"`
 }
 
 // SizeConfig holds size rule configuration
@@ -233,8 +234,9 @@ func (l *ConfigLoader) getDefaultConfig() *Config {
 				"Python":     1.0,
 				"JavaScript": 1.0,
 				"TypeScript": 1.0,
+				"Java":       0.8,
 			},
-			TieBreakOrder: []string{"Python", "TypeScript", "JavaScript", "Go"},
+			TieBreakOrder: []string{"Python", "TypeScript", "JavaScript", "Go", "Java"},
 			SegmentWeights: map[string]float64{
 				"src":     1.0,
 				"app":     1.0,
@@ -242,9 +244,14 @@ func (l *ConfigLoader) getDefaultConfig() *Config {
 				"tools":   0.2,
 				"scripts": 0.2,
 			},
+			JavaPilot: boolPtr(false),
 		},
 		Architecture: &ArchitectureConfig{Profile: "layered"},
 	}
+}
+
+func boolPtr(value bool) *bool {
+	return &value
 }
 
 // mergeWithDefaults merges provided config with defaults
@@ -351,6 +358,9 @@ func mergeLanguageDetectionConfig(cfg, defaults *Config) {
 	if cfg.LanguageDetection.SegmentWeights == nil {
 		cfg.LanguageDetection.SegmentWeights = defaults.LanguageDetection.SegmentWeights
 	}
+	if cfg.LanguageDetection.JavaPilot == nil {
+		cfg.LanguageDetection.JavaPilot = defaults.LanguageDetection.JavaPilot
+	}
 }
 
 func mergeArchitectureConfig(cfg, defaults *Config) {
@@ -394,7 +404,7 @@ func rejectUnknownConfigKeys(data []byte) error {
 		encoded, _ := json.Marshal(ldRaw)
 		var ld map[string]interface{}
 		_ = json.Unmarshal(encoded, &ld)
-		allowedLD := map[string]bool{"weights": true, "tie_break_order": true, "segment_weights": true}
+		allowedLD := map[string]bool{"weights": true, "tie_break_order": true, "segment_weights": true, "java_pilot_enabled": true}
 		for key := range ld {
 			if !allowedLD[key] {
 				return fmt.Errorf("config validation error: unknown language_detection key '%s'", key)
