@@ -3,7 +3,6 @@ package main
 import (
 	"os"
 	"regexp"
-	"sort"
 	"strconv"
 
 	"RepoDoctor/internal/engine"
@@ -67,7 +66,7 @@ func readRepositoryFileForContext(graph Graph, node string) rules.RepositoryFile
 
 func legacyBuildRulesAnalysisContext(absPath string, graph Graph, primaryLanguage string) rules.AnalysisContext {
 	nodes := graph.GetAllNodes()
-	sort.Strings(nodes)
+	nodes = sortedStringCopy(nodes)
 
 	repoFiles := make([]rules.RepositoryFile, 0, len(nodes))
 	for _, node := range nodes {
@@ -89,12 +88,11 @@ func legacyBuildRulesAnalysisContext(absPath string, graph Graph, primaryLanguag
 
 func toRulesDependencyGraph(graph Graph) rules.DependencyGraph {
 	nodes := graph.GetAllNodes()
-	sort.Strings(nodes)
+	nodes = sortedStringCopy(nodes)
 	edges := make(map[string][]string, len(nodes))
 
 	for _, node := range nodes {
-		deps := append([]string(nil), graph.GetDependencies(node)...)
-		sort.Strings(deps)
+		deps := sortedStringCopy(graph.GetDependencies(node))
 		edges[node] = deps
 	}
 
@@ -102,18 +100,7 @@ func toRulesDependencyGraph(graph Graph) rules.DependencyGraph {
 }
 
 func sortViolations(violations []model.Violation) {
-	sort.Slice(violations, func(i, j int) bool {
-		if violations[i].RuleID != violations[j].RuleID {
-			return violations[i].RuleID < violations[j].RuleID
-		}
-		if violations[i].File != violations[j].File {
-			return violations[i].File < violations[j].File
-		}
-		if violations[i].Line != violations[j].Line {
-			return violations[i].Line < violations[j].Line
-		}
-		return violations[i].Message < violations[j].Message
-	})
+	sortModelViolationsDeterministic(violations)
 }
 
 func buildReportFromRuleViolations(path string, version string, cfg *Config, violations []model.Violation) *StructuralReport {

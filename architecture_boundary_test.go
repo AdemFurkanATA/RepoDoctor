@@ -68,6 +68,66 @@ func TestArchitecture_HighRiskImportsForbiddenInModelAndDomain(t *testing.T) {
 	}
 }
 
+func TestArchitecture_PurityBoundary_NoSideEffectImportsInSensitivePackages(t *testing.T) {
+	modulePath := readModulePath(t)
+	root := projectRoot(t)
+	goFiles := collectGoFiles(t, root)
+
+	sensitivePrefixes := []string{
+		modulePath + "/internal/model",
+		modulePath + "/internal/domain",
+		modulePath + "/internal/rules",
+	}
+	bannedImports := map[string]struct{}{
+		"os/exec": {},
+		"syscall": {},
+		"unsafe":  {},
+	}
+
+	fset := token.NewFileSet()
+	violations := make([]string, 0)
+
+	for _, file := range goFiles {
+		relDir, pkgPath := packagePathForFile(t, root, modulePath, file)
+		if !hasAnyPrefix(pkgPath, sensitivePrefixes) {
+			continue
+		}
+
+		parsed, err := parser.ParseFile(fset, file, nil, parser.ImportsOnly)
+		if err != nil {
+			t.Fatalf("failed to parse imports for %s: %v", file, err)
+		}
+
+		for _, imp := range parsed.Imports {
+			importPath := strings.Trim(imp.Path.Value, "\"")
+			location := filepath.ToSlash(filepath.Join(relDir, filepath.Base(file)))
+
+			if imp.Name != nil && imp.Name.Name == "_" {
+				violations = append(violations, fmt.Sprintf("%s contains side-effect import %q", location, importPath))
+				continue
+			}
+
+			if _, blocked := bannedImports[importPath]; blocked {
+				violations = append(violations, fmt.Sprintf("%s imports side-effect-prone package %q", location, importPath))
+			}
+		}
+	}
+
+	if len(violations) > 0 {
+		sort.Strings(violations)
+		t.Fatalf("purity boundary violations:\n%s", strings.Join(violations, "\n"))
+	}
+}
+
+func hasAnyPrefix(value string, prefixes []string) bool {
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(value, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
 func boundaryViolation(fromPkg, toPkg, modulePath string) (string, bool) {
 	mainPkg := modulePath
 	analysisPkg := modulePath + "/internal/analysis"

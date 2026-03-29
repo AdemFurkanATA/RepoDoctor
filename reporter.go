@@ -3,9 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
-	"sort"
 	"strings"
 )
 
@@ -147,7 +144,7 @@ func formatCyclePath(path []string) string {
 
 // formatJSON formats the report as JSON
 func (r *Reporter) formatJSON(report *StructuralReport) string {
-	relPath := normalizeReportPath(report.Path)
+	relPath := normalizeReportPathDeterministic(report.Path)
 	payload := map[string]interface{}{
 		"version":       report.Version,
 		"schemaVersion": report.SchemaVersion,
@@ -172,10 +169,10 @@ func (r *Reporter) formatJSON(report *StructuralReport) string {
 			"confidence":       report.Language.Confidence,
 			"reasonCodes":      append([]string(nil), report.Language.ReasonCodes...),
 		},
-		"circularViolations":  sortedCircular(report.Circular),
-		"layerViolations":     sortedLayer(report.Layer),
-		"sizeViolations":      sortedSize(report.Size),
-		"godObjectViolations": sortedGodObject(report.GodObject),
+		"circularViolations":  sortedCircularViolations(report.Circular),
+		"layerViolations":     sortedLayerViolations(report.Layer),
+		"sizeViolations":      sortedSizeViolations(report.Size),
+		"godObjectViolations": sortedGodObjectViolations(report.GodObject),
 	}
 	data, err := json.MarshalIndent(payload, "", "  ")
 	if err != nil {
@@ -203,65 +200,6 @@ func (r *Reporter) formatJSONV1(report *StructuralReport) string {
 	return sb.String()
 }
 
-func normalizeReportPath(path string) string {
-	cleaned := filepath.ToSlash(filepath.Clean(path))
-	if wd, err := os.Getwd(); err == nil {
-		if rel, relErr := filepath.Rel(wd, cleaned); relErr == nil && !strings.HasPrefix(rel, "..") {
-			return filepath.ToSlash(rel)
-		}
-	}
-	return cleaned
-}
-
-func sortedCircular(in []CycleViolation) []CycleViolation {
-	result := append([]CycleViolation(nil), in...)
-	sort.SliceStable(result, func(i, j int) bool {
-		left := strings.Join(result[i].Path, "/")
-		right := strings.Join(result[j].Path, "/")
-		return left < right
-	})
-	return result
-}
-
-func sortedLayer(in []LayerViolation) []LayerViolation {
-	result := append([]LayerViolation(nil), in...)
-	sort.SliceStable(result, func(i, j int) bool {
-		if result[i].From != result[j].From {
-			return result[i].From < result[j].From
-		}
-		if result[i].To != result[j].To {
-			return result[i].To < result[j].To
-		}
-		return result[i].Message < result[j].Message
-	})
-	return result
-}
-
-func sortedSize(in []SizeViolation) []SizeViolation {
-	result := append([]SizeViolation(nil), in...)
-	sort.SliceStable(result, func(i, j int) bool {
-		if result[i].File != result[j].File {
-			return result[i].File < result[j].File
-		}
-		if result[i].Function != result[j].Function {
-			return result[i].Function < result[j].Function
-		}
-		return result[i].Lines < result[j].Lines
-	})
-	return result
-}
-
-func sortedGodObject(in []GodObjectViolation) []GodObjectViolation {
-	result := append([]GodObjectViolation(nil), in...)
-	sort.SliceStable(result, func(i, j int) bool {
-		if result[i].File != result[j].File {
-			return result[i].File < result[j].File
-		}
-		return result[i].StructName < result[j].StructName
-	})
-	return result
-}
-
 // formatScoreSection formats the score section of JSON output
 func (r *Reporter) formatScoreSection(sb *strings.Builder, report *StructuralReport) {
 	sb.WriteString("  \"score\": {\n")
@@ -286,13 +224,14 @@ func formatViolationsSection(sb *strings.Builder, report *StructuralReport) {
 
 // formatCircularViolations formats circular dependency violations
 func (r *Reporter) formatCircularViolations(sb *strings.Builder, report *StructuralReport) {
+	circular := sortedCircularViolations(report.Circular)
 	sb.WriteString("  \"circularViolations\": [\n")
-	for i, v := range report.Circular {
+	for i, v := range circular {
 		sb.WriteString("    {\n")
 		sb.WriteString(fmt.Sprintf("      \"path\": %s,\n", formatStringArray(v.Path)))
 		sb.WriteString(fmt.Sprintf("      \"severity\": \"%s\"\n", v.Severity))
 		sb.WriteString("    }")
-		if i < len(report.Circular)-1 {
+		if i < len(circular)-1 {
 			sb.WriteString(",")
 		}
 		sb.WriteString("\n")
@@ -302,14 +241,15 @@ func (r *Reporter) formatCircularViolations(sb *strings.Builder, report *Structu
 
 // formatLayerViolations formats layer violations
 func (r *Reporter) formatLayerViolations(sb *strings.Builder, report *StructuralReport) {
+	layer := sortedLayerViolations(report.Layer)
 	sb.WriteString("  \"layerViolations\": [\n")
-	for i, v := range report.Layer {
+	for i, v := range layer {
 		sb.WriteString("    {\n")
 		sb.WriteString(fmt.Sprintf("      \"from\": \"%s\",\n", v.From))
 		sb.WriteString(fmt.Sprintf("      \"to\": \"%s\",\n", v.To))
 		sb.WriteString(fmt.Sprintf("      \"message\": \"%s\"\n", v.Message))
 		sb.WriteString("    }")
-		if i < len(report.Layer)-1 {
+		if i < len(layer)-1 {
 			sb.WriteString(",")
 		}
 		sb.WriteString("\n")
@@ -319,15 +259,16 @@ func (r *Reporter) formatLayerViolations(sb *strings.Builder, report *Structural
 
 // formatSizeViolations formats size violations
 func (r *Reporter) formatSizeViolations(sb *strings.Builder, report *StructuralReport) {
+	size := sortedSizeViolations(report.Size)
 	sb.WriteString("  \"sizeViolations\": [\n")
-	for i, v := range report.Size {
+	for i, v := range size {
 		sb.WriteString("    {\n")
 		sb.WriteString(fmt.Sprintf("      \"file\": \"%s\",\n", v.File))
 		sb.WriteString(fmt.Sprintf("      \"function\": \"%s\",\n", v.Function))
 		sb.WriteString(fmt.Sprintf("      \"lines\": %d,\n", v.Lines))
 		sb.WriteString(fmt.Sprintf("      \"threshold\": %d\n", v.Threshold))
 		sb.WriteString("    }")
-		if i < len(report.Size)-1 {
+		if i < len(size)-1 {
 			sb.WriteString(",")
 		}
 		sb.WriteString("\n")
@@ -337,15 +278,16 @@ func (r *Reporter) formatSizeViolations(sb *strings.Builder, report *StructuralR
 
 // formatGodObjectViolations formats god object violations
 func (r *Reporter) formatGodObjectViolations(sb *strings.Builder, report *StructuralReport) {
+	objects := sortedGodObjectViolations(report.GodObject)
 	sb.WriteString("  \"godObjectViolations\": [\n")
-	for i, v := range report.GodObject {
+	for i, v := range objects {
 		sb.WriteString("    {\n")
 		sb.WriteString(fmt.Sprintf("      \"struct\": \"%s\",\n", v.StructName))
 		sb.WriteString(fmt.Sprintf("      \"file\": \"%s\",\n", v.File))
 		sb.WriteString(fmt.Sprintf("      \"fields\": %d,\n", v.FieldCount))
-		sb.WriteString(fmt.Sprintf("      \"methods\": %d,\n", v.MethodCount))
+		sb.WriteString(fmt.Sprintf("      \"methods\": %d\n", v.MethodCount))
 		sb.WriteString("    }")
-		if i < len(report.GodObject)-1 {
+		if i < len(objects)-1 {
 			sb.WriteString(",")
 		}
 		sb.WriteString("\n")

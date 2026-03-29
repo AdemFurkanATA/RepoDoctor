@@ -27,3 +27,31 @@ func TestBuildUnifiedRulesAnalysisContext_DeterministicNodesAndLanguages(t *test
 		t.Fatalf("expected primary language selection [Python], got %v", ctx.Languages)
 	}
 }
+
+func TestBuildUnifiedRulesAnalysisContext_ConfigurationContractKeys(t *testing.T) {
+	graph := NewDependencyGraph()
+	graph.AddNode("a.go")
+
+	ctx := buildUnifiedRulesAnalysisContext(runtimeAnalysisContextInput{
+		RepositoryPath:      filepath.Clean("."),
+		Graph:               graph,
+		PrimaryLanguage:     "Go",
+		ArchitectureProfile: "layered",
+	})
+
+	repositoryPath, ok := ctx.Configuration["repositoryPath"]
+	if !ok {
+		t.Fatalf("configuration key %q missing", "repositoryPath")
+	}
+	if repositoryPath != filepath.Clean(".") {
+		t.Fatalf("configuration key %q drifted: got %v want %v", "repositoryPath", repositoryPath, filepath.Clean("."))
+	}
+
+	architectureProfile, ok := ctx.Configuration["architectureProfile"]
+	if !ok {
+		t.Fatalf("configuration key %q missing", "architectureProfile")
+	}
+	if architectureProfile != "layered" {
+		t.Fatalf("configuration key %q drifted: got %v want %v", "architectureProfile", architectureProfile, "layered")
+	}
+}
