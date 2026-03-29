@@ -520,3 +520,93 @@ architecture:
 		t.Fatal("expected unknown architecture key to be rejected")
 	}
 }
+
+func TestConfigLoader_CustomArchitectureProfileValid(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	cfg := `
+architecture:
+  profile: layered
+  custom_layer_order:
+    - api
+    - service
+    - data
+  custom_layer_keywords:
+    api: [api, controller]
+    service: [service, usecase]
+    data: [repo, data]
+`
+	if err := os.WriteFile(configPath, []byte(cfg), 0o644); err != nil {
+		t.Fatalf("failed writing config: %v", err)
+	}
+
+	loader := NewConfigLoader(configPath)
+	loaded, err := loader.Load()
+	if err != nil {
+		t.Fatalf("expected valid custom architecture config, got: %v", err)
+	}
+	if loaded.Architecture == nil || len(loaded.Architecture.CustomLayerOrder) != 3 {
+		t.Fatalf("expected custom architecture order to be loaded, got %+v", loaded.Architecture)
+	}
+}
+
+func TestConfigLoader_CustomArchitectureRejectsUnknownLayerInKeywords(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	cfg := `
+architecture:
+  custom_layer_order: [api, service, data]
+  custom_layer_keywords:
+    unknown: [foo]
+`
+	if err := os.WriteFile(configPath, []byte(cfg), 0o644); err != nil {
+		t.Fatalf("failed writing config: %v", err)
+	}
+
+	loader := NewConfigLoader(configPath)
+	if _, err := loader.Load(); err == nil {
+		t.Fatal("expected unknown custom keyword layer to fail validation")
+	}
+}
+
+func TestConfigLoader_CustomArchitectureRejectsDuplicateLayers(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	cfg := `
+architecture:
+  custom_layer_order: [api, API, data]
+`
+	if err := os.WriteFile(configPath, []byte(cfg), 0o644); err != nil {
+		t.Fatalf("failed writing config: %v", err)
+	}
+
+	loader := NewConfigLoader(configPath)
+	if _, err := loader.Load(); err == nil {
+		t.Fatal("expected duplicate custom layers to fail validation")
+	}
+}
+
+func TestConfigLoader_CustomArchitectureRejectsAmbiguousAliasesAcrossLayers(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	cfg := `
+architecture:
+  custom_layer_order: [api, service, data]
+  custom_layer_keywords:
+    api: [shared]
+    service: [shared]
+    data: [data]
+`
+	if err := os.WriteFile(configPath, []byte(cfg), 0o644); err != nil {
+		t.Fatalf("failed writing config: %v", err)
+	}
+
+	loader := NewConfigLoader(configPath)
+	_, err := loader.Load()
+	if err == nil {
+		t.Fatal("expected ambiguous alias across layers to fail validation")
+	}
+	if !strings.Contains(err.Error(), "alias 'shared' is ambiguous") {
+		t.Fatalf("expected deterministic ambiguous alias error, got: %v", err)
+	}
+}

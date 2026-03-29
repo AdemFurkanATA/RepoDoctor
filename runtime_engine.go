@@ -17,10 +17,19 @@ type runtimeRuleSummary struct {
 }
 
 func runInternalRulePipeline(absPath string, graph Graph, primaryLanguage string) *runtimeRuleSummary {
-	return runInternalRulePipelineWithProfile(absPath, graph, primaryLanguage, "")
+	return runInternalRulePipelineWithProfile(absPath, graph, primaryLanguage, nil)
 }
 
-func runInternalRulePipelineWithProfile(absPath string, graph Graph, primaryLanguage string, architectureProfile string) *runtimeRuleSummary {
+func runInternalRulePipelineWithProfile(absPath string, graph Graph, primaryLanguage string, architecture *ArchitectureConfig) *runtimeRuleSummary {
+	profile := ""
+	customLayerOrder := []string{}
+	customLayerKeywords := map[string][]string{}
+	if architecture != nil {
+		profile = strings.TrimSpace(architecture.Profile)
+		customLayerOrder = normalizeLayerOrder(architecture.CustomLayerOrder)
+		customLayerKeywords = normalizeLayerKeywords(architecture.CustomLayerKeywords)
+	}
+
 	registry := rules.NewRuleRegistry()
 	for _, rule := range rules.GetDefaultRegistry().GetAll() {
 		registry.MustRegister(rule)
@@ -32,7 +41,9 @@ func runInternalRulePipelineWithProfile(absPath string, graph Graph, primaryLang
 		RepositoryPath:      absPath,
 		Graph:               graph,
 		PrimaryLanguage:     primaryLanguage,
-		ArchitectureProfile: architectureProfile,
+		ArchitectureProfile: profile,
+		CustomLayerOrder:    customLayerOrder,
+		CustomLayerKeywords: customLayerKeywords,
 	})
 	result := executor.Execute(context)
 	sortViolations(result.Violations)
@@ -41,6 +52,56 @@ func runInternalRulePipelineWithProfile(absPath string, graph Graph, primaryLang
 		result:       result,
 		rulesInScope: registry.Count(),
 	}
+}
+
+func normalizeLayerOrder(raw []string) []string {
+	if len(raw) == 0 {
+		return nil
+	}
+	seen := make(map[string]bool, len(raw))
+	normalized := make([]string, 0, len(raw))
+	for _, layer := range raw {
+		value := strings.ToLower(strings.TrimSpace(layer))
+		if value == "" || seen[value] {
+			continue
+		}
+		seen[value] = true
+		normalized = append(normalized, value)
+	}
+	if len(normalized) == 0 {
+		return nil
+	}
+	return normalized
+}
+
+func normalizeLayerKeywords(raw map[string][]string) map[string][]string {
+	if len(raw) == 0 {
+		return nil
+	}
+	normalized := make(map[string][]string, len(raw))
+	for layer, aliases := range raw {
+		normalizedLayer := strings.ToLower(strings.TrimSpace(layer))
+		if normalizedLayer == "" {
+			continue
+		}
+		seenAliases := map[string]bool{}
+		normalizedAliases := make([]string, 0, len(aliases))
+		for _, alias := range aliases {
+			value := strings.ToLower(strings.TrimSpace(alias))
+			if value == "" || seenAliases[value] {
+				continue
+			}
+			seenAliases[value] = true
+			normalizedAliases = append(normalizedAliases, value)
+		}
+		if len(normalizedAliases) > 0 {
+			normalized[normalizedLayer] = normalizedAliases
+		}
+	}
+	if len(normalized) == 0 {
+		return nil
+	}
+	return normalized
 }
 
 func buildRulesAnalysisContext(absPath string, graph Graph, primaryLanguage string) rules.AnalysisContext {

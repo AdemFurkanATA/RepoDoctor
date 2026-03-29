@@ -79,3 +79,54 @@ func TestLayerValidationRule_JSTSProfileAlignment(t *testing.T) {
 		t.Fatalf("expected layered profile marker in violation message, got %q", violations[0].Message)
 	}
 }
+
+func TestLayerValidationRule_CustomLayerPolicyDetectsUpwardImport(t *testing.T) {
+	rule := NewLayerValidationRule()
+	ctx := AnalysisContext{
+		Configuration: Configuration{
+			"architectureProfile": "layered",
+			"customLayerOrder":    []string{"api", "service", "data"},
+			"customLayerKeywords": map[string][]string{
+				"api":     []string{"api", "controller"},
+				"service": []string{"service"},
+				"data":    []string{"repo", "data"},
+			},
+		},
+		RepositoryFiles: []RepositoryFile{{
+			Path:    "data/user_repo.go",
+			Imports: []string{"api/user_controller.go"},
+		}},
+	}
+
+	violations := rule.Evaluate(ctx)
+	if len(violations) != 1 {
+		t.Fatalf("expected one custom-policy upward import violation, got %d (%v)", len(violations), violations)
+	}
+	if !strings.Contains(violations[0].Message, "data") || !strings.Contains(violations[0].Message, "api") {
+		t.Fatalf("expected custom layer names in violation message, got %q", violations[0].Message)
+	}
+}
+
+func TestLayerValidationRule_CustomLayerPolicyAllowsDownwardImport(t *testing.T) {
+	rule := NewLayerValidationRule()
+	ctx := AnalysisContext{
+		Configuration: Configuration{
+			"architectureProfile": "layered",
+			"customLayerOrder":    []string{"api", "service", "data"},
+			"customLayerKeywords": map[string][]string{
+				"api":     []string{"api", "controller"},
+				"service": []string{"service"},
+				"data":    []string{"repo", "data"},
+			},
+		},
+		RepositoryFiles: []RepositoryFile{{
+			Path:    "api/user_controller.go",
+			Imports: []string{"data/user_repo.go"},
+		}},
+	}
+
+	violations := rule.Evaluate(ctx)
+	if len(violations) != 0 {
+		t.Fatalf("expected no violation for downward custom import, got %v", violations)
+	}
+}
