@@ -7,8 +7,10 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
+	"sync"
 )
 
 type FileFingerprint struct {
@@ -33,7 +35,59 @@ type IncrementalDiffSummary struct {
 }
 
 func BuildGoFingerprintMap(repoPath string) (map[string]string, error) {
-	state := make(map[string]string)
+	goFiles, err := collectGoFiles(repoPath)
+	if err != nil {
+		return nil, err
+	}
+
+	state := make(map[string]string, len(goFiles))
+	if len(goFiles) == 0 {
+		return state, nil
+	}
+
+	workers := runtime.NumCPU()
+	if workers < 1 {
+		workers = 1
+	}
+	if workers > len(goFiles) {
+		workers = len(goFiles)
+	}
+
+	paths := make(chan string, len(goFiles))
+	results := make(chan FileFingerprint, len(goFiles))
+
+	var wg sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for path := range paths {
+				data, readErr := os.ReadFile(path)
+				if readErr != nil {
+					continue
+				}
+				hash := sha256.Sum256(data)
+				results <- FileFingerprint{Path: path, Hash: hex.EncodeToString(hash[:])}
+			}
+		}()
+	}
+
+	for _, path := range goFiles {
+		paths <- path
+	}
+	close(paths)
+	wg.Wait()
+	close(results)
+
+	for fp := range results {
+		state[fp.Path] = fp.Hash
+	}
+
+	return state, nil
+}
+
+func collectGoFiles(repoPath string) ([]string, error) {
+	goFiles := make([]string, 0, 256)
 	err := filepath.WalkDir(repoPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
@@ -47,18 +101,14 @@ func BuildGoFingerprintMap(repoPath string) (map[string]string, error) {
 		if strings.ToLower(filepath.Ext(path)) != ".go" {
 			return nil
 		}
-		data, readErr := os.ReadFile(path)
-		if readErr != nil {
-			return nil
-		}
-		hash := sha256.Sum256(data)
-		state[filepath.Clean(path)] = hex.EncodeToString(hash[:])
+		goFiles = append(goFiles, filepath.Clean(path))
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
-	return state, nil
+	sort.Strings(goFiles)
+	return goFiles, nil
 }
 
 func DiffFingerprintStates(previous, current map[string]string) (changed, removed []string) {
