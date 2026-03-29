@@ -187,3 +187,85 @@ func TestReporter_JSON_EscapesUntrustedFields(t *testing.T) {
 		t.Fatalf("escaped output must still be valid json: %v", err)
 	}
 }
+
+func TestReporter_JSONV1_DeterministicAcrossInputOrdering(t *testing.T) {
+	reporter := NewReporter(FormatJSONV1)
+	build := func(circular []CycleViolation, layer []LayerViolation, size []SizeViolation, god []GodObjectViolation) *StructuralReport {
+		return &StructuralReport{
+			Version: "0.5.0-dev",
+			Path:    "repo",
+			Score: &StructuralScore{
+				TotalScore:       80,
+				MaxScore:         100,
+				CircularPenalty:  10,
+				LayerPenalty:     5,
+				SizePenalty:      3,
+				GodObjectPenalty: 2,
+				CircularCount:    len(circular),
+				LayerCount:       len(layer),
+				SizeCount:        len(size),
+				GodObjectCount:   len(god),
+			},
+			Circular:  circular,
+			Layer:     layer,
+			Size:      size,
+			GodObject: god,
+		}
+	}
+
+	first := build(
+		[]CycleViolation{{Path: []string{"pkg/z", "pkg/a"}, Severity: "critical"}, {Path: []string{"pkg/a", "pkg/b"}, Severity: "critical"}},
+		[]LayerViolation{{From: "infrastructure", To: "domain", Message: "x"}, {From: "application", To: "domain", Message: "a"}},
+		[]SizeViolation{{File: "z.go", Function: "b", Lines: 90, Threshold: 80}, {File: "a.go", Function: "a", Lines: 95, Threshold: 80}},
+		[]GodObjectViolation{{File: "z.go", StructName: "Z", FieldCount: 20, MethodCount: 11}, {File: "a.go", StructName: "A", FieldCount: 18, MethodCount: 12}},
+	)
+
+	second := build(
+		[]CycleViolation{{Path: []string{"pkg/a", "pkg/b"}, Severity: "critical"}, {Path: []string{"pkg/z", "pkg/a"}, Severity: "critical"}},
+		[]LayerViolation{{From: "application", To: "domain", Message: "a"}, {From: "infrastructure", To: "domain", Message: "x"}},
+		[]SizeViolation{{File: "a.go", Function: "a", Lines: 95, Threshold: 80}, {File: "z.go", Function: "b", Lines: 90, Threshold: 80}},
+		[]GodObjectViolation{{File: "a.go", StructName: "A", FieldCount: 18, MethodCount: 12}, {File: "z.go", StructName: "Z", FieldCount: 20, MethodCount: 11}},
+	)
+
+	outA := reporter.Format(first)
+	outB := reporter.Format(second)
+	if outA != outB {
+		t.Fatalf("json-v1 output must be deterministic regardless of input ordering\nA:\n%s\nB:\n%s", outA, outB)
+	}
+
+	if strings.Contains(outA, "schemaVersion") || strings.Contains(outA, "\"summary\"") || strings.Contains(outA, "\"language\"") {
+		t.Fatalf("json-v1 compatibility contract broken, unexpected v2 fields in output: %s", outA)
+	}
+}
+
+func TestReporter_JSONV1_WithViolations_StaysValidJSON(t *testing.T) {
+	reporter := NewReporter(FormatJSONV1)
+	report := &StructuralReport{
+		Version: "0.5.0-dev",
+		Path:    "repo",
+		Score: &StructuralScore{
+			TotalScore:       92,
+			MaxScore:         100,
+			CircularPenalty:  0,
+			LayerPenalty:     0,
+			SizePenalty:      3,
+			GodObjectPenalty: 5,
+			CircularCount:    0,
+			LayerCount:       0,
+			SizeCount:        1,
+			GodObjectCount:   1,
+		},
+		Size:      []SizeViolation{{File: "a.go", Function: "f", Lines: 90, Threshold: 80}},
+		GodObject: []GodObjectViolation{{File: "a.go", StructName: "Svc", FieldCount: 20, MethodCount: 11}},
+	}
+
+	out := reporter.Format(report)
+	var payload map[string]interface{}
+	if err := json.Unmarshal([]byte(out), &payload); err != nil {
+		t.Fatalf("json-v1 output must remain valid JSON: %v\noutput:\n%s", err, out)
+	}
+
+	if _, hasSchema := payload["schemaVersion"]; hasSchema {
+		t.Fatalf("json-v1 output must not include schemaVersion: %s", out)
+	}
+}
