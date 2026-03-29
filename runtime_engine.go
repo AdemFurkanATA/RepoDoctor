@@ -4,6 +4,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"RepoDoctor/internal/engine"
 	"RepoDoctor/internal/model"
@@ -113,9 +114,9 @@ func buildReportFromRuleViolations(path string, version string, cfg *Config, vio
 	for _, v := range violations {
 		switch v.RuleID {
 		case "rule.circular-dependency":
-			report.Circular = append(report.Circular, CycleViolation{Path: []string{v.File}, Severity: string(v.Severity), Hint: remediationHintForViolation(v)})
+			report.Circular = append(report.Circular, parseCircularViolation(v))
 		case "rule.layer-validation":
-			report.Layer = append(report.Layer, LayerViolation{From: v.File, To: "", Message: v.Message, Hint: remediationHintForViolation(v)})
+			report.Layer = append(report.Layer, parseLayerViolation(v))
 		case "rule.size":
 			report.Size = append(report.Size, parseSizeViolation(v))
 		case "rule.god-object":
@@ -145,7 +146,52 @@ var (
 	sizeFuncRe  = regexp.MustCompile(`^Function '([^']+)' has (\d+) lines \(threshold: (\d+)\)`)
 	godFieldRe  = regexp.MustCompile(`^(.+) has (\d+) fields \(threshold: \d+\)`)
 	godMethodRe = regexp.MustCompile(`^(.+) has (\d+) methods \(threshold: \d+\)`)
+	layerMsgRe  = regexp.MustCompile(`^(.+?) \(([^)]+)\) -> (.+?) \(([^)]+)\): (.+)$`)
 )
+
+func parseCircularViolation(v model.Violation) CycleViolation {
+	path := parseCyclePath(v.Message)
+	if len(path) == 0 {
+		path = []string{v.File}
+	}
+	return CycleViolation{Path: path, Severity: string(v.Severity), Hint: remediationHintForViolation(v)}
+}
+
+func parseCyclePath(message string) []string {
+	trimmed := strings.TrimSpace(message)
+	if trimmed == "" {
+		return nil
+	}
+	parts := strings.Split(trimmed, "→")
+	path := make([]string, 0, len(parts))
+	for _, part := range parts {
+		node := strings.TrimSpace(part)
+		if node == "" {
+			continue
+		}
+		path = append(path, node)
+	}
+	if len(path) > 1 && path[0] == path[len(path)-1] {
+		path = path[:len(path)-1]
+	}
+	return path
+}
+
+func parseLayerViolation(v model.Violation) LayerViolation {
+	lv := LayerViolation{From: v.File, To: "", Message: v.Message, Hint: remediationHintForViolation(v)}
+	if m := layerMsgRe.FindStringSubmatch(v.Message); len(m) == 6 {
+		fromPath := strings.TrimSpace(m[1])
+		fromLayer := strings.TrimSpace(m[2])
+		toPath := strings.TrimSpace(m[3])
+		toLayer := strings.TrimSpace(m[4])
+		reason := strings.TrimSpace(m[5])
+
+		lv.From = fromPath
+		lv.To = toPath
+		lv.Message = fromLayer + " -> " + toLayer + ": " + reason
+	}
+	return lv
+}
 
 // parseSizeViolation extracts Lines, Threshold, and Function from a size
 // violation message instead of using hardcoded placeholder values.
