@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -53,8 +54,12 @@ func BuildGoFingerprintMap(repoPath string) (map[string]string, error) {
 		workers = len(goFiles)
 	}
 
-	paths := make(chan string, len(goFiles))
-	results := make(chan FileFingerprint, len(goFiles))
+	queueCapacity := workers * 2
+	if queueCapacity < 1 {
+		queueCapacity = 1
+	}
+	paths := make(chan string, queueCapacity)
+	var stateMu sync.Mutex
 
 	var wg sync.WaitGroup
 	for i := 0; i < workers; i++ {
@@ -62,12 +67,13 @@ func BuildGoFingerprintMap(repoPath string) (map[string]string, error) {
 		go func() {
 			defer wg.Done()
 			for path := range paths {
-				data, readErr := os.ReadFile(path)
+				hash, readErr := hashFileSHA256Streaming(path)
 				if readErr != nil {
 					continue
 				}
-				hash := sha256.Sum256(data)
-				results <- FileFingerprint{Path: path, Hash: hex.EncodeToString(hash[:])}
+				stateMu.Lock()
+				state[path] = hash
+				stateMu.Unlock()
 			}
 		}()
 	}
@@ -77,13 +83,23 @@ func BuildGoFingerprintMap(repoPath string) (map[string]string, error) {
 	}
 	close(paths)
 	wg.Wait()
-	close(results)
-
-	for fp := range results {
-		state[fp.Path] = fp.Hash
-	}
 
 	return state, nil
+}
+
+func hashFileSHA256Streaming(path string) (string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	hasher := sha256.New()
+	if _, err := io.Copy(hasher, file); err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
 func collectGoFiles(repoPath string) ([]string, error) {
