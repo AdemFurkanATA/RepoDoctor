@@ -1,6 +1,8 @@
 package analysis
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -82,5 +84,25 @@ func TestBuildGoFingerprintMap_DeterministicAcrossRuns(t *testing.T) {
 		if !reflect.DeepEqual(baseline, next) {
 			t.Fatalf("fingerprint map must remain deterministic; baseline=%v next=%v", baseline, next)
 		}
+	}
+}
+
+func TestHashFileSHA256Streaming_MatchesReferenceHash(t *testing.T) {
+	repo := t.TempDir()
+	path := filepath.Join(repo, "streaming.go")
+	content := []byte("package main\nfunc main(){ println(42) }\n")
+	if err := os.WriteFile(path, content, 0o644); err != nil {
+		t.Fatalf("failed writing fixture file: %v", err)
+	}
+
+	actual, err := hashFileSHA256Streaming(path)
+	if err != nil {
+		t.Fatalf("hashFileSHA256Streaming failed: %v", err)
+	}
+
+	sum := sha256.Sum256(content)
+	expected := hex.EncodeToString(sum[:])
+	if actual != expected {
+		t.Fatalf("streaming hash mismatch: expected %s got %s", expected, actual)
 	}
 }
