@@ -7,7 +7,10 @@ func registerCoreAdapters(detector *languages.RepositoryLanguageDetector, config
 	detector.RegisterAdapter(languages.NewPythonAdapter())
 	detector.RegisterAdapter(languages.NewJavaScriptAdapter())
 	detector.RegisterAdapter(languages.NewTypeScriptAdapter())
-	_ = isJavaPilotEnabled(config)
+
+	if isJavaPilotEnabled(config) {
+		detector.RegisterAdapter(languages.NewJavaAdapter())
+	}
 }
 
 func isJavaPilotEnabled(config *Config) bool {

@@ -25,16 +25,21 @@ func TestIsJavaPilotEnabled_ExplicitTrue(t *testing.T) {
 	}
 }
 
-func TestRegisterCoreAdapters_StableBaseContract(t *testing.T) {
+func TestRegisterCoreAdapters_JavaPilotGate(t *testing.T) {
 	strategy := domain.NewDefaultIgnoreStrategy(domain.DefaultIgnoredDirs)
-	detector := languages.NewRepositoryLanguageDetector(strategy)
+	baseDetector := languages.NewRepositoryLanguageDetector(strategy)
+	registerCoreAdapters(baseDetector, &Config{LanguageDetection: &LanguageDetectionConfig{}})
+	if got := len(baseDetector.GetSupportedLanguages()); got != 4 {
+		t.Fatalf("expected 4 languages when java pilot disabled, got %d", got)
+	}
 
+	detector := languages.NewRepositoryLanguageDetector(strategy)
 	enabled := true
 	cfg := &Config{LanguageDetection: &LanguageDetectionConfig{JavaPilot: &enabled}}
 	registerCoreAdapters(detector, cfg)
 
 	supported := detector.GetSupportedLanguages()
-	if len(supported) != 4 {
-		t.Fatalf("expected stable 4-language base contract in pilot-flag phase, got %v", supported)
+	if len(supported) != 5 {
+		t.Fatalf("expected Java to be registered when pilot enabled, got %v", supported)
 	}
 }
