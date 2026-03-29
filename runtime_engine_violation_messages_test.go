@@ -40,3 +40,30 @@ func TestParseLayerViolation_ImprovesMessageAndEndpoints(t *testing.T) {
 		t.Fatalf("expected normalized layer message, got %q", parsed.Message)
 	}
 }
+
+func TestApplyConfiguredSeverity_UsesRuleOverrides(t *testing.T) {
+	cfg := &Config{Rules: &RulesConfig{
+		CircularSeverity:  "warning",
+		LayerSeverity:     "critical",
+		SizeSeverity:      "error",
+		GodObjectSeverity: "info",
+	}}
+
+	tests := []struct {
+		ruleID string
+		want   model.Severity
+	}{
+		{ruleID: "rule.circular-dependency", want: model.SeverityWarning},
+		{ruleID: "rule.layer-validation", want: model.SeverityCritical},
+		{ruleID: "rule.size", want: model.SeverityError},
+		{ruleID: "rule.god-object", want: model.SeverityInfo},
+	}
+
+	for _, tc := range tests {
+		base := model.Violation{RuleID: tc.ruleID, Severity: model.SeverityError}
+		got := applyConfiguredSeverity(base, cfg)
+		if got.Severity != tc.want {
+			t.Fatalf("expected %s severity for %s, got %s", tc.want, tc.ruleID, got.Severity)
+		}
+	}
+}

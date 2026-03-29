@@ -329,6 +329,44 @@ func TestConfigLoader_JavaPilotFlagCanBeEnabled(t *testing.T) {
 	}
 }
 
+func TestConfigLoader_RuleSeverityOverrides_DefaultAndValidation(t *testing.T) {
+	loader := NewConfigLoader(filepath.Join(t.TempDir(), "missing.yaml"))
+	cfg, err := loader.Load()
+	if err != nil {
+		t.Fatalf("unexpected load error: %v", err)
+	}
+	if cfg.Rules == nil {
+		t.Fatal("expected rules defaults")
+	}
+	if cfg.Rules.CircularSeverity != "critical" || cfg.Rules.LayerSeverity != "error" || cfg.Rules.SizeSeverity != "warning" || cfg.Rules.GodObjectSeverity != "warning" {
+		t.Fatalf("unexpected default rule severities: %+v", cfg.Rules)
+	}
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	content := "rules:\n  size_severity: critical\n  layer_severity: warning\n"
+	if err := os.WriteFile(configPath, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed writing config: %v", err)
+	}
+
+	loader = NewConfigLoader(configPath)
+	cfg, err = loader.Load()
+	if err != nil {
+		t.Fatalf("expected severity override config to load, got: %v", err)
+	}
+	if cfg.Rules.SizeSeverity != "critical" || cfg.Rules.LayerSeverity != "warning" {
+		t.Fatalf("expected severity overrides to be applied, got %+v", cfg.Rules)
+	}
+
+	invalid := "rules:\n  circular_severity: fatal\n"
+	if err := os.WriteFile(configPath, []byte(invalid), 0o644); err != nil {
+		t.Fatalf("failed writing invalid config: %v", err)
+	}
+	if _, err := loader.Load(); err == nil {
+		t.Fatal("expected invalid rules severity to fail validation")
+	}
+}
+
 func TestConfigLoader_MergeWithDefaults_TableDrivenInvariants(t *testing.T) {
 	loader := NewConfigLoader("")
 	enabled := false

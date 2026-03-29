@@ -52,10 +52,14 @@ type GodObjectConfig struct {
 
 // RulesConfig holds rule enable/disable states
 type RulesConfig struct {
-	EnableSizeRule      *bool `yaml:"enable_size_rule,omitempty"`
-	EnableGodObjectRule *bool `yaml:"enable_god_object_rule,omitempty"`
-	EnableCircularRule  *bool `yaml:"enable_circular_rule,omitempty"`
-	EnableLayerRule     *bool `yaml:"enable_layer_rule,omitempty"`
+	EnableSizeRule      *bool  `yaml:"enable_size_rule,omitempty"`
+	EnableGodObjectRule *bool  `yaml:"enable_god_object_rule,omitempty"`
+	EnableCircularRule  *bool  `yaml:"enable_circular_rule,omitempty"`
+	EnableLayerRule     *bool  `yaml:"enable_layer_rule,omitempty"`
+	SizeSeverity        string `yaml:"size_severity,omitempty"`
+	GodObjectSeverity   string `yaml:"god_object_severity,omitempty"`
+	CircularSeverity    string `yaml:"circular_severity,omitempty"`
+	LayerSeverity       string `yaml:"layer_severity,omitempty"`
 }
 
 // WeightsConfig holds penalty weights for scoring
@@ -130,16 +134,8 @@ func (l *ConfigLoader) validate(cfg *Config) error {
 		"critical": true,
 	}
 
-	if cfg.Size != nil && cfg.Size.Severity != "" {
-		if !validSeverities[cfg.Size.Severity] {
-			return fmt.Errorf("invalid severity '%s' for size rule (must be: info, warning, error, critical)", cfg.Size.Severity)
-		}
-	}
-
-	if cfg.GodObject != nil && cfg.GodObject.Severity != "" {
-		if !validSeverities[cfg.GodObject.Severity] {
-			return fmt.Errorf("invalid severity '%s' for god object rule (must be: info, warning, error, critical)", cfg.GodObject.Severity)
-		}
+	if err := validateRuleSeverities(cfg, validSeverities); err != nil {
+		return err
 	}
 
 	// Validate weights are non-negative
@@ -158,28 +154,8 @@ func (l *ConfigLoader) validate(cfg *Config) error {
 		}
 	}
 
-	if cfg.LanguageDetection != nil {
-		for lang, weight := range cfg.LanguageDetection.Weights {
-			if lang == "" {
-				return fmt.Errorf("language_detection.weights contains empty language key")
-			}
-			if weight < 0 || weight > 100 {
-				return fmt.Errorf("language_detection weight for '%s' must be between 0 and 100", lang)
-			}
-		}
-		for _, lang := range cfg.LanguageDetection.TieBreakOrder {
-			if strings.TrimSpace(lang) == "" {
-				return fmt.Errorf("language_detection.tie_break_order cannot include empty values")
-			}
-		}
-		for segment, value := range cfg.LanguageDetection.SegmentWeights {
-			if strings.TrimSpace(segment) == "" {
-				return fmt.Errorf("language_detection.segment_weights contains empty segment key")
-			}
-			if value < 0 || value > 10 {
-				return fmt.Errorf("language_detection segment weight for '%s' must be between 0 and 10", segment)
-			}
-		}
+	if err := validateLanguageDetection(cfg); err != nil {
+		return err
 	}
 
 	if cfg.Architecture != nil {
@@ -191,6 +167,56 @@ func (l *ConfigLoader) validate(cfg *Config) error {
 		}
 	}
 
+	return nil
+}
+
+func validateRuleSeverities(cfg *Config, validSeverities map[string]bool) error {
+	if cfg.Size != nil && cfg.Size.Severity != "" && !validSeverities[cfg.Size.Severity] {
+		return fmt.Errorf("invalid severity '%s' for size rule (must be: info, warning, error, critical)", cfg.Size.Severity)
+	}
+	if cfg.GodObject != nil && cfg.GodObject.Severity != "" && !validSeverities[cfg.GodObject.Severity] {
+		return fmt.Errorf("invalid severity '%s' for god object rule (must be: info, warning, error, critical)", cfg.GodObject.Severity)
+	}
+	if cfg.Rules == nil {
+		return nil
+	}
+	if err := validateOptionalSeverity(cfg.Rules.SizeSeverity, "rules.size_severity", validSeverities); err != nil {
+		return err
+	}
+	if err := validateOptionalSeverity(cfg.Rules.GodObjectSeverity, "rules.god_object_severity", validSeverities); err != nil {
+		return err
+	}
+	if err := validateOptionalSeverity(cfg.Rules.CircularSeverity, "rules.circular_severity", validSeverities); err != nil {
+		return err
+	}
+	return validateOptionalSeverity(cfg.Rules.LayerSeverity, "rules.layer_severity", validSeverities)
+}
+
+func validateLanguageDetection(cfg *Config) error {
+	if cfg.LanguageDetection == nil {
+		return nil
+	}
+	for lang, weight := range cfg.LanguageDetection.Weights {
+		if lang == "" {
+			return fmt.Errorf("language_detection.weights contains empty language key")
+		}
+		if weight < 0 || weight > 100 {
+			return fmt.Errorf("language_detection weight for '%s' must be between 0 and 100", lang)
+		}
+	}
+	for _, lang := range cfg.LanguageDetection.TieBreakOrder {
+		if strings.TrimSpace(lang) == "" {
+			return fmt.Errorf("language_detection.tie_break_order cannot include empty values")
+		}
+	}
+	for segment, value := range cfg.LanguageDetection.SegmentWeights {
+		if strings.TrimSpace(segment) == "" {
+			return fmt.Errorf("language_detection.segment_weights contains empty segment key")
+		}
+		if value < 0 || value > 10 {
+			return fmt.Errorf("language_detection segment weight for '%s' must be between 0 and 10", segment)
+		}
+	}
 	return nil
 }
 
@@ -221,6 +247,10 @@ func (l *ConfigLoader) getDefaultConfig() *Config {
 			EnableGodObjectRule: &enableGodObject,
 			EnableCircularRule:  &enableCircular,
 			EnableLayerRule:     &enableLayer,
+			SizeSeverity:        "warning",
+			GodObjectSeverity:   "warning",
+			CircularSeverity:    "critical",
+			LayerSeverity:       "error",
 		},
 		Weights: &WeightsConfig{
 			Circular:  10.0,
@@ -323,6 +353,18 @@ func mergeRulesConfig(cfg, defaults *Config) {
 	if cfg.Rules.EnableLayerRule == nil {
 		cfg.Rules.EnableLayerRule = defaults.Rules.EnableLayerRule
 	}
+	if strings.TrimSpace(cfg.Rules.SizeSeverity) == "" {
+		cfg.Rules.SizeSeverity = defaults.Rules.SizeSeverity
+	}
+	if strings.TrimSpace(cfg.Rules.GodObjectSeverity) == "" {
+		cfg.Rules.GodObjectSeverity = defaults.Rules.GodObjectSeverity
+	}
+	if strings.TrimSpace(cfg.Rules.CircularSeverity) == "" {
+		cfg.Rules.CircularSeverity = defaults.Rules.CircularSeverity
+	}
+	if strings.TrimSpace(cfg.Rules.LayerSeverity) == "" {
+		cfg.Rules.LayerSeverity = defaults.Rules.LayerSeverity
+	}
 }
 
 func mergeWeightsConfig(cfg, defaults *Config) {
@@ -412,6 +454,31 @@ func rejectUnknownConfigKeys(data []byte) error {
 		}
 	}
 
+	if rulesRaw, ok := raw["rules"]; ok {
+		encoded, _ := json.Marshal(rulesRaw)
+		var rulesMap map[string]interface{}
+		_ = json.Unmarshal(encoded, &rulesMap)
+		allowedRules := map[string]bool{
+			"enable_size_rule": true, "enable_god_object_rule": true, "enable_circular_rule": true, "enable_layer_rule": true,
+			"size_severity": true, "god_object_severity": true, "circular_severity": true, "layer_severity": true,
+		}
+		for key := range rulesMap {
+			if !allowedRules[key] {
+				return fmt.Errorf("config validation error: unknown rules key '%s'", key)
+			}
+		}
+	}
+
+	return nil
+}
+
+func validateOptionalSeverity(value, fieldName string, valid map[string]bool) error {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	if !valid[value] {
+		return fmt.Errorf("invalid severity '%s' for %s (must be: info, warning, error, critical)", value, fieldName)
+	}
 	return nil
 }
 

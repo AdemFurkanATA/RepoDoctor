@@ -112,6 +112,7 @@ func buildReportFromRuleViolations(path string, version string, cfg *Config, vio
 	godObjectMap := make(map[string]*GodObjectViolation)
 
 	for _, v := range violations {
+		v = applyConfiguredSeverity(v, cfg)
 		switch v.RuleID {
 		case "rule.circular-dependency":
 			report.Circular = append(report.Circular, parseCircularViolation(v))
@@ -260,6 +261,45 @@ func remediationHintForViolation(v model.Violation) string {
 		return "Extract cohesive responsibilities into dedicated types and keep each object focused on one concern."
 	default:
 		return ""
+	}
+}
+
+func applyConfiguredSeverity(v model.Violation, cfg *Config) model.Violation {
+	if cfg == nil || cfg.Rules == nil {
+		return v
+	}
+	severity := ""
+	switch v.RuleID {
+	case "rule.circular-dependency":
+		severity = cfg.Rules.CircularSeverity
+	case "rule.layer-validation":
+		severity = cfg.Rules.LayerSeverity
+	case "rule.size":
+		severity = cfg.Rules.SizeSeverity
+	case "rule.god-object":
+		severity = cfg.Rules.GodObjectSeverity
+	}
+	parsed, ok := parseSeverity(severity)
+	if !ok {
+		return v
+	}
+	v.Severity = parsed
+	return v
+}
+
+func parseSeverity(raw string) (model.Severity, bool) {
+	value := strings.ToLower(strings.TrimSpace(raw))
+	switch value {
+	case "info":
+		return model.SeverityInfo, true
+	case "warning":
+		return model.SeverityWarning, true
+	case "error":
+		return model.SeverityError, true
+	case "critical":
+		return model.SeverityCritical, true
+	default:
+		return "", false
 	}
 }
 
