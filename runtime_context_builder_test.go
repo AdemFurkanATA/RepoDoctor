@@ -56,6 +56,48 @@ func TestBuildUnifiedRulesAnalysisContext_ConfigurationContractKeys(t *testing.T
 	}
 }
 
+func TestBuildUnifiedRulesAnalysisContext_IncludesCustomArchitectureConfiguration(t *testing.T) {
+	graph := NewDependencyGraph()
+	graph.AddNode("a.go")
+
+	ctx := buildUnifiedRulesAnalysisContext(runtimeAnalysisContextInput{
+		RepositoryPath:      filepath.Clean("."),
+		Graph:               graph,
+		PrimaryLanguage:     "Go",
+		ArchitectureProfile: "layered",
+		CustomLayerOrder:    []string{"api", "service", "data"},
+		CustomLayerKeywords: map[string][]string{
+			"api":     []string{"api", "controller"},
+			"service": []string{"service"},
+			"data":    []string{"repo", "data"},
+		},
+	})
+
+	rawOrder, ok := ctx.Configuration["customLayerOrder"]
+	if !ok {
+		t.Fatalf("configuration key %q missing", "customLayerOrder")
+	}
+	order, ok := rawOrder.([]string)
+	if !ok {
+		t.Fatalf("configuration key %q has unexpected type %T", "customLayerOrder", rawOrder)
+	}
+	if len(order) != 3 || order[0] != "api" || order[2] != "data" {
+		t.Fatalf("configuration key %q drifted: got %v", "customLayerOrder", order)
+	}
+
+	rawKeywords, ok := ctx.Configuration["customLayerKeywords"]
+	if !ok {
+		t.Fatalf("configuration key %q missing", "customLayerKeywords")
+	}
+	keywords, ok := rawKeywords.(map[string][]string)
+	if !ok {
+		t.Fatalf("configuration key %q has unexpected type %T", "customLayerKeywords", rawKeywords)
+	}
+	if len(keywords["api"]) != 2 || keywords["api"][1] != "controller" {
+		t.Fatalf("configuration key %q drifted: got %v", "customLayerKeywords", keywords)
+	}
+}
+
 func TestResolveContextLanguages_DefaultIncludesJavaPilotLanguage(t *testing.T) {
 	languages := resolveContextLanguages("")
 	if len(languages) != 5 {

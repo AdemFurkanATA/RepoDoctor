@@ -23,7 +23,9 @@ type Config struct {
 }
 
 type ArchitectureConfig struct {
-	Profile string `yaml:"profile,omitempty"`
+	Profile             string              `yaml:"profile,omitempty"`
+	CustomLayerOrder    []string            `yaml:"custom_layer_order,omitempty"`
+	CustomLayerKeywords map[string][]string `yaml:"custom_layer_keywords,omitempty"`
 }
 
 type LanguageDetectionConfig struct {
@@ -164,6 +166,9 @@ func (l *ConfigLoader) validate(cfg *Config) error {
 			if _, err := domain.ParseArchitectureProfile(profile); err != nil {
 				return err
 			}
+		}
+		if err := validateCustomArchitectureProfile(cfg.Architecture); err != nil {
+			return err
 		}
 	}
 
@@ -434,7 +439,7 @@ func rejectUnknownConfigKeys(data []byte) error {
 		encoded, _ := json.Marshal(archRaw)
 		var arch map[string]interface{}
 		_ = json.Unmarshal(encoded, &arch)
-		allowedArch := map[string]bool{"profile": true}
+		allowedArch := map[string]bool{"profile": true, "custom_layer_order": true, "custom_layer_keywords": true}
 		for key := range arch {
 			if !allowedArch[key] {
 				return fmt.Errorf("config validation error: unknown architecture key '%s'", key)
@@ -478,6 +483,50 @@ func validateOptionalSeverity(value, fieldName string, valid map[string]bool) er
 	}
 	if !valid[value] {
 		return fmt.Errorf("invalid severity '%s' for %s (must be: info, warning, error, critical)", value, fieldName)
+	}
+	return nil
+}
+
+func validateCustomArchitectureProfile(architecture *ArchitectureConfig) error {
+	if architecture == nil {
+		return nil
+	}
+	if len(architecture.CustomLayerOrder) == 0 && len(architecture.CustomLayerKeywords) == 0 {
+		return nil
+	}
+	if len(architecture.CustomLayerOrder) < 2 {
+		return fmt.Errorf("architecture.custom_layer_order must contain at least two layers")
+	}
+	seen := make(map[string]bool, len(architecture.CustomLayerOrder))
+	aliasOwnership := map[string]string{}
+	for _, layer := range architecture.CustomLayerOrder {
+		normalized := strings.ToLower(strings.TrimSpace(layer))
+		if normalized == "" {
+			return fmt.Errorf("architecture.custom_layer_order cannot include empty layer names")
+		}
+		if seen[normalized] {
+			return fmt.Errorf("architecture.custom_layer_order contains duplicate layer '%s'", normalized)
+		}
+		seen[normalized] = true
+	}
+	for layer, aliases := range architecture.CustomLayerKeywords {
+		normalizedLayer := strings.ToLower(strings.TrimSpace(layer))
+		if !seen[normalizedLayer] {
+			return fmt.Errorf("architecture.custom_layer_keywords contains unknown layer '%s'", layer)
+		}
+		if len(aliases) == 0 {
+			return fmt.Errorf("architecture.custom_layer_keywords for '%s' cannot be empty", layer)
+		}
+		for _, alias := range aliases {
+			normalizedAlias := strings.ToLower(strings.TrimSpace(alias))
+			if normalizedAlias == "" {
+				return fmt.Errorf("architecture.custom_layer_keywords for '%s' contains empty alias", layer)
+			}
+			if owner, exists := aliasOwnership[normalizedAlias]; exists && owner != normalizedLayer {
+				return fmt.Errorf("architecture.custom_layer_keywords alias '%s' is ambiguous between layers '%s' and '%s'", normalizedAlias, owner, normalizedLayer)
+			}
+			aliasOwnership[normalizedAlias] = normalizedLayer
+		}
 	}
 	return nil
 }

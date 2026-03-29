@@ -61,11 +61,11 @@ func (s *AnalysisService) Run(request AnalyzeRequest) int {
 	config := loadConfiguration(absPath, request.Verbose)
 
 	progress.Start("Running rules", getStageCount("Running rules", absPath))
-	profile := ""
-	if config != nil && config.Architecture != nil {
-		profile = config.Architecture.Profile
+	var architecture *ArchitectureConfig
+	if config != nil {
+		architecture = config.Architecture
 	}
-	ruleSummary := runInternalRulePipelineWithProfile(absPath, graph, analysisResult.AdapterName, profile)
+	ruleSummary := runInternalRulePipelineWithProfile(absPath, graph, analysisResult.AdapterName, architecture)
 	progress.SetProgress(progress.totalSteps / 2)
 
 	report := generateRuleEngineReport(absPath, request.Format, request.Verbose, request.ColorEnabled, config, ruleSummary)

@@ -15,11 +15,14 @@ const (
 	LayerRepo    LayerConvention = "repo"
 )
 
-// layerOrder defines the hierarchy (lower index = higher layer)
-var layerOrder = map[LayerConvention]int{
-	LayerHandler: 0,
-	LayerService: 1,
-	LayerRepo:    2,
+// layerOrder defines the default hierarchy (lower index = higher layer)
+var layerOrder = map[LayerConvention]int{LayerHandler: 0, LayerService: 1, LayerRepo: 2}
+
+type layerPolicy struct {
+	order      []LayerConvention
+	rank       map[LayerConvention]int
+	keywords   map[LayerConvention][]string
+	defaultFor LayerConvention
 }
 
 // LayerValidationRule enforces architectural layering constraints
@@ -53,16 +56,17 @@ func (r *LayerValidationRule) Capabilities() RuleCapabilities {
 func (r *LayerValidationRule) Evaluate(context AnalysisContext) []model.Violation {
 	var violations []model.Violation
 	profile := resolveArchitectureProfile(context)
+	policy := resolveLayerPolicy(context)
 
 	// Check all files and their imports
 	for _, file := range context.RepositoryFiles {
-		fromLayer := detectLayer(file.Path)
+		fromLayer := detectLayerWithPolicy(file.Path, policy)
 
 		for _, imp := range file.Imports {
-			toLayer := detectLayer(imp)
+			toLayer := detectLayerWithPolicy(imp, policy)
 
 			// Check if this is an upward import (forbidden)
-			if isUpwardImportWithProfile(fromLayer, toLayer, profile) {
+			if isUpwardImportWithProfile(fromLayer, toLayer, profile, policy.rank) {
 				violations = append(violations, model.Violation{
 					RuleID:      r.ID(),
 					Severity:    model.SeverityError,
@@ -93,25 +97,71 @@ func resolveArchitectureProfile(context AnalysisContext) string {
 	return strings.ToLower(strings.TrimSpace(profile))
 }
 
-// detectLayer detects the layer of a package based on its path
-func detectLayer(pkgPath string) LayerConvention {
-	// Check for layer keywords in the path
-	if containsLayerKeyword(pkgPath, "handler") {
-		return LayerHandler
-	}
-	if containsLayerKeyword(pkgPath, "service") {
-		return LayerService
-	}
-	if containsLayerKeyword(pkgPath, "repo") {
-		return LayerRepo
+func resolveLayerPolicy(context AnalysisContext) layerPolicy {
+	policy := defaultLayerPolicy()
+	if context.Configuration == nil {
+		return policy
 	}
 
-	// Default to service layer if no specific layer detected
-	return LayerService
+	customOrder := parseCustomLayerOrder(context.Configuration["customLayerOrder"])
+	if len(customOrder) < 2 {
+		return policy
+	}
+
+	customKeywords := parseCustomLayerKeywords(context.Configuration["customLayerKeywords"])
+	compiledKeywords := make(map[LayerConvention][]string, len(customOrder))
+	for _, layer := range customOrder {
+		aliases := customKeywords[layer]
+		if len(aliases) == 0 {
+			aliases = []string{string(layer)}
+		}
+		compiledKeywords[layer] = aliases
+	}
+
+	customRank := make(map[LayerConvention]int, len(customOrder))
+	for idx, layer := range customOrder {
+		customRank[layer] = idx
+	}
+
+	defaultLayer := customOrder[0]
+	if len(customOrder) > 1 {
+		defaultLayer = customOrder[1]
+	}
+
+	return layerPolicy{order: customOrder, rank: customRank, keywords: compiledKeywords, defaultFor: defaultLayer}
+}
+
+func defaultLayerPolicy() layerPolicy {
+	return layerPolicy{
+		order:      []LayerConvention{LayerHandler, LayerService, LayerRepo},
+		rank:       layerOrder,
+		keywords:   map[LayerConvention][]string{LayerHandler: []string{"handler"}, LayerService: []string{"service"}, LayerRepo: []string{"repo"}},
+		defaultFor: LayerService,
+	}
+}
+
+// detectLayerWithPolicy detects the layer of a package based on policy keywords.
+func detectLayerWithPolicy(pkgPath string, policy layerPolicy) LayerConvention {
+	for _, layer := range policy.order {
+		aliases := policy.keywords[layer]
+		for _, alias := range aliases {
+			if containsLayerKeyword(pkgPath, alias) {
+				return layer
+			}
+		}
+	}
+
+	return policy.defaultFor
 }
 
 // containsLayerKeyword checks if a path contains a layer keyword
 func containsLayerKeyword(path, keyword string) bool {
+	path = strings.ToLower(path)
+	keyword = strings.ToLower(strings.TrimSpace(keyword))
+	if keyword == "" {
+		return false
+	}
+
 	// Simple check: look for /keyword/ or /keyword at end
 	if len(path) >= len(keyword) {
 		for i := 0; i <= len(path)-len(keyword); i++ {
@@ -132,9 +182,9 @@ func containsLayerKeyword(path, keyword string) bool {
 }
 
 // isUpwardImport checks if an import goes upward in the layer hierarchy
-func isUpwardImport(from, to LayerConvention) bool {
-	fromLevel, fromExists := layerOrder[from]
-	toLevel, toExists := layerOrder[to]
+func isUpwardImport(from, to LayerConvention, rank map[LayerConvention]int) bool {
+	fromLevel, fromExists := rank[from]
+	toLevel, toExists := rank[to]
 
 	if !fromExists || !toExists {
 		return false
@@ -144,11 +194,63 @@ func isUpwardImport(from, to LayerConvention) bool {
 	return toLevel < fromLevel
 }
 
-func isUpwardImportWithProfile(from, to LayerConvention, profile string) bool {
+func isUpwardImportWithProfile(from, to LayerConvention, profile string, rank map[LayerConvention]int) bool {
 	if profile == "modular-monolith" {
 		return false
 	}
-	return isUpwardImport(from, to)
+	return isUpwardImport(from, to, rank)
+}
+
+func parseCustomLayerOrder(raw interface{}) []LayerConvention {
+	layers, ok := raw.([]string)
+	if !ok || len(layers) == 0 {
+		return nil
+	}
+	seen := make(map[string]bool, len(layers))
+	parsed := make([]LayerConvention, 0, len(layers))
+	for _, layer := range layers {
+		normalized := strings.ToLower(strings.TrimSpace(layer))
+		if normalized == "" || seen[normalized] {
+			continue
+		}
+		seen[normalized] = true
+		parsed = append(parsed, LayerConvention(normalized))
+	}
+	if len(parsed) < 2 {
+		return nil
+	}
+	return parsed
+}
+
+func parseCustomLayerKeywords(raw interface{}) map[LayerConvention][]string {
+	keywords, ok := raw.(map[string][]string)
+	if !ok || len(keywords) == 0 {
+		return nil
+	}
+	parsed := make(map[LayerConvention][]string, len(keywords))
+	for layer, aliases := range keywords {
+		normalizedLayer := strings.ToLower(strings.TrimSpace(layer))
+		if normalizedLayer == "" {
+			continue
+		}
+		seenAlias := map[string]bool{}
+		normalizedAliases := make([]string, 0, len(aliases))
+		for _, alias := range aliases {
+			normalizedAlias := strings.ToLower(strings.TrimSpace(alias))
+			if normalizedAlias == "" || seenAlias[normalizedAlias] {
+				continue
+			}
+			seenAlias[normalizedAlias] = true
+			normalizedAliases = append(normalizedAliases, normalizedAlias)
+		}
+		if len(normalizedAliases) > 0 {
+			parsed[LayerConvention(normalizedLayer)] = normalizedAliases
+		}
+	}
+	if len(parsed) == 0 {
+		return nil
+	}
+	return parsed
 }
 
 // formatLayerViolation formats a layer violation message
