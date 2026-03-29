@@ -2,6 +2,10 @@ package rules
 
 import "RepoDoctor/internal/model"
 
+// AnalysisContextContractVersion identifies the stable shape contract for
+// AnalysisContext. Bump only when the public context layout changes.
+const AnalysisContextContractVersion = "v1"
+
 // AnalysisContext provides read-only access to repository data for rules.
 // It encapsulates all information needed for rule evaluation without
 // allowing mutation of the repository code.
