@@ -3,6 +3,8 @@ package analysis
 import (
 	"os"
 	"path/filepath"
+	"reflect"
+	"strconv"
 	"testing"
 )
 
@@ -51,5 +53,34 @@ func TestValidateFingerprintState(t *testing.T) {
 	}
 	if err := ValidateFingerprintState(IncrementalFingerprintState{Files: map[string]string{"a.go": "h"}}); err != nil {
 		t.Fatalf("expected valid state, got %v", err)
+	}
+}
+
+func TestBuildGoFingerprintMap_DeterministicAcrossRuns(t *testing.T) {
+	repo := t.TempDir()
+	for i := 0; i < 40; i++ {
+		path := filepath.Join(repo, "pkg", "f"+strconv.Itoa(i)+".go")
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatalf("failed creating dir: %v", err)
+		}
+		content := []byte("package main\nfunc f" + strconv.Itoa(i) + "() int { return " + strconv.Itoa(i) + " }\n")
+		if err := os.WriteFile(path, content, 0o644); err != nil {
+			t.Fatalf("failed writing go file: %v", err)
+		}
+	}
+
+	baseline, err := BuildGoFingerprintMap(repo)
+	if err != nil {
+		t.Fatalf("BuildGoFingerprintMap baseline failed: %v", err)
+	}
+
+	for i := 0; i < 20; i++ {
+		next, nextErr := BuildGoFingerprintMap(repo)
+		if nextErr != nil {
+			t.Fatalf("BuildGoFingerprintMap failed at run %d: %v", i, nextErr)
+		}
+		if !reflect.DeepEqual(baseline, next) {
+			t.Fatalf("fingerprint map must remain deterministic; baseline=%v next=%v", baseline, next)
+		}
 	}
 }
