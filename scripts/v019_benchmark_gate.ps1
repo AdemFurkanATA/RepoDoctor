@@ -41,8 +41,33 @@ function Assert-BenchmarkUnderBudget {
     }
 }
 
+function Assert-BenchmarkMemoryUnderBudget {
+    param(
+        [Parameter(Mandatory = $true)][string]$Output,
+        [Parameter(Mandatory = $true)][string]$BenchmarkName,
+        [Parameter(Mandatory = $true)][double]$BudgetBytes
+    )
+
+    $regex = [regex]("(?m)^" + [regex]::Escape($BenchmarkName) + "(?:-\d+)?\s+\d+\s+[0-9]+(?:\.[0-9]+)?\s+ns/op\s+([0-9]+)\s+B/op")
+    $match = $regex.Match($Output)
+    if (-not $match.Success) {
+        throw "Benchmark output missing memory metric line: $BenchmarkName"
+    }
+
+    $bytes = 0.0
+    if (-not [double]::TryParse($match.Groups[1].Value, [System.Globalization.NumberStyles]::Float, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$bytes)) {
+        throw "Unable to parse B/op for $BenchmarkName"
+    }
+
+    if ($bytes -gt $BudgetBytes) {
+        throw "$BenchmarkName breached memory budget: ${bytes}B/op > ${BudgetBytes}B/op"
+    }
+}
+
 $buildMapBudgetNs = Get-BudgetNs -EnvName "RD_BUDGET_BUILD_MAP_NS" -Default 2000000000
 $diffStateBudgetNs = Get-BudgetNs -EnvName "RD_BUDGET_DIFF_STATE_NS" -Default 10000000
+$buildMapBudgetBytes = Get-BudgetNs -EnvName "RD_BUDGET_BUILD_MAP_B_OP" -Default 8000000
+$diffStateBudgetBytes = Get-BudgetNs -EnvName "RD_BUDGET_DIFF_STATE_B_OP" -Default 1000000
 
 Write-Host "Running v0.19 benchmark budget gate..."
 
@@ -60,5 +85,7 @@ Set-Content -Path "benchmark-gate.txt" -Value $combinedOutput -Encoding utf8
 
 Assert-BenchmarkUnderBudget -Output $buildMapOutput -BenchmarkName "BenchmarkBuildGoFingerprintMap_LargeRepoFixture" -BudgetNs $buildMapBudgetNs
 Assert-BenchmarkUnderBudget -Output $diffStateOutput -BenchmarkName "BenchmarkDiffFingerprintStates_LargeMap" -BudgetNs $diffStateBudgetNs
+Assert-BenchmarkMemoryUnderBudget -Output $buildMapOutput -BenchmarkName "BenchmarkBuildGoFingerprintMap_LargeRepoFixture" -BudgetBytes $buildMapBudgetBytes
+Assert-BenchmarkMemoryUnderBudget -Output $diffStateOutput -BenchmarkName "BenchmarkDiffFingerprintStates_LargeMap" -BudgetBytes $diffStateBudgetBytes
 
 Write-Host "v0.19 benchmark gate passed."
