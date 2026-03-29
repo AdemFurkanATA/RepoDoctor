@@ -173,27 +173,70 @@ func runExtract(path, module string, verbose bool, jsonOutput bool) error {
 }
 
 func runGenerate(args []string) error {
-	if len(args) < 2 {
-		return HandleCLIUsageError("Usage: repodoctor generate rule <rule-name>", nil)
+	if len(args) == 0 {
+		return HandleCLIUsageError("Usage: repodoctor generate <rule|ci> ...", nil)
 	}
 
-	if args[0] != "rule" {
+	switch args[0] {
+	case "rule":
+		if len(args) < 2 {
+			return HandleCLIUsageError("Usage: repodoctor generate rule <rule-name>", nil)
+		}
+
+		ruleName := args[1]
+		generator := NewRuleTemplateGenerator("rules")
+
+		if err := generator.Generate(ruleName); err != nil {
+			return WrapError(err, ErrorRuntime, "Error generating rule", GetSuggestion(err.Error()))
+		}
+		return nil
+	case "ci":
+		provider, force, err := parseGenerateCIArgs(args[1:])
+		if err != nil {
+			return err
+		}
+
+		generator := NewCITemplateGenerator(".")
+		if err := generator.Generate(provider, force); err != nil {
+			return WrapError(err, ErrorRuntime, "Error generating CI template", GetSuggestion(err.Error()))
+		}
+		return nil
+	default:
 		return NewCLIError(
 			ErrorInvalidArgument,
 			fmt.Sprintf("Unknown generate type: %s", args[0]),
-			"Available types: rule",
+			"Available types: rule, ci",
+			nil,
+		)
+	}
+}
+
+func parseGenerateCIArgs(args []string) (string, bool, error) {
+	if len(args) == 0 {
+		return "", false, HandleCLIUsageError("Usage: repodoctor generate ci <github|gitlab|azure> [--force]", nil)
+	}
+
+	provider := strings.ToLower(strings.TrimSpace(args[0]))
+	if provider == "" {
+		return "", false, HandleCLIUsageError("Usage: repodoctor generate ci <github|gitlab|azure> [--force]", nil)
+	}
+
+	force := false
+	for _, arg := range args[1:] {
+		normalized := strings.ToLower(strings.TrimSpace(arg))
+		if normalized == "--force" {
+			force = true
+			continue
+		}
+		return "", false, NewCLIError(
+			ErrorInvalidArgument,
+			fmt.Sprintf("Unknown generate ci option: %s", arg),
+			"Usage: repodoctor generate ci <github|gitlab|azure> [--force]",
 			nil,
 		)
 	}
 
-	ruleName := args[1]
-	generator := NewRuleTemplateGenerator("rules")
-
-	if err := generator.Generate(ruleName); err != nil {
-		return WrapError(err, ErrorRuntime, "Error generating rule", GetSuggestion(err.Error()))
-	}
-
-	return nil
+	return provider, force, nil
 }
 
 func runWatch(path string) {
