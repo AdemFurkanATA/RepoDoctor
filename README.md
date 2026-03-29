@@ -2,12 +2,12 @@
 
 > **Static Architecture Analysis for Software Repositories**
 
-RepoDoctor is a CLI tool that analyzes your repository’s architectural health by evaluating dependency structure, layering discipline, maintainability signals, and long-term architectural risk.
-
-It is intentionally **not** a style linter. RepoDoctor focuses on higher-level design quality: cycles, layering violations, oversized units, and god object drift.
+RepoDoctor is a CLI tool that analyzes architectural quality in code repositories.
+It focuses on **structure-level risks** (dependency cycles, layer violations, oversized units, god objects),
+not formatting or style-lint details.
 
 ![CLI Version](https://img.shields.io/badge/cli-0.5.0--dev-blue)
-![Roadmap Milestone](https://img.shields.io/badge/roadmap-v1.0-in_progress-blue)
+![Roadmap Milestone](https://img.shields.io/badge/roadmap-v1.1-complete-brightgreen)
 [![Go Version](https://img.shields.io/badge/go-1.21+-00ADD8)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Structural Health](https://img.shields.io/badge/structural--health-100%2F100-brightgreen)]()
@@ -17,19 +17,17 @@ It is intentionally **not** a style linter. RepoDoctor focuses on higher-level d
 ## Table of Contents
 
 - [Why RepoDoctor?](#why-repodoctor)
+- [What This Project Includes Today](#what-this-project-includes-today)
 - [Quick Start](#quick-start)
-- [What You Get](#what-you-get)
-- [Core Features](#core-features)
-- [Language Support](#language-support)
+- [Installation](#installation)
 - [Usage](#usage)
 - [Configuration](#configuration)
 - [Output & Exit Codes](#output--exit-codes)
-- [Architecture Overview](#architecture-overview)
+- [CI/CD Integration](#cicd-integration)
+- [Architecture](#architecture)
 - [Project Structure](#project-structure)
-- [Development & Quality Gates](#development--quality-gates)
-- [CI Integration (GitHub Actions)](#ci-integration-github-actions)
-- [Release Maturity](#release-maturity)
-- [Roadmap](#roadmap)
+- [Quality Gates](#quality-gates)
+- [Release & Roadmap Status](#release--roadmap-status)
 - [Contributing](#contributing)
 - [Privacy & Repository Hygiene](#privacy--repository-hygiene)
 - [License](#license)
@@ -38,23 +36,50 @@ It is intentionally **not** a style linter. RepoDoctor focuses on higher-level d
 
 ## Why RepoDoctor?
 
-Most analysis tools optimize local code quality. RepoDoctor targets **system quality**.
+Most tools answer: _“Is this file clean?”_  
+RepoDoctor answers: _“Is this system staying healthy over time?”_
+
+It helps teams detect architecture drift early, keep CI objective, and enforce structural standards consistently.
 
 | Question | RepoDoctor Answer |
 |---|---|
-| Are layers leaking responsibilities? | Layer validation rules |
-| Are hidden dependency cycles forming? | Circular dependency analysis |
-| Is complexity concentrating in god objects? | Method/field threshold checks |
-| Are files/functions silently growing? | Size thresholds with actionable reporting |
-| Is architecture quality improving or degrading? | Structural health score + trend-aware workflows |
+| Are dependency cycles emerging? | Circular dependency detection |
+| Are layers importing upward incorrectly? | Layer validation rules |
+| Are files/functions silently growing too much? | Size threshold rules |
+| Is complexity concentrating in a few objects? | God-object detection |
+| Is architecture quality improving or degrading? | Deterministic score + report trend usage |
 
-RepoDoctor itself is continuously validated by running self-analysis on its own codebase.
+---
+
+## What This Project Includes Today
+
+### Core analysis capabilities
+
+- Circular dependency detection
+- Layer validation (including custom architecture profiles)
+- Size threshold analysis (file/function)
+- God object detection
+- Structural health scoring (`0-100`)
+
+### Multi-language analysis support
+
+- Go
+- Python
+- JavaScript / TypeScript
+- Java (pilot layer introduced in v0.20; decision memo included)
+
+### Developer and CI workflows
+
+- Human-readable and JSON outputs (`json`, `json-v1`)
+- Deterministic execution and ordering
+- CI template generation (`generate ci ...`)
+- Release gate packs for milestone closeouts
 
 ---
 
 ## Quick Start
 
-### 1) Clone & Build
+### 1) Clone and build
 
 ```bash
 git clone https://github.com/AdemFurkanATA/RepoDoctor.git
@@ -62,14 +87,10 @@ cd RepoDoctor
 go build .
 ```
 
-### 2) Analyze a Repository
+### 2) Analyze current repository
 
 ```bash
-# current directory
 ./RepoDoctor analyze -path .
-
-# external repository
-./RepoDoctor analyze -path /path/to/repository
 ```
 
 Windows PowerShell:
@@ -81,82 +102,36 @@ go build .
 
 ---
 
-## What You Get
+## Installation
 
-Typical CLI flow:
+### Requirements
 
-```text
-Scanning repository [████████████████████] 100%
-Collecting metrics [████████████████████] 100%
-Building dependency graph [████████████████████] 100%
-Running rules [████████████████████] 100%
+- Go **1.21+**
+- Git
 
-╔═══════════════════════════════════════════════════════════╗
-║          RepoDoctor Structural Analysis Report           ║
-╚═══════════════════════════════════════════════════════════╝
+### Build from source
 
-STRUCTURAL HEALTH SCORE
-✓ Score: 100.0 / 100.0
-
-VIOLATIONS SUMMARY
-✓ No violations detected
+```bash
+go build .
 ```
 
----
-
-## Core Features
-
-### Analysis Engine
-
-- **Circular Dependency Detection**
-- **Layer Validation**
-- **Size Threshold Analysis**
-- **God Object Detection**
-- **Structural Health Scoring (0–100)**
-- **Deterministic rule execution pipeline**
-
-### Developer Experience
-
-- Interactive mode (`interactive`)
-- Watch mode (`analyze -watch`)
-- Progress bars
-- Colored output (`--no-color` supported)
-- Rule template generation
-- Structured CLI error handling
-
-### CI/CD Alignment
-
-- Machine-readable JSON output
-- Deterministic exit codes for pipelines
-- Strict quality gates and merge policy
-
----
-
-## Language Support
-
-RepoDoctor uses an adapter-based architecture (`LanguageAdapter`) for multi-language support.
-
-- **Go** (AST-driven analysis)
-- **Python**
-- **JavaScript / TypeScript**
-
-Language detection is deterministic and policy-driven, with safeguards against noisy tooling directories.
+This produces a local binary (`RepoDoctor` / `RepoDoctor.exe`).
 
 ---
 
 ## Usage
 
-### Analyze
+### Analyze command
 
 ```bash
-# text output (default)
+# default text output
 repodoctor analyze -path .
 
-# JSON output
-repodoctor analyze -path ./my-repo -format json
+# JSON output (v2)
+repodoctor analyze -path . -format json
 
-# legacy JSON schema output (compat mode)
-repodoctor analyze -path ./my-repo -format json-v1
+# legacy JSON output (compat mode)
+repodoctor analyze -path . -format json-v1
 
 # verbose mode
 repodoctor analyze -path . -verbose
@@ -164,11 +139,11 @@ repodoctor analyze -path . -verbose
 # watch mode
 repodoctor analyze -path . -watch
 
-# no color
+# disable colors
 repodoctor analyze -path . -no-color
 ```
 
-### Other Commands
+### Other commands
 
 ```bash
 repodoctor interactive
@@ -177,8 +152,12 @@ repodoctor report -path repodoctor-report.json -format text
 repodoctor history -path .
 repodoctor generate rule my-custom-rule
 repodoctor generate ci github
+repodoctor generate ci gitlab
+repodoctor generate ci azure
 repodoctor version
 ```
+
+`generate ci <github|gitlab|azure> [--force]` creates deterministic CI starter templates.
 
 ---
 
@@ -215,13 +194,8 @@ language_detection:
     Python: 1.0
     JavaScript: 1.0
     TypeScript: 1.0
-  tie_break_order: [Python, TypeScript, JavaScript, Go]
-  segment_weights:
-    src: 1.0
-    app: 1.0
-    pkg: 1.0
-    tools: 0.2
-    scripts: 0.2
+    Java: 0.8
+  tie_break_order: [Python, TypeScript, JavaScript, Go, Java]
 
 architecture:
   profile: layered
@@ -232,84 +206,77 @@ architecture:
     repo: [repo, repository, data]
 ```
 
-Supported `architecture.profile` values: `clean`, `layered`, `modular-monolith`.
+Supported architecture profiles:
 
-`generate ci <github|gitlab|azure> [--force]` creates CI starter templates in deterministic paths.
-
-You can keep defaults and only override needed thresholds.
+- `clean`
+- `layered`
+- `modular-monolith`
 
 ---
 
 ## Output & Exit Codes
 
-### Exit Codes
+### Exit codes
 
 | Code | Meaning |
 |---|---|
 | `0` | No critical violations |
-| `2` | Critical violations detected |
+| `2` | Critical violations detected (circular/layer) |
 
-### JSON Output (v2 example shape)
+### JSON output
 
-```json
-{
-  "version": "0.5.0-dev",
-  "schemaVersion": "v2",
-  "path": "/repo",
-  "score": {
-    "total": 100.0,
-    "max": 100.0,
-    "circularPenalty": 0,
-    "layerPenalty": 0,
-    "sizePenalty": 0,
-    "godObjectPenalty": 0
-  },
-  "summary": {
-    "totalViolations": 0,
-    "circular": 0,
-    "layer": 0,
-    "size": 0,
-    "godObject": 0
-  },
-  "language": {
-    "detectedLanguage": "Go",
-    "confidence": 1,
-    "reasonCodes": ["go.mod"]
-  },
-  "circularViolations": [],
-  "layerViolations": [],
-  "sizeViolations": [],
-  "godObjectViolations": []
-}
-```
+RepoDoctor supports:
 
-Use `-format json-v1` only when a legacy integration still depends on the previous schema.
+- `json` (current schema)
+- `json-v1` (legacy compatibility)
+
+Use `json-v1` only if an existing integration still depends on old schema.
 
 ---
 
-## Architecture Overview
+## CI/CD Integration
 
-### Analysis Pipeline
+Current CI pipeline includes:
 
-```text
-detect language -> select adapter -> detect files -> collect metrics -> build dependency graph -> execute rules -> score -> report
+- Linux + Windows matrix
+- `go test ./...`
+- `go vet ./...`
+- deterministic confidence suites
+- self-analysis score gate
+- milestone gate packs:
+  - `scripts/v018_closeout_gate.ps1`
+  - `scripts/v019_release_stabilization_gate.ps1`
+  - `scripts/v100_release_stabilization_gate.ps1`
+  - `scripts/v110_release_stabilization_gate.ps1`
+
+You can also scaffold CI templates quickly:
+
+```bash
+repodoctor generate ci github
 ```
 
-### Layered Design
+---
+
+## Architecture
+
+RepoDoctor is a modular monolith with strict boundaries.
+
+High-level flow:
 
 ```text
-CLI Layer         : command parsing, request composition, output
-Application Layer : orchestration/pipeline control
-Domain/Core       : rules, scoring, language policies, models
-Infrastructure    : filesystem scanning, adapters, config loading
+detect language -> select adapter -> collect metrics -> build dependency graph -> execute rules -> score -> report
 ```
 
-### Core Modules
+Key modules:
 
-- `internal/languages/` → adapters + language detection/stats
-- `internal/analysis/` → orchestrator
-- `internal/rules/` + `internal/engine/` → registry + execution
-- `internal/model/` → graph, metrics, violations
+- `internal/analysis` → orchestration
+- `internal/languages` → adapters + detection
+- `internal/rules` + `internal/engine` → rule registry/execution
+- `internal/model` + `internal/domain` → shared contracts and policies
+
+For architecture notes:
+
+- `docs/architecture.md`
 
 ---
 
@@ -322,24 +289,23 @@ RepoDoctor/
 ├── runtime_engine.go
 ├── config.go
 ├── reporter.go
-├── progress.go
-├── watcher.go
-├── interactive.go
 ├── generator.go
 ├── internal/
 │   ├── analysis/
 │   ├── languages/
 │   ├── rules/
 │   ├── engine/
-│   └── model/
+│   ├── model/
+│   └── domain/
+├── scripts/
 └── .github/workflows/
 ```
 
 ---
 
-## Development & Quality Gates
+## Quality Gates
 
-### Local Gates (mandatory)
+### Mandatory local gates
 
 ```bash
 go test ./...
@@ -347,86 +313,36 @@ go vet ./...
 go run . analyze -path .
 ```
 
-Expected architectural gate: **100/100** on self-analysis.
+Expected self-analysis result on this repo: **100/100**.
 
-If a change touches concurrency/shared-state paths (`internal/languages`, `internal/rules`, `internal/engine`, `internal/analysis`), additionally run:
+If you touch concurrency-sensitive areas, also run:
 
 ```bash
 go test -race ./...
 ```
 
-### Merge Discipline
-
-- One issue = one branch
-- Separate commit(s), separate push, separate PR
-- PR target: `dev`
-- `dev -> main` only after CI passes
-
 ---
 
-## CI Integration (GitHub Actions)
+## Release & Roadmap Status
 
-Current workflow highlights:
+### Completed milestone lines
 
-- Linux + Windows matrix (`ubuntu-latest`, `windows-latest`)
-- `go test ./...`
-- `go vet ./...`
-- deterministic multi-language confidence suite
-- text + JSON analysis output artifact upload
+- v0.18 (M0): Contract hardening
+- v0.19 (M1): Incremental + performance baseline
+- v0.20 (M2): Java pilot (gated)
+- v1.0 (M3): UX & polish
+- v1.1+ (M4): Scale (use-case gated)
 
-Minimal example:
+Recent release PRs:
 
-```yaml
-name: RepoDoctor Analysis
+- v1.0 release: `dev -> main` PR **#250**
+- v1.1 release: `dev -> main` PR **#254**
 
-on:
-  pull_request:
-    branches: [dev, main]
+Detailed release tracker:
 
-jobs:
-  repodoctor:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.21'
-      - run: go test ./...
-      - run: go vet ./...
-      - run: go test ./... -run "TestRunInternalRulePipeline_MultiLanguageMixedFixtureDeterministic|TestJSTSParity_DeterministicAcrossRepeatedRuns"
-      - run: go run . analyze -path .
-```
-
----
-
-## Release Maturity
-
-- v0.18, v0.19, and v0.20 milestones are completed and released.
-- v1.0 (M3: UX & Polish) is in stabilization.
-- Current stabilization artifacts:
-  - `scripts/v019_release_stabilization_gate.ps1`
-  - `scripts/v100_release_stabilization_gate.ps1`
-  - `docs/v1.0-rd-10005-release-stabilization.md`
-
----
-
-## Roadmap
-
-### Completed
-
-- v0.8: structural stabilization and 100/100 recovery
-- v0.9: architecture hardening, invariants, and output stability improvements
-- v0.10-v0.17: 8-sprint roadmap completed (adapter contracts, rule parity, orchestration confidence, incremental foundations, architecture profiles, precision/explainability hardening, release maturity)
-
-### Next
-
-- complete v1.0 stabilization and docs closure
-- open `dev -> main` release PR after full matrix is green
-- continue with v1.1 scale items after v1.0 release merge
+- `docs/report.md`
+- `docs/v1.0-rd-10005-release-stabilization.md`
+- `docs/v1.1-rd-11003-release-gate.md`
 
 ---
 
@@ -434,23 +350,28 @@ jobs:
 
 1. Branch from `dev`
 2. Keep scope focused (single issue/goal)
-3. Run quality gates locally
+3. Run local quality gates
 4. Open PR to `dev`
-5. Merge to `main` only via green CI
+5. Merge to `main` only through green CI release flow
 
-Conventional commit prefixes are recommended: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`.
+Recommended commit prefixes:
+
+- `feat:`
+- `fix:`
+- `perf:`
+- `docs:`
+- `test:`
+- `ci:`
 
 ---
 
 ## Privacy & Repository Hygiene
 
-The following are local/private artifacts and must not be published:
+Do not publish local/private artifacts such as:
 
 - `todo.md` (any location)
-- AI planning/protocol files
+- AI planning/protocol notes
 - debug artifacts (`debug/`, `*.debug`, `debug.log`, `*.trace`)
-
-These are ignored via `.gitignore`.
 
 ---
 
