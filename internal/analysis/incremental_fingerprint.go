@@ -4,13 +4,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
-	"sync"
 )
 
 type FileFingerprint struct {
@@ -45,45 +44,55 @@ func BuildGoFingerprintMap(repoPath string) (map[string]string, error) {
 		return state, nil
 	}
 
-	workers := runtime.NumCPU()
-	if workers < 1 {
-		workers = 1
-	}
-	if workers > len(goFiles) {
-		workers = len(goFiles)
-	}
+	const fingerprintBatchSize = 128
+	buffer := make([]byte, 32*1024)
 
-	paths := make(chan string, len(goFiles))
-	results := make(chan FileFingerprint, len(goFiles))
-
-	var wg sync.WaitGroup
-	for i := 0; i < workers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for path := range paths {
-				data, readErr := os.ReadFile(path)
-				if readErr != nil {
-					continue
-				}
-				hash := sha256.Sum256(data)
-				results <- FileFingerprint{Path: path, Hash: hex.EncodeToString(hash[:])}
+	for start := 0; start < len(goFiles); start += fingerprintBatchSize {
+		end := minInt(start+fingerprintBatchSize, len(goFiles))
+		for _, path := range goFiles[start:end] {
+			hash, readErr := hashFileSHA256StreamingWithBuffer(path, buffer)
+			if readErr != nil {
+				continue
 			}
-		}()
-	}
-
-	for _, path := range goFiles {
-		paths <- path
-	}
-	close(paths)
-	wg.Wait()
-	close(results)
-
-	for fp := range results {
-		state[fp.Path] = fp.Hash
+			state[path] = hash
+		}
 	}
 
 	return state, nil
+}
+
+func hashFileSHA256Streaming(path string) (string, error) {
+	return hashFileSHA256StreamingWithBuffer(path, make([]byte, 32*1024))
+}
+
+func hashFileSHA256StreamingWithBuffer(path string, buffer []byte) (string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	if len(buffer) == 0 {
+		buffer = make([]byte, 32*1024)
+	}
+
+	hasher := sha256.New()
+	for {
+		readBytes, readErr := file.Read(buffer)
+		if readBytes > 0 {
+			if _, writeErr := hasher.Write(buffer[:readBytes]); writeErr != nil {
+				return "", writeErr
+			}
+		}
+		if readErr == io.EOF {
+			break
+		}
+		if readErr != nil {
+			return "", readErr
+		}
+	}
+
+	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
 func collectGoFiles(repoPath string) ([]string, error) {
