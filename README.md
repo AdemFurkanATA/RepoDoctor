@@ -7,7 +7,7 @@ RepoDoctor is a CLI tool that analyzes your repository’s architectural health 
 It is intentionally **not** a style linter. RepoDoctor focuses on higher-level design quality: cycles, layering violations, oversized units, and god object drift.
 
 ![CLI Version](https://img.shields.io/badge/cli-0.5.0--dev-blue)
-![Roadmap Milestone](https://img.shields.io/badge/roadmap-v0.17-complete-brightgreen)
+![Roadmap Milestone](https://img.shields.io/badge/roadmap-v1.0-in_progress-blue)
 [![Go Version](https://img.shields.io/badge/go-1.21+-00ADD8)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Structural Health](https://img.shields.io/badge/structural--health-100%2F100-brightgreen)]()
@@ -176,6 +176,7 @@ repodoctor extract -path . -module RepoDoctor
 repodoctor report -path repodoctor-report.json -format text
 repodoctor history -path .
 repodoctor generate rule my-custom-rule
+repodoctor generate ci github
 repodoctor version
 ```
 
@@ -197,6 +198,10 @@ god_object:
 rules:
   enable_size_rule: true
   enable_god_object_rule: true
+  circular_severity: critical
+  layer_severity: error
+  size_severity: warning
+  god_object_severity: warning
 
 weights:
   circular: 10
@@ -220,9 +225,16 @@ language_detection:
 
 architecture:
   profile: layered
+  custom_layer_order: [handler, service, repo]
+  custom_layer_keywords:
+    handler: [handler, controller]
+    service: [service, usecase]
+    repo: [repo, repository, data]
 ```
 
 Supported `architecture.profile` values: `clean`, `layered`, `modular-monolith`.
+
+`generate ci <github|gitlab|azure> [--force]` creates CI starter templates in deterministic paths.
 
 You can keep defaults and only override needed thresholds.
 
@@ -393,12 +405,12 @@ jobs:
 
 ## Release Maturity
 
-- Roadmap release train (`v0.10` to `v0.17`) is complete.
-- Current release maturity report: `RELEASE_MATURITY_v0.17.md`.
-- Release close gate status:
-  - `go test ./...` pass
-  - `go vet ./...` pass
-  - `go run . analyze -path .` pass (`100/100`)
+- v0.18, v0.19, and v0.20 milestones are completed and released.
+- v1.0 (M3: UX & Polish) is in stabilization.
+- Current stabilization artifacts:
+  - `scripts/v019_release_stabilization_gate.ps1`
+  - `scripts/v100_release_stabilization_gate.ps1`
+  - `docs/v1.0-rd-10005-release-stabilization.md`
 
 ---
 
@@ -412,9 +424,9 @@ jobs:
 
 ### Next
 
-- next release planning starts after v0.17 stabilization window
-- expanded rule packs and profile refinements
-- tighter CI policy templates and release automation
+- complete v1.0 stabilization and docs closure
+- open `dev -> main` release PR after full matrix is green
+- continue with v1.1 scale items after v1.0 release merge
 
 ---
 

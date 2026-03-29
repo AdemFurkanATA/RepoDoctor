@@ -15,9 +15,19 @@ type ruleTemplateData struct {
 	RuleID   string
 }
 
+type ciTemplateDefinition struct {
+	relativePath string
+	content      string
+}
+
 // RuleTemplateGenerator generates rule templates
 type RuleTemplateGenerator struct {
 	rulesDir string
+}
+
+// CITemplateGenerator generates CI pipeline templates.
+type CITemplateGenerator struct {
+	baseDir string
 }
 
 // NewRuleTemplateGenerator creates a new generator
@@ -26,6 +36,114 @@ func NewRuleTemplateGenerator(rulesDir string) *RuleTemplateGenerator {
 		rulesDir: rulesDir,
 	}
 }
+
+// NewCITemplateGenerator creates a new CI template generator.
+func NewCITemplateGenerator(baseDir string) *CITemplateGenerator {
+	return &CITemplateGenerator{baseDir: baseDir}
+}
+
+// Generate creates the CI template for the selected provider.
+func (g *CITemplateGenerator) Generate(provider string, force bool) error {
+	definition, err := resolveCITemplateDefinition(provider)
+	if err != nil {
+		return err
+	}
+
+	targetPath := filepath.Join(g.baseDir, definition.relativePath)
+	if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+		return fmt.Errorf("failed to create CI template directory: %w", err)
+	}
+
+	if _, err := os.Stat(targetPath); err == nil && !force {
+		return fmt.Errorf("CI template already exists: %s (use --force to overwrite)", targetPath)
+	}
+
+	if err := os.WriteFile(targetPath, []byte(definition.content), 0644); err != nil {
+		return fmt.Errorf("failed to write CI template: %w", err)
+	}
+
+	fmt.Printf("✅ CI template created: %s\n", targetPath)
+	return nil
+}
+
+func resolveCITemplateDefinition(provider string) (ciTemplateDefinition, error) {
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "github":
+		return ciTemplateDefinition{relativePath: filepath.Join(".github", "workflows", "repodoctor.yml"), content: githubActionsTemplate}, nil
+	case "gitlab":
+		return ciTemplateDefinition{relativePath: ".gitlab-ci.yml", content: gitlabCITemplate}, nil
+	case "azure":
+		return ciTemplateDefinition{relativePath: "azure-pipelines.yml", content: azurePipelinesTemplate}, nil
+	default:
+		return ciTemplateDefinition{}, fmt.Errorf("unsupported CI provider %q (supported: github, gitlab, azure)", provider)
+	}
+}
+
+const githubActionsTemplate = `name: repodoctor
+
+on:
+  push:
+    branches: ["main", "dev"]
+  pull_request:
+    branches: ["main", "dev"]
+
+jobs:
+  repodoctor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: Test
+        run: go test ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Structural Analysis
+        run: go run . analyze -path .
+`
+
+const gitlabCITemplate = `stages:
+  - test
+
+repodoctor:
+  stage: test
+  image: golang:1.24
+  script:
+    - go test ./...
+    - go vet ./...
+    - go run . analyze -path .
+`
+
+const azurePipelinesTemplate = `trigger:
+  branches:
+    include:
+      - main
+      - dev
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: GoTool@0
+    inputs:
+      version: "1.24"
+
+  - script: go test ./...
+    displayName: Test
+
+  - script: go vet ./...
+    displayName: Vet
+
+  - script: go run . analyze -path .
+    displayName: Structural Analysis
+`
 
 // Generate creates a new rule template file
 func (g *RuleTemplateGenerator) Generate(ruleName string) error {

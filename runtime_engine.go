@@ -4,6 +4,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"RepoDoctor/internal/engine"
 	"RepoDoctor/internal/model"
@@ -16,10 +17,19 @@ type runtimeRuleSummary struct {
 }
 
 func runInternalRulePipeline(absPath string, graph Graph, primaryLanguage string) *runtimeRuleSummary {
-	return runInternalRulePipelineWithProfile(absPath, graph, primaryLanguage, "")
+	return runInternalRulePipelineWithProfile(absPath, graph, primaryLanguage, nil)
 }
 
-func runInternalRulePipelineWithProfile(absPath string, graph Graph, primaryLanguage string, architectureProfile string) *runtimeRuleSummary {
+func runInternalRulePipelineWithProfile(absPath string, graph Graph, primaryLanguage string, architecture *ArchitectureConfig) *runtimeRuleSummary {
+	profile := ""
+	customLayerOrder := []string{}
+	customLayerKeywords := map[string][]string{}
+	if architecture != nil {
+		profile = strings.TrimSpace(architecture.Profile)
+		customLayerOrder = normalizeLayerOrder(architecture.CustomLayerOrder)
+		customLayerKeywords = normalizeLayerKeywords(architecture.CustomLayerKeywords)
+	}
+
 	registry := rules.NewRuleRegistry()
 	for _, rule := range rules.GetDefaultRegistry().GetAll() {
 		registry.MustRegister(rule)
@@ -31,7 +41,9 @@ func runInternalRulePipelineWithProfile(absPath string, graph Graph, primaryLang
 		RepositoryPath:      absPath,
 		Graph:               graph,
 		PrimaryLanguage:     primaryLanguage,
-		ArchitectureProfile: architectureProfile,
+		ArchitectureProfile: profile,
+		CustomLayerOrder:    customLayerOrder,
+		CustomLayerKeywords: customLayerKeywords,
 	})
 	result := executor.Execute(context)
 	sortViolations(result.Violations)
@@ -40,6 +52,56 @@ func runInternalRulePipelineWithProfile(absPath string, graph Graph, primaryLang
 		result:       result,
 		rulesInScope: registry.Count(),
 	}
+}
+
+func normalizeLayerOrder(raw []string) []string {
+	if len(raw) == 0 {
+		return nil
+	}
+	seen := make(map[string]bool, len(raw))
+	normalized := make([]string, 0, len(raw))
+	for _, layer := range raw {
+		value := strings.ToLower(strings.TrimSpace(layer))
+		if value == "" || seen[value] {
+			continue
+		}
+		seen[value] = true
+		normalized = append(normalized, value)
+	}
+	if len(normalized) == 0 {
+		return nil
+	}
+	return normalized
+}
+
+func normalizeLayerKeywords(raw map[string][]string) map[string][]string {
+	if len(raw) == 0 {
+		return nil
+	}
+	normalized := make(map[string][]string, len(raw))
+	for layer, aliases := range raw {
+		normalizedLayer := strings.ToLower(strings.TrimSpace(layer))
+		if normalizedLayer == "" {
+			continue
+		}
+		seenAliases := map[string]bool{}
+		normalizedAliases := make([]string, 0, len(aliases))
+		for _, alias := range aliases {
+			value := strings.ToLower(strings.TrimSpace(alias))
+			if value == "" || seenAliases[value] {
+				continue
+			}
+			seenAliases[value] = true
+			normalizedAliases = append(normalizedAliases, value)
+		}
+		if len(normalizedAliases) > 0 {
+			normalized[normalizedLayer] = normalizedAliases
+		}
+	}
+	if len(normalized) == 0 {
+		return nil
+	}
+	return normalized
 }
 
 func buildRulesAnalysisContext(absPath string, graph Graph, primaryLanguage string) rules.AnalysisContext {
@@ -111,11 +173,12 @@ func buildReportFromRuleViolations(path string, version string, cfg *Config, vio
 	godObjectMap := make(map[string]*GodObjectViolation)
 
 	for _, v := range violations {
+		v = applyConfiguredSeverity(v, cfg)
 		switch v.RuleID {
 		case "rule.circular-dependency":
-			report.Circular = append(report.Circular, CycleViolation{Path: []string{v.File}, Severity: string(v.Severity), Hint: remediationHintForViolation(v)})
+			report.Circular = append(report.Circular, parseCircularViolation(v))
 		case "rule.layer-validation":
-			report.Layer = append(report.Layer, LayerViolation{From: v.File, To: "", Message: v.Message, Hint: remediationHintForViolation(v)})
+			report.Layer = append(report.Layer, parseLayerViolation(v))
 		case "rule.size":
 			report.Size = append(report.Size, parseSizeViolation(v))
 		case "rule.god-object":
@@ -145,7 +208,52 @@ var (
 	sizeFuncRe  = regexp.MustCompile(`^Function '([^']+)' has (\d+) lines \(threshold: (\d+)\)`)
 	godFieldRe  = regexp.MustCompile(`^(.+) has (\d+) fields \(threshold: \d+\)`)
 	godMethodRe = regexp.MustCompile(`^(.+) has (\d+) methods \(threshold: \d+\)`)
+	layerMsgRe  = regexp.MustCompile(`^(.+?) \(([^)]+)\) -> (.+?) \(([^)]+)\): (.+)$`)
 )
+
+func parseCircularViolation(v model.Violation) CycleViolation {
+	path := parseCyclePath(v.Message)
+	if len(path) == 0 {
+		path = []string{v.File}
+	}
+	return CycleViolation{Path: path, Severity: string(v.Severity), Hint: remediationHintForViolation(v)}
+}
+
+func parseCyclePath(message string) []string {
+	trimmed := strings.TrimSpace(message)
+	if trimmed == "" {
+		return nil
+	}
+	parts := strings.Split(trimmed, "→")
+	path := make([]string, 0, len(parts))
+	for _, part := range parts {
+		node := strings.TrimSpace(part)
+		if node == "" {
+			continue
+		}
+		path = append(path, node)
+	}
+	if len(path) > 1 && path[0] == path[len(path)-1] {
+		path = path[:len(path)-1]
+	}
+	return path
+}
+
+func parseLayerViolation(v model.Violation) LayerViolation {
+	lv := LayerViolation{From: v.File, To: "", Message: v.Message, Hint: remediationHintForViolation(v)}
+	if m := layerMsgRe.FindStringSubmatch(v.Message); len(m) == 6 {
+		fromPath := strings.TrimSpace(m[1])
+		fromLayer := strings.TrimSpace(m[2])
+		toPath := strings.TrimSpace(m[3])
+		toLayer := strings.TrimSpace(m[4])
+		reason := strings.TrimSpace(m[5])
+
+		lv.From = fromPath
+		lv.To = toPath
+		lv.Message = fromLayer + " -> " + toLayer + ": " + reason
+	}
+	return lv
+}
 
 // parseSizeViolation extracts Lines, Threshold, and Function from a size
 // violation message instead of using hardcoded placeholder values.
@@ -214,6 +322,45 @@ func remediationHintForViolation(v model.Violation) string {
 		return "Extract cohesive responsibilities into dedicated types and keep each object focused on one concern."
 	default:
 		return ""
+	}
+}
+
+func applyConfiguredSeverity(v model.Violation, cfg *Config) model.Violation {
+	if cfg == nil || cfg.Rules == nil {
+		return v
+	}
+	severity := ""
+	switch v.RuleID {
+	case "rule.circular-dependency":
+		severity = cfg.Rules.CircularSeverity
+	case "rule.layer-validation":
+		severity = cfg.Rules.LayerSeverity
+	case "rule.size":
+		severity = cfg.Rules.SizeSeverity
+	case "rule.god-object":
+		severity = cfg.Rules.GodObjectSeverity
+	}
+	parsed, ok := parseSeverity(severity)
+	if !ok {
+		return v
+	}
+	v.Severity = parsed
+	return v
+}
+
+func parseSeverity(raw string) (model.Severity, bool) {
+	value := strings.ToLower(strings.TrimSpace(raw))
+	switch value {
+	case "info":
+		return model.SeverityInfo, true
+	case "warning":
+		return model.SeverityWarning, true
+	case "error":
+		return model.SeverityError, true
+	case "critical":
+		return model.SeverityCritical, true
+	default:
+		return "", false
 	}
 }
 

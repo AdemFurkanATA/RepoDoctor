@@ -9,16 +9,33 @@ type runtimeAnalysisContextInput struct {
 	Graph               Graph
 	PrimaryLanguage     string
 	ArchitectureProfile string
+	CustomLayerOrder    []string
+	CustomLayerKeywords map[string][]string
 }
 
 func buildUnifiedRulesAnalysisContext(input runtimeAnalysisContextInput) rules.AnalysisContext {
 	repositoryFiles := buildContextRepositoryFiles(input.Graph)
 	languages := resolveContextLanguages(input.PrimaryLanguage)
 
+	configuration := rules.Configuration{
+		"repositoryPath":      input.RepositoryPath,
+		"architectureProfile": input.ArchitectureProfile,
+	}
+	if len(input.CustomLayerOrder) > 0 {
+		configuration["customLayerOrder"] = append([]string{}, input.CustomLayerOrder...)
+	}
+	if len(input.CustomLayerKeywords) > 0 {
+		copiedKeywords := make(map[string][]string, len(input.CustomLayerKeywords))
+		for layer, aliases := range input.CustomLayerKeywords {
+			copiedKeywords[layer] = append([]string{}, aliases...)
+		}
+		configuration["customLayerKeywords"] = copiedKeywords
+	}
+
 	return rules.AnalysisContext{
 		RepositoryFiles: repositoryFiles,
 		DependencyGraph: toRulesDependencyGraph(input.Graph),
-		Configuration:   rules.Configuration{"repositoryPath": input.RepositoryPath, "architectureProfile": input.ArchitectureProfile},
+		Configuration:   configuration,
 		Languages:       languages,
 	}
 }
