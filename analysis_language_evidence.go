@@ -83,7 +83,7 @@ func loadLanguageTieBreak(absPath string) []string {
 	if config != nil && config.LanguageDetection != nil && len(config.LanguageDetection.TieBreakOrder) > 0 {
 		return append([]string(nil), config.LanguageDetection.TieBreakOrder...)
 	}
-	return []string{"Python", "TypeScript", "JavaScript", "Go"}
+	return []string{"Python", "TypeScript", "JavaScript", "Go", "Java"}
 }
 
 func rankLanguageStats(stats []languages.LanguageStat, tieBreak []string) []languages.LanguageStat {

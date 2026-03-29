@@ -39,5 +39,5 @@ func resolveContextLanguages(primaryLanguage string) []string {
 	if primaryLanguage != "" {
 		return []string{primaryLanguage}
 	}
-	return []string{"Go", "Python", "JavaScript", "TypeScript"}
+	return []string{"Go", "Python", "JavaScript", "TypeScript", "Java"}
 }
