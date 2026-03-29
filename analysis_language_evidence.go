@@ -73,10 +73,7 @@ func collectLanguageStats(absPath string) ([]languages.LanguageStat, error) {
 	}
 
 	detector := languages.NewRepositoryLanguageDetectorWithPolicy(ignoreStrategy, policy)
-	detector.RegisterAdapter(languages.NewGoAdapter())
-	detector.RegisterAdapter(languages.NewPythonAdapter())
-	detector.RegisterAdapter(languages.NewJavaScriptAdapter())
-	detector.RegisterAdapter(languages.NewTypeScriptAdapter())
+	registerCoreAdapters(detector, config)
 
 	return detector.GetLanguageStats(absPath)
 }

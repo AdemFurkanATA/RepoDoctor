@@ -404,10 +404,7 @@ func runAdapterPipeline(absPath string) (*analysis.Result, error) {
 		policy.SegmentWeights = config.LanguageDetection.SegmentWeights
 	}
 	detector := languages.NewRepositoryLanguageDetectorWithPolicy(ignoreStrategy, policy)
-	detector.RegisterAdapter(languages.NewGoAdapter())
-	detector.RegisterAdapter(languages.NewPythonAdapter())
-	detector.RegisterAdapter(languages.NewJavaScriptAdapter())
-	detector.RegisterAdapter(languages.NewTypeScriptAdapter())
+	registerCoreAdapters(detector, config)
 
 	orchestrator := analysis.NewOrchestrator(detector)
 	return orchestrator.Analyze(absPath)
