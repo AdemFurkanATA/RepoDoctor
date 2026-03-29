@@ -8,10 +8,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
-	"sync"
 )
 
 type FileFingerprint struct {
@@ -46,57 +44,52 @@ func BuildGoFingerprintMap(repoPath string) (map[string]string, error) {
 		return state, nil
 	}
 
-	workers := runtime.NumCPU()
-	if workers < 1 {
-		workers = 1
-	}
-	if workers > len(goFiles) {
-		workers = len(goFiles)
-	}
+	const fingerprintBatchSize = 128
+	buffer := make([]byte, 32*1024)
 
-	queueCapacity := workers * 2
-	if queueCapacity < 1 {
-		queueCapacity = 1
-	}
-	paths := make(chan string, queueCapacity)
-	var stateMu sync.Mutex
-
-	var wg sync.WaitGroup
-	for i := 0; i < workers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for path := range paths {
-				hash, readErr := hashFileSHA256Streaming(path)
-				if readErr != nil {
-					continue
-				}
-				stateMu.Lock()
-				state[path] = hash
-				stateMu.Unlock()
+	for start := 0; start < len(goFiles); start += fingerprintBatchSize {
+		end := minInt(start+fingerprintBatchSize, len(goFiles))
+		for _, path := range goFiles[start:end] {
+			hash, readErr := hashFileSHA256StreamingWithBuffer(path, buffer)
+			if readErr != nil {
+				continue
 			}
-		}()
+			state[path] = hash
+		}
 	}
-
-	for _, path := range goFiles {
-		paths <- path
-	}
-	close(paths)
-	wg.Wait()
 
 	return state, nil
 }
 
 func hashFileSHA256Streaming(path string) (string, error) {
+	return hashFileSHA256StreamingWithBuffer(path, make([]byte, 32*1024))
+}
+
+func hashFileSHA256StreamingWithBuffer(path string, buffer []byte) (string, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return "", err
 	}
 	defer file.Close()
 
+	if len(buffer) == 0 {
+		buffer = make([]byte, 32*1024)
+	}
+
 	hasher := sha256.New()
-	if _, err := io.Copy(hasher, file); err != nil {
-		return "", err
+	for {
+		readBytes, readErr := file.Read(buffer)
+		if readBytes > 0 {
+			if _, writeErr := hasher.Write(buffer[:readBytes]); writeErr != nil {
+				return "", writeErr
+			}
+		}
+		if readErr == io.EOF {
+			break
+		}
+		if readErr != nil {
+			return "", readErr
+		}
 	}
 
 	return hex.EncodeToString(hasher.Sum(nil)), nil
