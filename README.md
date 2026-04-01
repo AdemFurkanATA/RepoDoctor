@@ -344,6 +344,12 @@ Detailed release tracker:
 - `docs/v1.0-rd-10005-release-stabilization.md`
 - `docs/v1.1-rd-11003-release-gate.md`
 
+Planned next execution line (already prepared on GitHub):
+
+- Milestones: **M5 (v1.2)**, **M6 (v1.3)**, **M7 (v1.4)**, **M8 (v1.5)**
+- Issues: **RD-12001..RD-12006**, **RD-13001..RD-13005**, **RD-14001..RD-14004**, **RD-15001..RD-15005**
+- Execution policy: **branch-per-issue -> PR to `dev` -> green CI -> merge -> milestone release PR `dev -> main`**
+
 ---
 
 ## Contributing

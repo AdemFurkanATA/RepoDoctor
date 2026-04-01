@@ -45,7 +45,7 @@ Release path:
 
 ## Current Branch/Release State
 
-- `main` and `dev` are synchronized to latest completed release line.
+- Latest completed release line is synchronized on `main`; `dev` may temporarily run ahead with planning/docs-only deltas before the next release merge.
 - M3 and M4 issue chains are closed.
 - Mandatory quality baseline remains green:
   - `go test ./...`
