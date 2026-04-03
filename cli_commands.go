@@ -65,7 +65,7 @@ func runReport(reportPath, format string) error {
 	}
 
 	// Parse report based on format
-	if format == "json" {
+	if format == "json" || format == "json-v1" {
 		// Output JSON as-is
 		fmt.Println(string(data))
 	} else {
