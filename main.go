@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-const version = "0.5.0-dev"
+const version = "1.1.0"
 
 func main() {
 	if len(os.Args) < 2 {

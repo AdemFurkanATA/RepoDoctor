@@ -66,7 +66,7 @@ func TestCompatibilityMatrix_ConfigDefaultsRemainStable(t *testing.T) {
 
 func TestCompatibilityMatrix_ReportJSONFormats(t *testing.T) {
 	base := &StructuralReport{
-		Version:       "0.5.0-dev",
+		Version:       "1.1.0",
 		SchemaVersion: "v2",
 		Path:          "repo",
 		Score:         &StructuralScore{TotalScore: 100, MaxScore: 100},

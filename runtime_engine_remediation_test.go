@@ -13,7 +13,7 @@ func TestBuildReportFromRuleViolations_AttachesRemediationHints(t *testing.T) {
 		{RuleID: "rule.god-object", File: "obj.go", Severity: model.SeverityWarning, Message: "Manager has 12 methods (threshold: 10)"},
 	}
 
-	report := buildReportFromRuleViolations(".", "0.5.0-dev", nil, violations)
+	report := buildReportFromRuleViolations(".", "1.1.0", nil, violations)
 	if len(report.Layer) == 0 || report.Layer[0].Hint == "" {
 		t.Fatal("expected layer violation hint to be populated")
 	}
