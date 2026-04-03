@@ -10,7 +10,7 @@ import (
 func TestReporter_JSONV2_ContainsSchemaAndSummary(t *testing.T) {
 	reporter := NewReporter(FormatJSON)
 	report := &StructuralReport{
-		Version:       "0.5.0-dev",
+		Version:       "1.1.0",
 		SchemaVersion: "v2",
 		Path:          "/repo/demo",
 		Score: &StructuralScore{
@@ -38,7 +38,7 @@ func TestReporter_JSONV2_ContainsSchemaAndSummary(t *testing.T) {
 func TestReporter_JSONV1_CompatibilitySwitch(t *testing.T) {
 	reporter := NewReporter(FormatJSONV1)
 	report := &StructuralReport{
-		Version: "0.5.0-dev",
+		Version: "1.1.0",
 		Path:    "/repo/demo",
 		Score:   &StructuralScore{TotalScore: 90, MaxScore: 100},
 	}
@@ -55,7 +55,7 @@ func TestReporter_JSONV1_CompatibilitySwitch(t *testing.T) {
 func TestReporter_JSONV1_GoldenParity(t *testing.T) {
 	reporter := NewReporter(FormatJSONV1)
 	report := &StructuralReport{
-		Version: "0.5.0-dev",
+		Version: "1.1.0",
 		Path:    "demo/path",
 		Score: &StructuralScore{
 			TotalScore:       90,
@@ -73,7 +73,7 @@ func TestReporter_JSONV1_GoldenParity(t *testing.T) {
 
 	got := reporter.Format(report)
 	want := "{\n" +
-		"  \"version\": \"0.5.0-dev\",\n" +
+		"  \"version\": \"1.1.0\",\n" +
 		"  \"path\": \"demo/path\",\n" +
 		"  \"score\": {\n" +
 		"    \"total\": 90.00,\n" +
@@ -107,7 +107,7 @@ func TestReporter_JSONV1_GoldenParity(t *testing.T) {
 func TestReporter_JSONV2_GoldenStableOrderingAndSchema(t *testing.T) {
 	reporter := NewReporter(FormatJSON)
 	report := &StructuralReport{
-		Version:       "0.5.0-dev",
+		Version:       "1.1.0",
 		SchemaVersion: "v2",
 		Path:          filepath.Join(".", "demo", "repo"),
 		Score: &StructuralScore{
@@ -148,7 +148,7 @@ func TestReporter_JSON_DoesNotLeakAbsolutePathByDefault(t *testing.T) {
 	abs := filepath.Join("C:\\", "tmp", "sensitive", "repo")
 
 	report := &StructuralReport{
-		Version:       "0.5.0-dev",
+		Version:       "1.1.0",
 		SchemaVersion: "v2",
 		Path:          abs,
 		Score:         &StructuralScore{TotalScore: 100, MaxScore: 100},
@@ -165,7 +165,7 @@ func TestReporter_JSON_EscapesUntrustedFields(t *testing.T) {
 	malicious := "name\"with\ncontrol"
 
 	report := &StructuralReport{
-		Version:       "0.5.0-dev",
+		Version:       "1.1.0",
 		SchemaVersion: "v2",
 		Path:          ".",
 		Score:         &StructuralScore{TotalScore: 99, MaxScore: 100},
@@ -192,7 +192,7 @@ func TestReporter_JSONV1_DeterministicAcrossInputOrdering(t *testing.T) {
 	reporter := NewReporter(FormatJSONV1)
 	build := func(circular []CycleViolation, layer []LayerViolation, size []SizeViolation, god []GodObjectViolation) *StructuralReport {
 		return &StructuralReport{
-			Version: "0.5.0-dev",
+			Version: "1.1.0",
 			Path:    "repo",
 			Score: &StructuralScore{
 				TotalScore:       80,
@@ -241,7 +241,7 @@ func TestReporter_JSONV1_DeterministicAcrossInputOrdering(t *testing.T) {
 func TestReporter_JSONV1_WithViolations_StaysValidJSON(t *testing.T) {
 	reporter := NewReporter(FormatJSONV1)
 	report := &StructuralReport{
-		Version: "0.5.0-dev",
+		Version: "1.1.0",
 		Path:    "repo",
 		Score: &StructuralScore{
 			TotalScore:       92,

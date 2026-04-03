@@ -6,7 +6,7 @@ RepoDoctor is a CLI tool that analyzes architectural quality in code repositorie
 It focuses on **structure-level risks** (dependency cycles, layer violations, oversized units, god objects),
 not formatting or style-lint details.
 
-![CLI Version](https://img.shields.io/badge/cli-0.5.0--dev-blue)
+![CLI Version](https://img.shields.io/badge/cli-1.1.0-blue)
 ![Roadmap Milestone](https://img.shields.io/badge/roadmap-v1.1-complete-brightgreen)
 [![Go Version](https://img.shields.io/badge/go-1.21+-00ADD8)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
