@@ -4,6 +4,7 @@ import (
 	"RepoDoctor/internal/analysis"
 	"RepoDoctor/internal/domain"
 	"RepoDoctor/internal/languages"
+	"RepoDoctor/internal/logger"
 	"RepoDoctor/internal/model"
 	"flag"
 	"fmt"
@@ -406,7 +407,7 @@ func runAdapterPipeline(absPath string) (*analysis.Result, error) {
 	detector := languages.NewRepositoryLanguageDetectorWithPolicy(ignoreStrategy, policy)
 	registerCoreAdapters(detector, config)
 
-	orchestrator := analysis.NewOrchestrator(detector)
+	orchestrator := analysis.NewOrchestratorWithLogger(detector, logger.NewFromEnv())
 	return orchestrator.Analyze(absPath)
 }
 
