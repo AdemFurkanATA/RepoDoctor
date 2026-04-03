@@ -248,6 +248,7 @@ Current CI pipeline includes:
   - `scripts/v019_release_stabilization_gate.ps1`
   - `scripts/v100_release_stabilization_gate.ps1`
   - `scripts/v110_release_stabilization_gate.ps1`
+  - `scripts/v120_release_stabilization_gate.ps1`
 
 You can also scaffold CI templates quickly:
 
