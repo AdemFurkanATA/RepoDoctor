@@ -211,7 +211,7 @@ func handleExtractCommand(args []string) error {
 func handleReportCommand(args []string) error {
 	reportCmd := flag.NewFlagSet("report", flag.ExitOnError)
 	path := reportCmd.String("path", "repodoctor-report.json", "Path to report file")
-	format := reportCmd.String("format", "text", "Output format (text, json)")
+	format := reportCmd.String("format", "text", "Output format (text, json, json-v1)")
 	jsonOut := reportCmd.Bool("json", false, "Output in JSON format")
 	reportCmd.Parse(args)
 
@@ -468,7 +468,7 @@ func generateReport(scorer *StructuralScorer, absPath, format string, verbose bo
 	reporter := NewColoredReporter(OutputFormat(format), colorEnabled)
 	report := reporter.GenerateReport(scorer, absPath, version)
 
-	if format == "json" {
+	if format == "json" || format == "json-v1" {
 		fmt.Println(reporter.Format(report))
 	} else {
 		// Use colored output for text format
@@ -495,7 +495,7 @@ func generateRuleEngineReport(absPath, format string, verbose bool, colorEnabled
 	}
 
 	reporter := NewColoredReporter(OutputFormat(format), colorEnabled)
-	if format == "json" {
+	if format == "json" || format == "json-v1" {
 		fmt.Println(reporter.Format(report))
 	} else {
 		var sb strings.Builder
