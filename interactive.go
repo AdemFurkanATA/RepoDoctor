@@ -16,6 +16,7 @@ type InteractiveMode struct {
 	io               *interactiveIO
 	configController *InteractiveConfigController
 	session          *InteractiveSession
+	fixSuggestions   *InteractiveFixSuggestionAdvisor
 }
 
 type interactiveIO struct {
@@ -35,6 +36,7 @@ func NewInteractiveMode() *InteractiveMode {
 		io:               io,
 		configController: NewInteractiveConfigController(io),
 		session:          nil,
+		fixSuggestions:   NewInteractiveFixSuggestionAdvisorFromEnv(io),
 	}
 }
 
@@ -78,7 +80,7 @@ func (i *InteractiveMode) analyzeMenu() {
 	switch choice {
 	case 1:
 		fmt.Println("\nAnalyzing current repository...")
-		runAnalyze(".", "text", false, true, true, profilingRequest{})
+		i.runInteractiveAnalysis(".")
 	case 2:
 		path := i.io.readString("\nEnter path to analyze: ")
 		if path == "" {
@@ -86,12 +88,30 @@ func (i *InteractiveMode) analyzeMenu() {
 			return
 		}
 		fmt.Printf("\nAnalyzing repository: %s\n", path)
-		runAnalyze(path, "text", false, true, true, profilingRequest{})
+		i.runInteractiveAnalysis(path)
 	case 3:
 		return
 	default:
 		fmt.Println("Invalid choice")
 	}
+}
+
+func (i *InteractiveMode) runInteractiveAnalysis(path string) {
+	if i.fixSuggestions == nil || !i.fixSuggestions.Enabled {
+		runAnalyze(path, "text", false, true, true, profilingRequest{})
+		return
+	}
+
+	service := NewAnalysisService()
+	_, report := service.RunWithReport(AnalyzeRequest{
+		Path:            path,
+		Format:          "text",
+		Verbose:         false,
+		ColorEnabled:    true,
+		ExitOnViolation: false,
+		Profiling:       profilingRequest{},
+	})
+	i.fixSuggestions.MaybePrint(report)
 }
 
 // viewHistory displays analysis history
