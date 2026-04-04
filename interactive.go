@@ -78,7 +78,7 @@ func (i *InteractiveMode) analyzeMenu() {
 	switch choice {
 	case 1:
 		fmt.Println("\nAnalyzing current repository...")
-		runAnalyze(".", "text", false, true, true)
+		runAnalyze(".", "text", false, true, true, profilingRequest{})
 	case 2:
 		path := i.io.readString("\nEnter path to analyze: ")
 		if path == "" {
@@ -86,7 +86,7 @@ func (i *InteractiveMode) analyzeMenu() {
 			return
 		}
 		fmt.Printf("\nAnalyzing repository: %s\n", path)
-		runAnalyze(path, "text", false, true, true)
+		runAnalyze(path, "text", false, true, true, profilingRequest{})
 	case 3:
 		return
 	default:

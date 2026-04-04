@@ -79,9 +79,11 @@ func TestArchitecture_PurityBoundary_NoSideEffectImportsInSensitivePackages(t *t
 		modulePath + "/internal/rules",
 	}
 	bannedImports := map[string]struct{}{
-		"os/exec": {},
-		"syscall": {},
-		"unsafe":  {},
+		"os/exec":                        {},
+		"syscall":                        {},
+		"unsafe":                         {},
+		modulePath + "/internal/logger":  {},
+		modulePath + "/internal/metrics": {},
 	}
 
 	fset := token.NewFileSet()
@@ -136,6 +138,8 @@ func boundaryViolation(fromPkg, toPkg, modulePath string) (string, bool) {
 	enginePkg := modulePath + "/internal/engine"
 	modelPkg := modulePath + "/internal/model"
 	domainPkg := modulePath + "/internal/domain"
+	loggerPkg := modulePath + "/internal/logger"
+	metricsPkg := modulePath + "/internal/metrics"
 
 	if !strings.HasPrefix(fromPkg, modulePath+"/internal/") {
 		return "", false
@@ -153,7 +157,7 @@ func boundaryViolation(fromPkg, toPkg, modulePath string) (string, bool) {
 	}
 
 	if fromPkg == analysisPkg {
-		if toPkg != languagesPkg && toPkg != modelPkg && toPkg != domainPkg {
+		if toPkg != languagesPkg && toPkg != modelPkg && toPkg != domainPkg && toPkg != loggerPkg && toPkg != metricsPkg {
 			return fmt.Sprintf("%s imports forbidden internal dependency %s", fromPkg, toPkg), true
 		}
 		return "", false
