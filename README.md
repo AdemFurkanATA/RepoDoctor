@@ -130,6 +130,16 @@ docker build -t repodoctor:local .
 docker run --rm -v "$(pwd):/repo" repodoctor:local analyze -path /repo
 ```
 
+### VS Code extension skeleton
+
+```bash
+cd vscode-repodoctor
+npm install
+npm run compile
+```
+
+See `docs/v1.5-rd-15003-release-distribution.md` for release distribution details.
+
 Distribution pipeline details:
 
 - `Dockerfile`
