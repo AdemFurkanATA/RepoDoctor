@@ -20,6 +20,17 @@ func TestCLIError_ErrorAndDisplay(t *testing.T) {
 	if !strings.Contains(output, "Suggestion") || !strings.Contains(output, "runtime failed") {
 		t.Fatalf("expected display output with suggestion and message, got %q", output)
 	}
+	if strings.Contains(output, "boom") {
+		t.Fatalf("expected debug details to stay hidden by default, got %q", output)
+	}
+
+	t.Setenv(debugErrorsEnv, "1")
+	debugOutput := captureStderr(t, func() {
+		cliErr.Display()
+	})
+	if !strings.Contains(debugOutput, "Details: boom") {
+		t.Fatalf("expected debug details when %s=1, got %q", debugErrorsEnv, debugOutput)
+	}
 }
 
 func TestErrorHelpersAndSuggestionLookup(t *testing.T) {
@@ -48,6 +59,41 @@ func TestErrorHelpersAndSuggestionLookup(t *testing.T) {
 
 	if msg := FormatErrorMessage(ErrorRuntime, "x"); !strings.Contains(msg, "Runtime Error") {
 		t.Fatalf("unexpected formatted message: %q", msg)
+	}
+}
+
+func TestCLIError_CodeClassAndUnwrap(t *testing.T) {
+	original := errors.New("root-cause")
+	err := NewCLIError(ErrorInvalidArgument, "bad arg", "fix it", original)
+
+	if err.Code != "INVALID_ARGUMENT" {
+		t.Fatalf("expected stable code INVALID_ARGUMENT, got %q", err.Code)
+	}
+	if err.Class() != ErrorClassValidation {
+		t.Fatalf("expected validation class, got %q", err.Class())
+	}
+	if !errors.Is(err, original) {
+		t.Fatal("expected wrapped error to support errors.Is")
+	}
+}
+
+func TestCategoryCode_Mapping(t *testing.T) {
+	cases := []struct {
+		category ErrorCategory
+		code     string
+	}{
+		{ErrorCLIUsage, "CLI_USAGE"},
+		{ErrorConfiguration, "CONFIGURATION"},
+		{ErrorAnalysis, "ANALYSIS"},
+		{ErrorRuntime, "RUNTIME"},
+		{ErrorFileNotFound, "FILE_NOT_FOUND"},
+		{ErrorInvalidArgument, "INVALID_ARGUMENT"},
+	}
+
+	for _, tc := range cases {
+		if got := CategoryCode(tc.category); got != tc.code {
+			t.Fatalf("CategoryCode(%q) expected %q, got %q", tc.category, tc.code, got)
+		}
 	}
 }
 
