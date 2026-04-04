@@ -70,9 +70,8 @@ func TestRuleExecutor_ConcurrentExecute_NoRaceOnSharedRegistry(t *testing.T) {
 	const ruleCount = 20
 	const workers = 16
 
-	hits := make([]int, ruleCount)
 	for i := 0; i < ruleCount; i++ {
-		registry.MustRegister(&stubRule{id: fmt.Sprintf("rule.concurrent.%03d", i), caps: rules.RuleCapabilities{SupportsMultipleLanguages: true}, hits: &hits[i]})
+		registry.MustRegister(&stubRule{id: fmt.Sprintf("rule.concurrent.%03d", i), caps: rules.RuleCapabilities{SupportsMultipleLanguages: true}})
 	}
 
 	executor := NewRuleExecutor(registry)
@@ -104,7 +103,9 @@ func (r *stubRule) Category() string                     { return "testing" }
 func (r *stubRule) Severity() string                     { return "info" }
 func (r *stubRule) Capabilities() rules.RuleCapabilities { return r.caps }
 func (r *stubRule) Evaluate(context rules.AnalysisContext) []model.Violation {
-	*r.hits = *r.hits + 1
+	if r.hits != nil {
+		*r.hits = *r.hits + 1
+	}
 	return nil
 }
 
