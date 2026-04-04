@@ -5,6 +5,7 @@ import (
 	"os"
 
 	analysispkg "RepoDoctor/internal/analysis"
+	metricsPkg "RepoDoctor/internal/metrics"
 )
 
 type AnalyzeRequest struct {
@@ -85,9 +86,40 @@ func (s *AnalysisService) Run(request AnalyzeRequest) int {
 	progress.Complete()
 
 	handleTrendAnalysis(absPath, report, request.Verbose)
+	if metricsErr := exportMetricsSnapshot(absPath, request.Format, analysisResult, report); metricsErr != nil {
+		fmt.Fprintf(os.Stderr, "%s", ColorWarn(fmt.Sprintf("Warning: metrics export skipped: %v\n", metricsErr)))
+	}
 
 	exitCode := determineExitCode(report)
 	return exitCode
+}
+
+func exportMetricsSnapshot(absPath, outputFormat string, result *analysispkg.Result, report *StructuralReport) error {
+	metricsPath, enabled, err := resolveMetricsExportPath(absPath)
+	if err != nil || !enabled {
+		return err
+	}
+
+	snapshot := metricsPkg.Snapshot{
+		Version:         version,
+		Adapter:         result.AdapterName,
+		OutputFormat:    outputFormat,
+		FilesDetected:   len(result.Files),
+		GraphNodes:      0,
+		GraphEdges:      0,
+		CircularCount:   len(report.Circular),
+		LayerCount:      len(report.Layer),
+		SizeCount:       len(report.Size),
+		GodObjectCount:  len(report.GodObject),
+		TotalViolations: len(report.Circular) + len(report.Layer) + len(report.Size) + len(report.GodObject),
+	}
+
+	if result.Graph != nil {
+		snapshot.GraphNodes = result.Graph.NodeCount()
+		snapshot.GraphEdges = result.Graph.EdgeCount()
+	}
+
+	return metricsPkg.Write(metricsPath, snapshot)
 }
 
 func (s *AnalysisService) reportAdapterGraph(progress *ProgressReporter, result *analysispkg.Result, verbose bool) Graph {
