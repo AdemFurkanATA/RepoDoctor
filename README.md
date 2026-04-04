@@ -281,6 +281,7 @@ Current CI pipeline includes:
   - `scripts/v120_release_stabilization_gate.ps1`
   - `scripts/v130_release_stabilization_gate.ps1`
   - `scripts/v140_release_stabilization_gate.ps1`
+  - `scripts/v150_release_stabilization_gate.ps1`
 
 You can also scaffold CI templates quickly:
 
@@ -376,6 +377,8 @@ Detailed release tracker:
 - `docs/report.md`
 - `docs/v1.0-rd-10005-release-stabilization.md`
 - `docs/v1.1-rd-11003-release-gate.md`
+- `docs/v1.5-rd-15003-release-distribution.md`
+- `docs/v1.5-rd-15004-architecture-impact.md`
 
 Planned next execution line (already prepared on GitHub):
 
