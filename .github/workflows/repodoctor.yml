@@ -93,6 +93,9 @@ jobs:
           GOMAXPROCS: 1
         run: ./scripts/v130_release_stabilization_gate.ps1
 
+      - name: Run memory budget guard tests
+        run: go test ./internal/analysis -run "TestOrchestrator_Analyze_AppliesMemoryFileBudget|TestOrchestrator_Analyze_InvalidMemoryBudgetFailSoft"
+
       - name: Run RepoDoctor analysis
         run: go run . analyze -path . -format text
 
