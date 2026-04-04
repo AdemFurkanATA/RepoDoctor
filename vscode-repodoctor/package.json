@@ -1,0 +1,51 @@
+{
+  "name": "vscode-repodoctor",
+  "displayName": "RepoDoctor",
+  "description": "RepoDoctor CLI integration for VS Code diagnostics.",
+  "version": "0.0.1",
+  "publisher": "repodoctor",
+  "engines": {
+    "vscode": "^1.92.0"
+  },
+  "categories": [
+    "Linters",
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:repodoctor.analyzeWorkspace",
+    "workspaceContains:**/*"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "repodoctor.analyzeWorkspace",
+        "title": "RepoDoctor: Analyze Workspace"
+      }
+    ],
+    "configuration": {
+      "title": "RepoDoctor",
+      "properties": {
+        "repodoctor.runOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run RepoDoctor analysis on file save."
+        },
+        "repodoctor.binaryPath": {
+          "type": "string",
+          "default": "repodoctor",
+          "description": "Path to repodoctor binary."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.16.2",
+    "@types/vscode": "^1.92.0",
+    "typescript": "^5.6.2"
+  }
+}
