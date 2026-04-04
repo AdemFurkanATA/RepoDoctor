@@ -26,6 +26,8 @@ func NewAnalysisService() *AnalysisService {
 func (s *AnalysisService) Run(request AnalyzeRequest) int {
 	absPath := validatePath(request.Path)
 	InitColorFormatter(request.ColorEnabled)
+	reportCacheWarmup(absPath, request.Verbose)
+
 	profiler, profileErr := startProfiling(request.Profiling)
 	if profileErr != nil {
 		fmt.Fprintf(os.Stderr, "%s", ColorError(fmt.Sprintf("Error: profiling setup failed: %v\n", profileErr)))
@@ -54,6 +56,7 @@ func (s *AnalysisService) Run(request AnalyzeRequest) int {
 
 	if request.Verbose {
 		fmt.Printf(ColorInfo("Selected adapter: ")+"%s\n", analysisResult.AdapterName)
+		reportAnalysisWarnings(analysisResult.Warnings)
 	}
 
 	graph := s.reportAdapterGraph(progress, analysisResult, request.Verbose)
@@ -92,6 +95,26 @@ func (s *AnalysisService) Run(request AnalyzeRequest) int {
 
 	exitCode := determineExitCode(report)
 	return exitCode
+}
+
+func reportCacheWarmup(absPath string, verbose bool) {
+	cacheWarmupWarnings, warmupErr := maybeWarmupIncrementalCache(absPath)
+	if warmupErr != nil {
+		fmt.Fprintf(os.Stderr, "%s", ColorWarn(fmt.Sprintf("Warning: cache warmup skipped: %v\n", warmupErr)))
+		return
+	}
+	if !verbose {
+		return
+	}
+	for _, warning := range cacheWarmupWarnings {
+		fmt.Printf("%s", ColorInfo(warning+"\n"))
+	}
+}
+
+func reportAnalysisWarnings(warnings []string) {
+	for _, warning := range warnings {
+		fmt.Printf("%s", ColorWarn(fmt.Sprintf("Warning: %s\n", warning)))
+	}
 }
 
 func exportMetricsSnapshot(absPath, outputFormat string, result *analysispkg.Result, report *StructuralReport) error {

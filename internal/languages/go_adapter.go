@@ -7,21 +7,50 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 
 	"RepoDoctor/internal/model"
 )
 
 // GoAdapter implements LanguageAdapter for Go programming language
 type GoAdapter struct {
-	fset *token.FileSet
+	parseWorkers int
 }
+
+const maxGoParseWorkers = 8
 
 // NewGoAdapter creates a new Go language adapter
 func NewGoAdapter() *GoAdapter {
 	return &GoAdapter{
-		fset: token.NewFileSet(),
+		parseWorkers: defaultGoParseWorkers(),
 	}
+}
+
+func defaultGoParseWorkers() int {
+	workers := runtime.GOMAXPROCS(0)
+	if workers < 1 {
+		workers = 1
+	}
+	if workers > maxGoParseWorkers {
+		workers = maxGoParseWorkers
+	}
+	return workers
+}
+
+func goWorkerCount(configuredWorkers, total int) int {
+	if total <= 1 {
+		return 1
+	}
+	workers := configuredWorkers
+	if workers < 1 {
+		workers = 1
+	}
+	if workers > total {
+		workers = total
+	}
+	return workers
 }
 
 // Name returns the language name
@@ -70,14 +99,40 @@ func (a *GoAdapter) DetectFiles(repoPath string) ([]string, error) {
 // CollectMetrics extracts Go-specific metrics from source files
 func (a *GoAdapter) CollectMetrics(files []string) (*model.RepositoryMetrics, error) {
 	metrics := model.NewRepositoryMetrics()
+	if len(files) == 0 {
+		return metrics, nil
+	}
 
-	for _, file := range files {
-		fileMetrics, err := a.collectFileMetrics(file)
-		if err != nil {
+	type result struct {
+		fm  *model.FileMetrics
+		err error
+	}
+	results := make([]result, len(files))
+
+	jobs := make(chan int, len(files))
+	for idx := range files {
+		jobs <- idx
+	}
+	close(jobs)
+
+	var wg sync.WaitGroup
+	for worker := 0; worker < goWorkerCount(a.parseWorkers, len(files)); worker++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for idx := range jobs {
+				fm, err := a.collectFileMetrics(files[idx])
+				results[idx] = result{fm: fm, err: err}
+			}
+		}()
+	}
+	wg.Wait()
+
+	for _, r := range results {
+		if r.err != nil || r.fm == nil {
 			continue // Skip files that can't be parsed
 		}
-
-		metrics.AddFileMetrics(*fileMetrics)
+		metrics.AddFileMetrics(*r.fm)
 	}
 
 	return metrics, nil
@@ -85,7 +140,8 @@ func (a *GoAdapter) CollectMetrics(files []string) (*model.RepositoryMetrics, er
 
 // collectFileMetrics extracts metrics from a single Go file
 func (a *GoAdapter) collectFileMetrics(path string) (*model.FileMetrics, error) {
-	node, err := parser.ParseFile(a.fset, path, nil, parser.ParseComments)
+	fset := token.NewFileSet()
+	node, err := parser.ParseFile(fset, path, nil, parser.ParseComments)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +153,7 @@ func (a *GoAdapter) collectFileMetrics(path string) (*model.FileMetrics, error) 
 	}
 
 	// Count lines
-	file := a.fset.File(node.Pos())
+	file := fset.File(node.Pos())
 	if file != nil {
 		fm.Lines = file.LineCount()
 	}
@@ -110,12 +166,12 @@ func (a *GoAdapter) collectFileMetrics(path string) (*model.FileMetrics, error) 
 		switch x := n.(type) {
 		case *ast.FuncDecl:
 			fm.Functions++
-			funcMetrics := goExtractFunctionMetrics(a.fset, x, path)
+			funcMetrics := goExtractFunctionMetrics(fset, x, path)
 			metrics.AddFunctionMetrics(*funcMetrics)
 
 		case *ast.TypeSpec:
 			if structType, ok := x.Type.(*ast.StructType); ok {
-				structMetrics := goExtractStructMetrics(a.fset, x, structType, path)
+				structMetrics := goExtractStructMetrics(fset, x, structType, path)
 				metrics.AddStructMetrics(*structMetrics)
 			}
 		}
@@ -167,53 +223,78 @@ func goExtractStructMetrics(fset *token.FileSet, typeSpec *ast.TypeSpec, structT
 func (a *GoAdapter) BuildDependencyGraph(files []string) (*model.DependencyGraph, error) {
 	graph := model.NewDependencyGraph()
 	modulePath := resolveGoModulePath(files)
+	entries := parseGoImportEntriesParallel(files, a.parseWorkers)
 
-	for _, file := range files {
-		node, err := goParseFileAndAddToGraph(a.fset, file, modulePath, graph)
-		if err != nil {
+	for idx, file := range files {
+		entry := entries[idx]
+		if entry == nil {
 			continue
 		}
 
-		// Add edges for imports
-		if node != nil {
-			for _, imp := range node.Imports {
-				graph.AddEdge(node.ID, imp)
+		node := graph.AddNode(file, file, entry.packageName)
+		for _, imp := range entry.imports {
+			node.Imports = append(node.Imports, imp)
+			if node.Metadata == nil {
+				node.Metadata = make(map[string]string)
 			}
+			node.Metadata["import_class:"+imp] = string(classifyGoImportWithModule(imp, modulePath))
+		}
+		for _, imp := range entry.imports {
+			graph.AddEdge(node.ID, imp)
 		}
 	}
 
 	return graph, nil
 }
 
-// goParseFileAndAddToGraph parses a Go file and adds it to the dependency graph.
-// Package-level helper to keep GoAdapter method count within SRP bounds.
-func goParseFileAndAddToGraph(fset *token.FileSet, path, modulePath string, graph *model.DependencyGraph) (*model.Node, error) {
+type goImportEntry struct {
+	packageName string
+	imports     []string
+}
+
+func parseGoImportEntriesParallel(files []string, configuredWorkers int) []*goImportEntry {
+	entries := make([]*goImportEntry, len(files))
+	if len(files) == 0 {
+		return entries
+	}
+
+	jobs := make(chan int, len(files))
+	for idx := range files {
+		jobs <- idx
+	}
+	close(jobs)
+
+	var wg sync.WaitGroup
+	for worker := 0; worker < goWorkerCount(configuredWorkers, len(files)); worker++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for idx := range jobs {
+				entries[idx] = parseGoImportEntry(files[idx])
+			}
+		}()
+	}
+	wg.Wait()
+
+	return entries
+}
+
+func parseGoImportEntry(path string) *goImportEntry {
+	fset := token.NewFileSet()
 	node, err := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
 	if err != nil {
-		return nil, err
+		return nil
 	}
 
-	fileInfo := fset.File(node.Pos())
-	if fileInfo == nil {
-		return nil, nil
-	}
-
-	pkgName := node.Name.Name
-	nodeID := path
-
-	graphNode := graph.AddNode(nodeID, path, pkgName)
-
-	// Extract imports
+	imports := make([]string, 0, len(node.Imports))
 	for _, imp := range node.Imports {
-		importPath := strings.Trim(imp.Path.Value, "\"")
-		graphNode.Imports = append(graphNode.Imports, importPath)
-		if graphNode.Metadata == nil {
-			graphNode.Metadata = make(map[string]string)
-		}
-		graphNode.Metadata["import_class:"+importPath] = string(classifyGoImportWithModule(importPath, modulePath))
+		imports = append(imports, strings.Trim(imp.Path.Value, "\""))
 	}
 
-	return graphNode, nil
+	return &goImportEntry{
+		packageName: node.Name.Name,
+		imports:     imports,
+	}
 }
 
 func resolveGoModulePath(files []string) string {
