@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -92,4 +93,70 @@ func (s *FileIncrementalSnapshotStore) snapshotPath(cacheKey string) (string, er
 		return "", fmt.Errorf("cache key must be 64-char lowercase hex")
 	}
 	return filepath.Join(s.baseDir, normalized+".json"), nil
+}
+
+// WarmupFromFilesystem validates on-disk cache entries with fail-soft behavior.
+// It never executes repository code and only reads files from store base directory.
+func (s *FileIncrementalSnapshotStore) WarmupFromFilesystem(limit int) (int, []string, error) {
+	if s == nil {
+		return 0, nil, fmt.Errorf("snapshot store is required")
+	}
+	if limit <= 0 {
+		limit = 128
+	}
+
+	entries, err := os.ReadDir(s.baseDir)
+	if err != nil {
+		return 0, nil, fmt.Errorf("read incremental cache directory: %w", err)
+	}
+
+	sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
+
+	warmed := 0
+	warnings := make([]string, 0)
+	for _, entry := range entries {
+		if warmed >= limit {
+			break
+		}
+		if entry.IsDir() {
+			continue
+		}
+		if entry.Type()&os.ModeSymlink != 0 {
+			warnings = append(warnings, "skipped symlink cache entry: "+entry.Name())
+			continue
+		}
+
+		key, ok := parseSnapshotFileName(entry.Name())
+		if !ok {
+			continue
+		}
+
+		path := filepath.Join(s.baseDir, entry.Name())
+		data, readErr := os.ReadFile(path)
+		if readErr != nil {
+			warnings = append(warnings, "failed reading cache entry: "+entry.Name())
+			continue
+		}
+
+		snapshot, valid := UnmarshalIncrementalCacheSnapshotSafe(data)
+		if !valid || snapshot.CacheKey != key {
+			warnings = append(warnings, "skipped malformed cache entry: "+entry.Name())
+			continue
+		}
+
+		warmed++
+	}
+
+	return warmed, warnings, nil
+}
+
+func parseSnapshotFileName(name string) (string, bool) {
+	if !strings.HasSuffix(name, ".json") {
+		return "", false
+	}
+	key := strings.TrimSuffix(name, ".json")
+	if len(key) != 64 || !isLowerHex(key) {
+		return "", false
+	}
+	return key, true
 }
