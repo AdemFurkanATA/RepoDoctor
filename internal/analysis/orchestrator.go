@@ -2,12 +2,16 @@ package analysis
 
 import (
 	"fmt"
+	"os"
 	"sort"
+	"strconv"
 
 	"RepoDoctor/internal/languages"
 	"RepoDoctor/internal/logger"
 	"RepoDoctor/internal/model"
 )
+
+const memoryFileBudgetEnv = "REPODOCTOR_MEMORY_FILE_BUDGET"
 
 // Orchestrator coordinates language detection and adapter-driven analysis steps.
 type Orchestrator struct {
@@ -21,6 +25,7 @@ type Result struct {
 	Files       []string
 	Metrics     *model.RepositoryMetrics
 	Graph       *model.DependencyGraph
+	Warnings    []string
 }
 
 // NewOrchestrator creates a new analysis orchestrator.
@@ -65,6 +70,10 @@ func (o *Orchestrator) Analyze(repoPath string) (*Result, error) {
 		return nil, fmt.Errorf("file detection failed for %s: %w", adapter.Name(), err)
 	}
 	sort.Strings(files)
+	files, warnings := applyMemoryFileBudget(files)
+	for _, warning := range warnings {
+		o.logger.Warn("analysis.memory_budget", "warning", warning)
+	}
 	o.logger.Debug("analysis.files_detected", "adapter", adapter.Name(), "count", len(files))
 
 	metrics, err := adapter.CollectMetrics(files)
@@ -85,5 +94,25 @@ func (o *Orchestrator) Analyze(repoPath string) (*Result, error) {
 		Files:       files,
 		Metrics:     metrics,
 		Graph:       graph,
+		Warnings:    warnings,
 	}, nil
+}
+
+func applyMemoryFileBudget(files []string) ([]string, []string) {
+	rawBudget := os.Getenv(memoryFileBudgetEnv)
+	if rawBudget == "" {
+		return files, nil
+	}
+
+	budget, err := strconv.Atoi(rawBudget)
+	if err != nil || budget <= 0 {
+		return files, []string{fmt.Sprintf("invalid %s value %q; ignoring budget", memoryFileBudgetEnv, rawBudget)}
+	}
+
+	if len(files) <= budget {
+		return files, nil
+	}
+
+	warning := fmt.Sprintf("memory budget active: limiting file set from %d to %d", len(files), budget)
+	return files[:budget], []string{warning}
 }

@@ -54,6 +54,9 @@ func (s *AnalysisService) Run(request AnalyzeRequest) int {
 
 	if request.Verbose {
 		fmt.Printf(ColorInfo("Selected adapter: ")+"%s\n", analysisResult.AdapterName)
+		for _, warning := range analysisResult.Warnings {
+			fmt.Printf("%s", ColorWarn(fmt.Sprintf("Warning: %s\n", warning)))
+		}
 	}
 
 	graph := s.reportAdapterGraph(progress, analysisResult, request.Verbose)
