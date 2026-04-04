@@ -75,7 +75,7 @@ func handleAnalyzeCommand(args []string) error {
 		return nil
 	}
 
-	runAnalyze(req.path, req.format, req.verbose, req.colorEnabled, true)
+	runAnalyze(req.path, req.format, req.verbose, req.colorEnabled, true, req.profiling)
 	return nil
 }
 
@@ -85,6 +85,7 @@ type analyzeCommandRequest struct {
 	verbose      bool
 	colorEnabled bool
 	watch        bool
+	profiling    profilingRequest
 }
 
 func composeAnalyzeRequest(args []string) (*analyzeCommandRequest, error) {
@@ -99,12 +100,18 @@ func composeAnalyzeRequest(args []string) (*analyzeCommandRequest, error) {
 		return nil, normalizeErr
 	}
 
+	profiling, profilingErr := buildProfilingRequest(normalizedPath, parsed.cpuProfile, parsed.memProfile, parsed.watch)
+	if profilingErr != nil {
+		return nil, profilingErr
+	}
+
 	return &analyzeCommandRequest{
 		path:         normalizedPath,
 		format:       parsed.outputFormat,
 		verbose:      parsed.verbose,
 		colorEnabled: !parsed.noColor,
 		watch:        parsed.watch,
+		profiling:    profiling,
 	}, nil
 }
 
@@ -114,6 +121,8 @@ type analyzeFlagInput struct {
 	verbose      bool
 	watch        bool
 	noColor      bool
+	cpuProfile   string
+	memProfile   string
 	positional   []string
 }
 
@@ -127,6 +136,8 @@ func parseAnalyzeFlags(args []string) (*analyzeFlagInput, error) {
 	jsonOut := analyzeCmd.Bool("json", false, "Output in JSON format")
 	watch := analyzeCmd.Bool("watch", false, "Enable watch mode for continuous analysis")
 	noColor := analyzeCmd.Bool("no-color", false, "Disable colored output")
+	cpuProfile := analyzeCmd.String("cpu-profile", "", "Write CPU profile to a file under analyze path")
+	memProfile := analyzeCmd.String("mem-profile", "", "Write heap profile to a file under analyze path")
 
 	if err := analyzeCmd.Parse(args); err != nil {
 		return nil, NewCLIError(
@@ -148,6 +159,8 @@ func parseAnalyzeFlags(args []string) (*analyzeFlagInput, error) {
 		verbose:      *verbose,
 		watch:        *watch,
 		noColor:      *noColor,
+		cpuProfile:   *cpuProfile,
+		memProfile:   *memProfile,
 		positional:   analyzeCmd.Args(),
 	}, nil
 }
@@ -299,6 +312,8 @@ Arguments:
     -verbose   Enable verbose output
     -watch     Enable watch mode for continuous analysis
     -no-color  Disable colored output (default: enabled)
+    -cpu-profile  Write CPU profile under analyze path (opt-in)
+    -mem-profile  Write heap profile under analyze path (opt-in)
 
   extract [options]
     -path      Directory path to extract imports from (default: current directory)
@@ -323,15 +338,22 @@ Examples:
   repodoctor version`)
 }
 
-func runAnalyze(path, format string, verbose bool, colorEnabled bool, exitOnViolation bool) int {
+func runAnalyze(path, format string, verbose bool, colorEnabled bool, exitOnViolation bool, profiling profilingRequest) int {
 	service := NewAnalysisService()
-	return service.Run(AnalyzeRequest{
+	exitCode := service.Run(AnalyzeRequest{
 		Path:            path,
 		Format:          format,
 		Verbose:         verbose,
 		ColorEnabled:    colorEnabled,
 		ExitOnViolation: exitOnViolation,
+		Profiling:       profiling,
 	})
+
+	if exitOnViolation && exitCode != 0 {
+		os.Exit(exitCode)
+	}
+
+	return exitCode
 }
 
 // determineExitCode returns the appropriate exit code based on report
