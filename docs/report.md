@@ -13,7 +13,7 @@ Bu dosya sürüm bazlı ilerleme/rapor özetini tek yerde takip etmek için tutu
 | v1.2 | M5: v1.2 Test Quality & Coverage | Completed | RD-12001..RD-12006 merged into `dev`; root/model/rules coverage hardening, parser fuzz/property determinism tests, and v1.2 gate pack activated. |
 | v1.3 | M6: v1.3 Observability | Completed | RD-13001..RD-13005 merged into `dev`; structured logging, safe profiling hooks, error taxonomy hardening, deterministic metrics export, and v1.3 gate pack activated. |
 | v1.4 | M7: v1.4 Performance Hardening | Completed | RD-14001..RD-14004 merged into `dev`; parallel parsing tuning, memory budget fail-soft controls, filesystem-safe cache warmup, and benchmark/race gate automation activated. |
-| v1.5 | M8: v1.5 Developer Experience | In Progress | RD-15001..RD-15003 merged into `dev`; isolated VS Code skeleton work (RD-15004) is in review. |
+| v1.5 | M8: v1.5 Developer Experience | Completed on dev | RD-15001..RD-15005 merged into `dev`; stabilization gate and docs sync are complete, release PR `dev -> main` is next. |
 
 ---
 
@@ -88,11 +88,13 @@ Release path:
 - **RD-15002**: default-off interactive remediation suggestions (confirmation-gated, advisory-only)
 - **RD-15003**: Homebrew + Docker distribution foundation with tag-triggered GHCR workflow
 - **RD-15004**: isolated VS Code extension skeleton under `vscode-repodoctor/` consuming CLI JSON output only
+- **RD-15005**: v1.5 stabilization gate orchestration (`scripts/v150_release_stabilization_gate.ps1` + CI wiring)
 
 Release path:
 
-- Feature PRs merged into `dev`: #300, #301, #302, pending RD-15004/15005
-- Release PR (`dev -> main`): pending (after RD-15005 merge)
+- Feature PRs merged into `dev`: #300, #301, #302, #303, pending RD-15005
+- Release PR (`dev -> main`): pending (open after RD-15005 merge)
+- Release checklist: `docs/v1.5-release-pr-checklist.md`
 
 ## Current Branch/Release State
 
