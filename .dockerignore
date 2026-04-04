@@ -1,0 +1,10 @@
+.git
+.github
+.repodoctor
+docs
+benchmarks
+vscode-repodoctor
+repodoctor-report.json
+repodoctor-report.sha256
+benchmark-gate.txt
+*.md

@@ -13,7 +13,7 @@ Bu dosya sürüm bazlı ilerleme/rapor özetini tek yerde takip etmek için tutu
 | v1.2 | M5: v1.2 Test Quality & Coverage | Completed | RD-12001..RD-12006 merged into `dev`; root/model/rules coverage hardening, parser fuzz/property determinism tests, and v1.2 gate pack activated. |
 | v1.3 | M6: v1.3 Observability | Completed | RD-13001..RD-13005 merged into `dev`; structured logging, safe profiling hooks, error taxonomy hardening, deterministic metrics export, and v1.3 gate pack activated. |
 | v1.4 | M7: v1.4 Performance Hardening | Completed | RD-14001..RD-14004 merged into `dev`; parallel parsing tuning, memory budget fail-soft controls, filesystem-safe cache warmup, and benchmark/race gate automation activated. |
-| v1.5 | M8: v1.5 Developer Experience | Planned | Issue chain RD-15001..RD-15005 prepared with output-compatibility and release-distribution controls. |
+| v1.5 | M8: v1.5 Developer Experience | In Progress | RD-15001..RD-15003 merged into `dev`; actionable hints, opt-in interactive suggestions, and distribution pipeline foundations are active. |
 
 ---
 
@@ -82,6 +82,17 @@ Release path:
 - Feature PRs merged into `dev`: #295, #296, #297, #298
 - Release PR (`dev -> main`): pending (create after v1.4 gate PR merges and CI remains green)
 
+### v1.5 (M8: Developer Experience)
+
+- **RD-15001**: actionable remediation hints rendered in text/colored report output
+- **RD-15002**: interactive fix suggestions flow (default-off, confirmation-gated, advisory-only)
+- **RD-15003**: Homebrew formula + Docker multi-stage image + tag-triggered GHCR distribution workflow
+
+Release path:
+
+- Feature PRs merged into `dev`: #300, #301, pending RD-15003/15004/15005
+- Release PR (`dev -> main`): pending (after RD-15004 and RD-15005 merge)
+
 ## Current Branch/Release State
 
 - Latest completed release line is synchronized on `main`; `dev` may temporarily run ahead with planning/docs-only deltas before the next release merge.
@@ -102,4 +113,4 @@ Release path:
    - merge
 4. After each milestone chain closes on `dev`, open release PR `dev -> main` and keep `dev` branch intact.
 
-Son güncelleme: 4 Nisan 2026 (v1.4 chain)
+Son güncelleme: 4 Nisan 2026 (v1.5 chain in progress)
