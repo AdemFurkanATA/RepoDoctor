@@ -13,6 +13,7 @@ type AnalyzeRequest struct {
 	Verbose         bool
 	ColorEnabled    bool
 	ExitOnViolation bool
+	Profiling       profilingRequest
 }
 
 type AnalysisService struct{}
@@ -24,6 +25,19 @@ func NewAnalysisService() *AnalysisService {
 func (s *AnalysisService) Run(request AnalyzeRequest) int {
 	absPath := validatePath(request.Path)
 	InitColorFormatter(request.ColorEnabled)
+	profiler, profileErr := startProfiling(request.Profiling)
+	if profileErr != nil {
+		fmt.Fprintf(os.Stderr, "%s", ColorError(fmt.Sprintf("Error: profiling setup failed: %v\n", profileErr)))
+		return 1
+	}
+
+	if profiler != nil {
+		defer func() {
+			if stopErr := profiler.Stop(); stopErr != nil {
+				fmt.Fprintf(os.Stderr, "%s", ColorWarn(fmt.Sprintf("Warning: profiling finalization failed: %v\n", stopErr)))
+			}
+		}()
+	}
 
 	progress := NewProgressReporter(!request.Verbose)
 	progress.Start("Scanning repository", getStageCount("Scanning repository", absPath))
@@ -34,9 +48,6 @@ func (s *AnalysisService) Run(request AnalyzeRequest) int {
 	analysisResult, err := runAdapterPipeline(absPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s", ColorError(fmt.Sprintf("Error: analysis pipeline failed: %v\n", err)))
-		if request.ExitOnViolation {
-			os.Exit(1)
-		}
 		return 1
 	}
 
@@ -76,10 +87,6 @@ func (s *AnalysisService) Run(request AnalyzeRequest) int {
 	handleTrendAnalysis(absPath, report, request.Verbose)
 
 	exitCode := determineExitCode(report)
-	if request.ExitOnViolation && exitCode != 0 {
-		os.Exit(exitCode)
-	}
-
 	return exitCode
 }
 
