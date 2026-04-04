@@ -117,6 +117,26 @@ go build .
 
 This produces a local binary (`RepoDoctor` / `RepoDoctor.exe`).
 
+### Homebrew (formula)
+
+```bash
+brew install --build-from-source ./Formula/repodoctor.rb
+```
+
+### Docker
+
+```bash
+docker build -t repodoctor:local .
+docker run --rm -v "$(pwd):/repo" repodoctor:local analyze -path /repo
+```
+
+Distribution pipeline details:
+
+- `Dockerfile`
+- `Formula/repodoctor.rb`
+- `.github/workflows/release-distribution.yml`
+- `docs/v1.5-rd-15003-release-distribution.md`
+
 ---
 
 ## Usage
