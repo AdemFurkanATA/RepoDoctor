@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+const debugErrorsEnv = "REPODOCTOR_DEBUG_ERRORS"
+
 // ErrorCategory represents the category of an error
 type ErrorCategory string
 
@@ -27,6 +29,18 @@ type CLIError struct {
 	OriginalErr error
 }
 
+// ErrorClass provides a stable taxonomy for machine-readable error grouping.
+type ErrorClass string
+
+const (
+	ErrorClassUsage         ErrorClass = "usage"
+	ErrorClassConfiguration ErrorClass = "configuration"
+	ErrorClassAnalysis      ErrorClass = "analysis"
+	ErrorClassRuntime       ErrorClass = "runtime"
+	ErrorClassIO            ErrorClass = "io"
+	ErrorClassValidation    ErrorClass = "validation"
+)
+
 // Error implements the error interface
 func (e *CLIError) Error() string {
 	if e.OriginalErr != nil {
@@ -35,15 +49,40 @@ func (e *CLIError) Error() string {
 	return fmt.Sprintf("%s: %s", e.Category, e.Message)
 }
 
+// Unwrap enables errors.Is/errors.As interoperability.
+func (e *CLIError) Unwrap() error {
+	return e.OriginalErr
+}
+
+// Class returns the stable error class for taxonomy-level grouping.
+func (e *CLIError) Class() ErrorClass {
+	switch e.Category {
+	case ErrorCLIUsage:
+		return ErrorClassUsage
+	case ErrorConfiguration:
+		return ErrorClassConfiguration
+	case ErrorAnalysis:
+		return ErrorClassAnalysis
+	case ErrorRuntime:
+		return ErrorClassRuntime
+	case ErrorFileNotFound:
+		return ErrorClassIO
+	case ErrorInvalidArgument:
+		return ErrorClassValidation
+	default:
+		return ErrorClassRuntime
+	}
+}
+
 // Display prints the error with formatting and suggestions
 func (e *CLIError) Display() {
 	fmt.Fprintf(os.Stderr, "\n%s: %s\n", e.Category, e.Message)
-	
+
 	if e.Suggestion != "" {
 		fmt.Fprintf(os.Stderr, "\n💡 Suggestion: %s\n", e.Suggestion)
 	}
-	
-	if e.OriginalErr != nil {
+
+	if e.OriginalErr != nil && os.Getenv(debugErrorsEnv) == "1" {
 		fmt.Fprintf(os.Stderr, "\nDetails: %v\n", e.OriginalErr)
 	}
 	fmt.Fprintf(os.Stderr, "\n")
@@ -53,10 +92,30 @@ func (e *CLIError) Display() {
 func NewCLIError(category ErrorCategory, message, suggestion string, originalErr error) *CLIError {
 	return &CLIError{
 		Category:    category,
-		Code:        string(category),
+		Code:        CategoryCode(category),
 		Message:     message,
 		Suggestion:  suggestion,
 		OriginalErr: originalErr,
+	}
+}
+
+// CategoryCode returns stable machine-readable error codes.
+func CategoryCode(category ErrorCategory) string {
+	switch category {
+	case ErrorCLIUsage:
+		return "CLI_USAGE"
+	case ErrorConfiguration:
+		return "CONFIGURATION"
+	case ErrorAnalysis:
+		return "ANALYSIS"
+	case ErrorRuntime:
+		return "RUNTIME"
+	case ErrorFileNotFound:
+		return "FILE_NOT_FOUND"
+	case ErrorInvalidArgument:
+		return "INVALID_ARGUMENT"
+	default:
+		return "UNKNOWN"
 	}
 }
 
@@ -77,13 +136,13 @@ var errorSuggestions = map[string]string{
 // GetSuggestion returns a suggestion for a given error message
 func GetSuggestion(errMessage string) string {
 	errLower := strings.ToLower(errMessage)
-	
+
 	for key, suggestion := range errorSuggestions {
 		if strings.Contains(errLower, key) {
 			return suggestion
 		}
 	}
-	
+
 	return "Run 'repodoctor --help' for usage information"
 }
 
@@ -120,7 +179,7 @@ func HandleConfigNotFoundError(configPath string) *CLIError {
 // HandleUnknownRuleError creates an unknown rule error with suggestions
 func HandleUnknownRuleError(ruleName string, availableRules []string) *CLIError {
 	suggestion := "Available rules: " + strings.Join(availableRules, ", ")
-	
+
 	return NewCLIError(
 		ErrorInvalidArgument,
 		fmt.Sprintf("Unknown rule: %s", ruleName),
