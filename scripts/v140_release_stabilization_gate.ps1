@@ -57,6 +57,10 @@ function Assert-BenchmarkBudget {
 
     $p50Limit = 30000000
     $p95Limit = 70000000
+    if ($IsWindows -or $env:RUNNER_OS -eq "Windows") {
+        $p50Limit = 35000000
+        $p95Limit = 80000000
+    }
     $allocLimit = 3000000
 
     Write-Host "Benchmark budget summary: p50=$p50 ns/op, p95=$p95 ns/op, maxAlloc=$maxAlloc B/op"

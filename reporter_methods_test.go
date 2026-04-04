@@ -17,14 +17,15 @@ func TestReporterWriteSections_TextMethods(t *testing.T) {
 			SizePenalty:      0,
 			GodObjectPenalty: 0,
 		},
-		Circular: []CycleViolation{{Path: []string{"a", "b"}}},
-		Layer:    []LayerViolation{{From: "repo", To: "handler"}},
-		Size:     []SizeViolation{{File: "big.go", Lines: 800, Threshold: 500}},
+		Circular: []CycleViolation{{Path: []string{"a", "b"}, Hint: "Break the cycle by extracting shared contracts."}},
+		Layer:    []LayerViolation{{From: "repo", To: "handler", Hint: "Move dependency behind an interface boundary."}},
+		Size:     []SizeViolation{{File: "big.go", Lines: 800, Threshold: 500, Hint: "Split into smaller focused units."}},
 		GodObject: []GodObjectViolation{{
 			File:        "god.go",
 			StructName:  "God",
 			FieldCount:  20,
 			MethodCount: 12,
+			Hint:        "Extract cohesive collaborators from God.",
 		}},
 		HasViolations: true,
 	}
@@ -45,5 +46,8 @@ func TestReporterWriteSections_TextMethods(t *testing.T) {
 		if !strings.Contains(out, token) {
 			t.Fatalf("expected output to include %q, got %q", token, out)
 		}
+	}
+	if !strings.Contains(out, "Hint:") {
+		t.Fatalf("expected actionable hint lines in output, got %q", out)
 	}
 }

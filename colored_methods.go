@@ -80,6 +80,9 @@ func writeCircularViolationsWithColor(sb *strings.Builder, report *StructuralRep
 		sb.WriteString(formatter.Error(fmt.Sprintf("[%d] ", i+1)))
 		sb.WriteString(formatter.Color(formatCyclePath(v.Path), ColorRed))
 		sb.WriteString("\n")
+		if v.Hint != "" {
+			sb.WriteString(formatter.Info(fmt.Sprintf("    Hint: %s\n", v.Hint)))
+		}
 	}
 	sb.WriteString("\n")
 }
@@ -99,6 +102,9 @@ func writeLayerViolationsWithColor(sb *strings.Builder, report *StructuralReport
 
 	for i, v := range report.Layer {
 		sb.WriteString(formatter.Warn(fmt.Sprintf("[%d] %s\n", i+1, v.Message)))
+		if v.Hint != "" {
+			sb.WriteString(formatter.Info(fmt.Sprintf("    Hint: %s\n", v.Hint)))
+		}
 	}
 	sb.WriteString("\n")
 }
@@ -124,6 +130,9 @@ func writeSizeViolationsWithColor(sb *strings.Builder, report *StructuralReport,
 			sb.WriteString(formatter.Info(fmt.Sprintf("[%d] File %s: %d lines (threshold: %d)\n",
 				i+1, v.File, v.Lines, v.Threshold)))
 		}
+		if v.Hint != "" {
+			sb.WriteString(formatter.Info(fmt.Sprintf("    Hint: %s\n", v.Hint)))
+		}
 	}
 	sb.WriteString("\n")
 }
@@ -144,6 +153,9 @@ func writeGodObjectViolationsWithColor(sb *strings.Builder, report *StructuralRe
 	for i, v := range report.GodObject {
 		sb.WriteString(formatter.Warn(fmt.Sprintf("[%d] Struct '%s' in %s: %d fields, %d methods\n",
 			i+1, v.StructName, v.File, v.FieldCount, v.MethodCount)))
+		if v.Hint != "" {
+			sb.WriteString(formatter.Info(fmt.Sprintf("    Hint: %s\n", v.Hint)))
+		}
 	}
 	sb.WriteString("\n")
 }
@@ -161,7 +173,7 @@ func writeScoreBreakdownWithColor(sb *strings.Builder, report *StructuralReport,
 	sb.WriteString("\n")
 	sb.WriteString(formatter.Color("└───────────────────────────────────────────────────────────┘", ColorCyan))
 	sb.WriteString("\n")
-	
+
 	sb.WriteString(fmt.Sprintf("Base Score:           100.0\n"))
 	sb.WriteString(fmt.Sprintf("Circular Penalty:     %s\n", formatter.Error(fmt.Sprintf("-%.1f (%d violations x 10.0)", report.Score.CircularPenalty, report.Score.CircularCount))))
 	sb.WriteString(fmt.Sprintf("Layer Penalty:        %s\n", formatter.Warn(fmt.Sprintf("-%.1f (%d violations x 5.0)", report.Score.LayerPenalty, report.Score.LayerCount))))
