@@ -39,7 +39,7 @@ Assert-PathExists -Path ".github/workflows/release-distribution.yml" -Label "dis
 Assert-PathExists -Path "vscode-repodoctor/package.json" -Label "extension package"
 
 if (Get-Command npm -ErrorAction SilentlyContinue) {
-    Invoke-Step -Name "vscode extension compile pack" -Command "npm install --prefix 'vscode-repodoctor' && npm run --prefix 'vscode-repodoctor' compile"
+    Invoke-Step -Name "vscode extension compile pack" -Command "npm --prefix 'vscode-repodoctor' install && npm --prefix 'vscode-repodoctor' run compile"
 } else {
     Write-Host "==> vscode extension compile pack (skipped: npm not found)"
 }
