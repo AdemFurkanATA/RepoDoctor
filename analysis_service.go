@@ -24,6 +24,11 @@ func NewAnalysisService() *AnalysisService {
 }
 
 func (s *AnalysisService) Run(request AnalyzeRequest) int {
+	exitCode, _ := s.RunWithReport(request)
+	return exitCode
+}
+
+func (s *AnalysisService) RunWithReport(request AnalyzeRequest) (int, *StructuralReport) {
 	absPath := validatePath(request.Path)
 	InitColorFormatter(request.ColorEnabled)
 	reportCacheWarmup(absPath, request.Verbose)
@@ -31,7 +36,7 @@ func (s *AnalysisService) Run(request AnalyzeRequest) int {
 	profiler, profileErr := startProfiling(request.Profiling)
 	if profileErr != nil {
 		fmt.Fprintf(os.Stderr, "%s", ColorError(fmt.Sprintf("Error: profiling setup failed: %v\n", profileErr)))
-		return 1
+		return 1, nil
 	}
 
 	if profiler != nil {
@@ -51,7 +56,7 @@ func (s *AnalysisService) Run(request AnalyzeRequest) int {
 	analysisResult, err := runAdapterPipeline(absPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s", ColorError(fmt.Sprintf("Error: analysis pipeline failed: %v\n", err)))
-		return 1
+		return 1, nil
 	}
 
 	if request.Verbose {
@@ -94,7 +99,7 @@ func (s *AnalysisService) Run(request AnalyzeRequest) int {
 	}
 
 	exitCode := determineExitCode(report)
-	return exitCode
+	return exitCode, report
 }
 
 func reportCacheWarmup(absPath string, verbose bool) {
