@@ -54,6 +54,9 @@ func writeCircularViolations(sb *strings.Builder, report *StructuralReport) {
 		sb.WriteString(fmt.Sprintf("[%d] ", i+1))
 		sb.WriteString(formatCyclePath(v.Path))
 		sb.WriteString("\n")
+		if v.Hint != "" {
+			sb.WriteString(fmt.Sprintf("    Hint: %s\n", v.Hint))
+		}
 	}
 	sb.WriteString("\n")
 }
@@ -69,6 +72,9 @@ func writeLayerViolations(sb *strings.Builder, report *StructuralReport) {
 
 	for i, v := range report.Layer {
 		sb.WriteString(fmt.Sprintf("[%d] %s\n", i+1, v.Message))
+		if v.Hint != "" {
+			sb.WriteString(fmt.Sprintf("    Hint: %s\n", v.Hint))
+		}
 	}
 	sb.WriteString("\n")
 }
@@ -90,6 +96,9 @@ func writeSizeViolations(sb *strings.Builder, report *StructuralReport) {
 			sb.WriteString(fmt.Sprintf("[%d] File %s: %d lines (threshold: %d)\n",
 				i+1, v.File, v.Lines, v.Threshold))
 		}
+		if v.Hint != "" {
+			sb.WriteString(fmt.Sprintf("    Hint: %s\n", v.Hint))
+		}
 	}
 	sb.WriteString("\n")
 }
@@ -106,6 +115,9 @@ func writeGodObjectViolations(sb *strings.Builder, report *StructuralReport) {
 	for i, v := range report.GodObject {
 		sb.WriteString(fmt.Sprintf("[%d] Struct '%s' in %s: %d fields, %d methods\n",
 			i+1, v.StructName, v.File, v.FieldCount, v.MethodCount))
+		if v.Hint != "" {
+			sb.WriteString(fmt.Sprintf("    Hint: %s\n", v.Hint))
+		}
 	}
 	sb.WriteString("\n")
 }
