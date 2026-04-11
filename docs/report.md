@@ -13,7 +13,7 @@ Bu dosya sürüm bazlı ilerleme/rapor özetini tek yerde takip etmek için tutu
 | v1.2 | M5: v1.2 Test Quality & Coverage | Completed | RD-12001..RD-12006 merged into `dev`; root/model/rules coverage hardening, parser fuzz/property determinism tests, and v1.2 gate pack activated. |
 | v1.3 | M6: v1.3 Observability | Completed | RD-13001..RD-13005 merged into `dev`; structured logging, safe profiling hooks, error taxonomy hardening, deterministic metrics export, and v1.3 gate pack activated. |
 | v1.4 | M7: v1.4 Performance Hardening | Completed | RD-14001..RD-14004 merged into `dev`; parallel parsing tuning, memory budget fail-soft controls, filesystem-safe cache warmup, and benchmark/race gate automation activated. |
-| v1.5 | M8: v1.5 Developer Experience | Completed on dev | RD-15001..RD-15005 merged into `dev`; stabilization gate and docs sync are complete, release PR `dev -> main` is next. |
+| v1.5 | M8: v1.5 Developer Experience | Completed | RD-15001..RD-15005 merged into `dev`; released to `main` via `dev -> main` PR #305. |
 
 ---
 
@@ -92,14 +92,14 @@ Release path:
 
 Release path:
 
-- Feature PRs merged into `dev`: #300, #301, #302, #303, pending RD-15005
-- Release PR (`dev -> main`): pending (open after RD-15005 merge)
+- Feature PRs merged into `dev`: #300, #301, #302, #303, #304
+- Release PR (`dev -> main`): **#305**
 - Release checklist: `docs/v1.5-release-pr-checklist.md`
 
 ## Current Branch/Release State
 
 - Latest completed release line is synchronized on `main`; `dev` may temporarily run ahead with planning/docs-only deltas before the next release merge.
-- M3 and M4 issue chains are closed.
+- `dev` ve `main` v1.5 release sonrası aynı committe hizalı; bir sonraki icra hattı v1.6 (M9) planı.
 - Mandatory quality baseline remains green:
   - `go test ./...`
   - `go vet ./...`
@@ -107,8 +107,8 @@ Release path:
 
 ## Next Planned Execution Line (Ready)
 
-1. Create/validate milestones: **M5 v1.2**, **M6 v1.3**, **M7 v1.4**, **M8 v1.5**.
-2. Open roadmap-governed issues: **RD-12001..RD-12006**, **RD-13001..RD-13005**, **RD-14001..RD-14004**, **RD-15001..RD-15005**.
+1. Create/validate milestones: **M9 v1.6**, **M10 v1.7**, **M11 v1.8**.
+2. Open roadmap-governed issues: **RD-16001..RD-16009**, **RD-17001..RD-17006**, **RD-18001..RD-18004**.
 3. Enforce workflow for every implementation issue:
    - branch-per-issue from `dev`
    - PR target `dev`
@@ -116,4 +116,10 @@ Release path:
    - merge
 4. After each milestone chain closes on `dev`, open release PR `dev -> main` and keep `dev` branch intact.
 
-Son güncelleme: 4 Nisan 2026 (v1.5 chain in progress)
+## Process/Gate Risk Watchlist
+
+- **Open:** Release distribution workflow'unda manuel tetikleme (`workflow_dispatch`) ile release akışı bypass riski; tag/ref doğrulaması ve protection kontrolü sıkılaştırılmalı.
+- **Open:** CI akışında stabilization script zinciri nedeniyle mükerrer test/vet çalışmaları toplam süre ve runner maliyetini artırıyor; hızlı kapı vs tam kapı ayrımı netleştirilmeli.
+- **Open:** Branch governance doğrulaması (required status checks / required review / up-to-date) repo ayarı seviyesinde izlenmeli; yalnız doküman kuralı yeterli değil.
+
+Son güncelleme: 11 Nisan 2026 (roadmap v1.6+ ile hizalandı)
