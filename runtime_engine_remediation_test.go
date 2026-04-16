@@ -10,6 +10,7 @@ func TestBuildReportFromRuleViolations_AttachesRemediationHints(t *testing.T) {
 	violations := []model.Violation{
 		{RuleID: "rule.layer-validation", File: "repo/repo.go", Severity: model.SeverityError, Message: "x"},
 		{RuleID: "rule.secret-detection", File: "repo/secrets.go", Severity: model.SeverityCritical, Message: "GitHub token pattern detected"},
+		{RuleID: "rule.code-duplication", File: "repo/dup_a.go", Severity: model.SeverityWarning, Message: "File repo/dup_a.go has 8 lines (threshold: 6) duplicated with repo/dup_b.go"},
 		{RuleID: "rule.size", File: "a.go", Severity: model.SeverityWarning, Message: "Function 'big' has 101 lines (threshold: 80)"},
 		{RuleID: "rule.god-object", File: "obj.go", Severity: model.SeverityWarning, Message: "Manager has 12 methods (threshold: 10)"},
 	}

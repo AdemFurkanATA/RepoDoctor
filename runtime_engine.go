@@ -181,6 +181,8 @@ func buildReportFromRuleViolations(path string, version string, cfg *Config, vio
 			report.Layer = append(report.Layer, parseLayerViolation(v))
 		case "rule.secret-detection":
 			report.Layer = append(report.Layer, parseLayerViolation(v))
+		case "rule.code-duplication":
+			report.Size = append(report.Size, parseSizeViolation(v))
 		case "rule.size":
 			report.Size = append(report.Size, parseSizeViolation(v))
 		case "rule.god-object":
@@ -324,6 +326,8 @@ func remediationHintForViolation(v model.Violation) string {
 		return "Extract cohesive responsibilities into dedicated types and keep each object focused on one concern."
 	case "rule.secret-detection":
 		return "Move credentials to environment variables or secret stores and rotate any leaked keys immediately."
+	case "rule.code-duplication":
+		return "Extract shared logic into reusable helpers/components and keep one source of truth for duplicated blocks."
 	default:
 		return ""
 	}
@@ -341,6 +345,8 @@ func applyConfiguredSeverity(v model.Violation, cfg *Config) model.Violation {
 		severity = cfg.Rules.LayerSeverity
 	case "rule.secret-detection":
 		severity = cfg.Rules.LayerSeverity
+	case "rule.code-duplication":
+		severity = cfg.Rules.SizeSeverity
 	case "rule.size":
 		severity = cfg.Rules.SizeSeverity
 	case "rule.god-object":
