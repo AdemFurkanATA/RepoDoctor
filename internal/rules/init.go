@@ -9,6 +9,7 @@ func init() {
 	DefaultRegistry.MustRegister(NewSizeRule())
 	DefaultRegistry.MustRegister(NewLayerValidationRule())
 	DefaultRegistry.MustRegister(NewSecretDetectionRule())
+	DefaultRegistry.MustRegister(NewCodeDuplicationRule())
 	// Note: CircularDependencyRule requires a graph parameter, so it's registered separately
 }
 
