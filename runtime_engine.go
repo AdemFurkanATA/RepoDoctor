@@ -185,6 +185,8 @@ func buildReportFromRuleViolations(path string, version string, cfg *Config, vio
 			report.Size = append(report.Size, parseSizeViolation(v))
 		case "rule.dead-code":
 			report.Size = append(report.Size, parseSizeViolation(v))
+		case "rule.error-handling":
+			report.Size = append(report.Size, parseSizeViolation(v))
 		case "rule.size":
 			report.Size = append(report.Size, parseSizeViolation(v))
 		case "rule.god-object":
@@ -332,6 +334,8 @@ func remediationHintForViolation(v model.Violation) string {
 		return "Extract shared logic into reusable helpers/components and keep one source of truth for duplicated blocks."
 	case "rule.dead-code":
 		return "Remove unused private symbols or wire them explicitly where needed to keep the codebase lean and auditable."
+	case "rule.error-handling":
+		return "Handle returned errors explicitly and wrap propagated errors with context using %w when appropriate."
 	default:
 		return ""
 	}
@@ -352,6 +356,8 @@ func applyConfiguredSeverity(v model.Violation, cfg *Config) model.Violation {
 	case "rule.code-duplication":
 		severity = cfg.Rules.SizeSeverity
 	case "rule.dead-code":
+		severity = cfg.Rules.SizeSeverity
+	case "rule.error-handling":
 		severity = cfg.Rules.SizeSeverity
 	case "rule.size":
 		severity = cfg.Rules.SizeSeverity
