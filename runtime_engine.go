@@ -179,6 +179,8 @@ func buildReportFromRuleViolations(path string, version string, cfg *Config, vio
 			report.Circular = append(report.Circular, parseCircularViolation(v))
 		case "rule.layer-validation":
 			report.Layer = append(report.Layer, parseLayerViolation(v))
+		case "rule.secret-detection":
+			report.Layer = append(report.Layer, parseLayerViolation(v))
 		case "rule.size":
 			report.Size = append(report.Size, parseSizeViolation(v))
 		case "rule.god-object":
@@ -320,6 +322,8 @@ func remediationHintForViolation(v model.Violation) string {
 		return "Split oversized files/functions into focused units with one responsibility each."
 	case "rule.god-object":
 		return "Extract cohesive responsibilities into dedicated types and keep each object focused on one concern."
+	case "rule.secret-detection":
+		return "Move credentials to environment variables or secret stores and rotate any leaked keys immediately."
 	default:
 		return ""
 	}
@@ -334,6 +338,8 @@ func applyConfiguredSeverity(v model.Violation, cfg *Config) model.Violation {
 	case "rule.circular-dependency":
 		severity = cfg.Rules.CircularSeverity
 	case "rule.layer-validation":
+		severity = cfg.Rules.LayerSeverity
+	case "rule.secret-detection":
 		severity = cfg.Rules.LayerSeverity
 	case "rule.size":
 		severity = cfg.Rules.SizeSeverity
