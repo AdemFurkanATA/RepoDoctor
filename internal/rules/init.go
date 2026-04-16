@@ -11,6 +11,7 @@ func init() {
 	DefaultRegistry.MustRegister(NewSecretDetectionRule())
 	DefaultRegistry.MustRegister(NewCodeDuplicationRule())
 	DefaultRegistry.MustRegister(NewDeadCodeRule())
+	DefaultRegistry.MustRegister(NewErrorHandlingConsistencyRule())
 	// Note: CircularDependencyRule requires a graph parameter, so it's registered separately
 }
 
