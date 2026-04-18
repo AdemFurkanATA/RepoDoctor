@@ -107,3 +107,25 @@ func TestResolveContextLanguages_DefaultIncludesJavaPilotLanguage(t *testing.T) 
 		t.Fatalf("expected Java in default language set tail, got %v", languages)
 	}
 }
+
+func TestBuildUnifiedRulesAnalysisContext_IncludesInterfaceBloatThresholdFromEnv(t *testing.T) {
+	t.Setenv("REPODOCTOR_INTERFACE_BLOAT_MAX_METHODS", "14")
+
+	graph := NewDependencyGraph()
+	graph.AddNode("a.go")
+
+	ctx := buildUnifiedRulesAnalysisContext(runtimeAnalysisContextInput{
+		RepositoryPath:  filepath.Clean("."),
+		Graph:           graph,
+		PrimaryLanguage: "Go",
+	})
+
+	raw, ok := ctx.Configuration["interfaceBloatMaxMethods"]
+	if !ok {
+		t.Fatalf("configuration key %q missing", "interfaceBloatMaxMethods")
+	}
+	v, ok := raw.(int)
+	if !ok || v != 14 {
+		t.Fatalf("unexpected interface bloat threshold in configuration: %v (%T)", raw, raw)
+	}
+}

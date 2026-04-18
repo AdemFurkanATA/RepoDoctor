@@ -58,6 +58,7 @@ func TestApplyConfiguredSeverity_UsesRuleOverrides(t *testing.T) {
 		{ruleID: "rule.code-duplication", want: model.SeverityError},
 		{ruleID: "rule.dead-code", want: model.SeverityError},
 		{ruleID: "rule.error-handling", want: model.SeverityError},
+		{ruleID: "rule.interface-bloat", want: model.SeverityError},
 		{ruleID: "rule.size", want: model.SeverityError},
 		{ruleID: "rule.god-object", want: model.SeverityInfo},
 	}
