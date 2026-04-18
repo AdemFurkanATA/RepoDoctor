@@ -172,6 +172,21 @@ func writeComplexityBandsWithColor(sb *strings.Builder, report *StructuralReport
 	sb.WriteString(formatter.Info(fmt.Sprintf("High (>20): %d\n\n", report.Complexity.High)))
 }
 
+func writeTechnicalDebtSummaryWithColor(sb *strings.Builder, report *StructuralReport, formatter *ColorFormatter) {
+	sb.WriteString(formatter.Color("┌───────────────────────────────────────────────────────────┐", ColorCyan))
+	sb.WriteString("\n")
+	sb.WriteString(formatter.Color("│  TECHNICAL DEBT ESTIMATE                                  │", ColorCyan))
+	sb.WriteString("\n")
+	sb.WriteString(formatter.Color("└───────────────────────────────────────────────────────────┘", ColorCyan))
+	sb.WriteString("\n")
+	sb.WriteString(formatter.Info(fmt.Sprintf("Circular: %dh\n", report.Debt.CircularHours)))
+	sb.WriteString(formatter.Info(fmt.Sprintf("Layer: %dh\n", report.Debt.LayerHours)))
+	sb.WriteString(formatter.Info(fmt.Sprintf("Size: %dh\n", report.Debt.SizeHours)))
+	sb.WriteString(formatter.Info(fmt.Sprintf("God Object: %dh\n", report.Debt.GodObjectHours)))
+	sb.WriteString(formatter.Info(fmt.Sprintf("Complexity: %dh\n", report.Debt.ComplexityHours)))
+	sb.WriteString(formatter.Info(fmt.Sprintf("Total: %dh\n\n", report.Debt.TotalHours)))
+}
+
 // writeScoreBreakdownWithColor writes the score breakdown with colors
 func writeScoreBreakdownWithColor(sb *strings.Builder, report *StructuralReport, formatter *ColorFormatter) {
 	if !report.HasViolations {

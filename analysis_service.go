@@ -91,6 +91,7 @@ func (s *AnalysisService) RunWithReport(request AnalyzeRequest) (int, *Structura
 	report := generateRuleEngineReport(absPath, request.Format, request.Verbose, request.ColorEnabled, config, ruleSummary)
 	report.Language = collectLanguageEvidenceSummary(absPath, analysisResult.AdapterName)
 	report.Complexity = collectCyclomaticComplexitySummary(absPath)
+	report.Debt = estimateTechnicalDebt(report)
 	progress.SetProgress(progress.totalSteps)
 	progress.Complete()
 
