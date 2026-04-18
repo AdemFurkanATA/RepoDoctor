@@ -144,6 +144,38 @@ func writeAPIViolations(sb *strings.Builder, report *StructuralReport) {
 	sb.WriteString("\n")
 }
 
+func writeGitChurnSummary(sb *strings.Builder, report *StructuralReport) {
+	if report.GitChurn.TotalCommits == 0 {
+		return
+	}
+
+	sb.WriteString("┌───────────────────────────────────────────────────────────┐\n")
+	sb.WriteString("│  GIT CHURN SUMMARY                                        │\n")
+	sb.WriteString("└───────────────────────────────────────────────────────────┘\n")
+	sb.WriteString(fmt.Sprintf("Commits analyzed: %d\n", report.GitChurn.TotalCommits))
+	sb.WriteString(fmt.Sprintf("Recent window commits: %d\n", report.GitChurn.RecentWindowCommits))
+	sb.WriteString(fmt.Sprintf("Distinct authors: %d\n", report.GitChurn.DistinctAuthors))
+
+	files := sortedGitChurnFiles(report.GitChurn.Files)
+	limit := 5
+	if len(files) < limit {
+		limit = len(files)
+	}
+	for i := 0; i < limit; i++ {
+		entry := files[i]
+		sb.WriteString(fmt.Sprintf("[%d] %s | touches:%d recent:%d authors:%d +%d/-%d\n",
+			i+1,
+			entry.Path,
+			entry.CommitTouches,
+			entry.RecentTouches,
+			entry.UniqueAuthors,
+			entry.AddedLines,
+			entry.DeletedLines,
+		))
+	}
+	sb.WriteString("\n")
+}
+
 func writeComplexityBands(sb *strings.Builder, report *StructuralReport) {
 	sb.WriteString("┌───────────────────────────────────────────────────────────┐\n")
 	sb.WriteString("│  CYCLOMATIC COMPLEXITY BANDS                              │\n")

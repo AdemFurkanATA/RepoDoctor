@@ -84,6 +84,21 @@ func sortedAPIViolations(in []APIStabilityViolation) []APIStabilityViolation {
 	})
 }
 
+func sortedGitChurnFiles(in []model.GitChurnFile) []model.GitChurnFile {
+	return stableSortedCopy(in, func(left, right model.GitChurnFile) bool {
+		if left.CommitTouches != right.CommitTouches {
+			return left.CommitTouches > right.CommitTouches
+		}
+		if left.RecentTouches != right.RecentTouches {
+			return left.RecentTouches > right.RecentTouches
+		}
+		if left.UniqueAuthors != right.UniqueAuthors {
+			return left.UniqueAuthors > right.UniqueAuthors
+		}
+		return left.Path < right.Path
+	})
+}
+
 func sortModelViolationsDeterministic(violations []model.Violation) {
 	sort.SliceStable(violations, func(i, j int) bool {
 		if violations[i].RuleID != violations[j].RuleID {

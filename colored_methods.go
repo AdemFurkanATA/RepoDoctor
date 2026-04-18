@@ -185,6 +185,42 @@ func writeAPIViolationsWithColor(sb *strings.Builder, report *StructuralReport, 
 	sb.WriteString("\n")
 }
 
+func writeGitChurnSummaryWithColor(sb *strings.Builder, report *StructuralReport, formatter *ColorFormatter) {
+	if report.GitChurn.TotalCommits == 0 {
+		return
+	}
+
+	sb.WriteString(formatter.Color("┌───────────────────────────────────────────────────────────┐", ColorCyan))
+	sb.WriteString("\n")
+	sb.WriteString(formatter.Color("│  GIT CHURN SUMMARY                                        │", ColorCyan))
+	sb.WriteString("\n")
+	sb.WriteString(formatter.Color("└───────────────────────────────────────────────────────────┘", ColorCyan))
+	sb.WriteString("\n")
+
+	sb.WriteString(formatter.Info(fmt.Sprintf("Commits analyzed: %d\n", report.GitChurn.TotalCommits)))
+	sb.WriteString(formatter.Info(fmt.Sprintf("Recent window commits: %d\n", report.GitChurn.RecentWindowCommits)))
+	sb.WriteString(formatter.Info(fmt.Sprintf("Distinct authors: %d\n", report.GitChurn.DistinctAuthors)))
+
+	files := sortedGitChurnFiles(report.GitChurn.Files)
+	limit := 5
+	if len(files) < limit {
+		limit = len(files)
+	}
+	for i := 0; i < limit; i++ {
+		entry := files[i]
+		sb.WriteString(formatter.Info(fmt.Sprintf("[%d] %s | touches:%d recent:%d authors:%d +%d/-%d\n",
+			i+1,
+			entry.Path,
+			entry.CommitTouches,
+			entry.RecentTouches,
+			entry.UniqueAuthors,
+			entry.AddedLines,
+			entry.DeletedLines,
+		)))
+	}
+	sb.WriteString("\n")
+}
+
 func writeComplexityBandsWithColor(sb *strings.Builder, report *StructuralReport, formatter *ColorFormatter) {
 	sb.WriteString(formatter.Color("┌───────────────────────────────────────────────────────────┐", ColorCyan))
 	sb.WriteString("\n")
