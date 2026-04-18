@@ -8,17 +8,20 @@ import (
 
 // Snapshot is a deterministic metrics export payload for one analyze run.
 type Snapshot struct {
-	Version         string `json:"version"`
-	Adapter         string `json:"adapter"`
-	OutputFormat    string `json:"outputFormat"`
-	FilesDetected   int    `json:"filesDetected"`
-	GraphNodes      int    `json:"graphNodes"`
-	GraphEdges      int    `json:"graphEdges"`
-	CircularCount   int    `json:"circularCount"`
-	LayerCount      int    `json:"layerCount"`
-	SizeCount       int    `json:"sizeCount"`
-	GodObjectCount  int    `json:"godObjectCount"`
-	TotalViolations int    `json:"totalViolations"`
+	Version          string `json:"version"`
+	Adapter          string `json:"adapter"`
+	OutputFormat     string `json:"outputFormat"`
+	FilesDetected    int    `json:"filesDetected"`
+	GraphNodes       int    `json:"graphNodes"`
+	GraphEdges       int    `json:"graphEdges"`
+	CircularCount    int    `json:"circularCount"`
+	LayerCount       int    `json:"layerCount"`
+	SizeCount        int    `json:"sizeCount"`
+	GodObjectCount   int    `json:"godObjectCount"`
+	ComplexityLow    int    `json:"complexityLow"`
+	ComplexityMedium int    `json:"complexityMedium"`
+	ComplexityHigh   int    `json:"complexityHigh"`
+	TotalViolations  int    `json:"totalViolations"`
 }
 
 // Marshal serializes the snapshot in deterministic key order.
