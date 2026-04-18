@@ -160,6 +160,18 @@ func writeGodObjectViolationsWithColor(sb *strings.Builder, report *StructuralRe
 	sb.WriteString("\n")
 }
 
+func writeComplexityBandsWithColor(sb *strings.Builder, report *StructuralReport, formatter *ColorFormatter) {
+	sb.WriteString(formatter.Color("┌───────────────────────────────────────────────────────────┐", ColorCyan))
+	sb.WriteString("\n")
+	sb.WriteString(formatter.Color("│  CYCLOMATIC COMPLEXITY BANDS                              │", ColorCyan))
+	sb.WriteString("\n")
+	sb.WriteString(formatter.Color("└───────────────────────────────────────────────────────────┘", ColorCyan))
+	sb.WriteString("\n")
+	sb.WriteString(formatter.Info(fmt.Sprintf("Low (<=10): %d\n", report.Complexity.Low)))
+	sb.WriteString(formatter.Info(fmt.Sprintf("Medium (11-20): %d\n", report.Complexity.Medium)))
+	sb.WriteString(formatter.Info(fmt.Sprintf("High (>20): %d\n\n", report.Complexity.High)))
+}
+
 // writeScoreBreakdownWithColor writes the score breakdown with colors
 func writeScoreBreakdownWithColor(sb *strings.Builder, report *StructuralReport, formatter *ColorFormatter) {
 	if !report.HasViolations {

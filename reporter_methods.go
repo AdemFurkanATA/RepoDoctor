@@ -122,6 +122,15 @@ func writeGodObjectViolations(sb *strings.Builder, report *StructuralReport) {
 	sb.WriteString("\n")
 }
 
+func writeComplexityBands(sb *strings.Builder, report *StructuralReport) {
+	sb.WriteString("┌───────────────────────────────────────────────────────────┐\n")
+	sb.WriteString("│  CYCLOMATIC COMPLEXITY BANDS                              │\n")
+	sb.WriteString("└───────────────────────────────────────────────────────────┘\n")
+	sb.WriteString(fmt.Sprintf("Low (<=10): %d\n", report.Complexity.Low))
+	sb.WriteString(fmt.Sprintf("Medium (11-20): %d\n", report.Complexity.Medium))
+	sb.WriteString(fmt.Sprintf("High (>20): %d\n\n", report.Complexity.High))
+}
+
 func writeScoreBreakdown(sb *strings.Builder, report *StructuralReport) {
 	if !report.HasViolations {
 		sb.WriteString("✨ No structural violations detected! Your architecture is clean.\n\n")

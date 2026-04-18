@@ -7,17 +7,20 @@ import (
 
 func TestSnapshotMarshal_Deterministic(t *testing.T) {
 	snapshot := Snapshot{
-		Version:         "1.1.0",
-		Adapter:         "Go",
-		OutputFormat:    "text",
-		FilesDetected:   3,
-		GraphNodes:      4,
-		GraphEdges:      2,
-		CircularCount:   0,
-		LayerCount:      1,
-		SizeCount:       2,
-		GodObjectCount:  0,
-		TotalViolations: 3,
+		Version:          "1.1.0",
+		Adapter:          "Go",
+		OutputFormat:     "text",
+		FilesDetected:    3,
+		GraphNodes:       4,
+		GraphEdges:       2,
+		CircularCount:    0,
+		LayerCount:       1,
+		SizeCount:        2,
+		GodObjectCount:   0,
+		ComplexityLow:    3,
+		ComplexityMedium: 1,
+		ComplexityHigh:   0,
+		TotalViolations:  3,
 	}
 
 	first, err := snapshot.Marshal()
