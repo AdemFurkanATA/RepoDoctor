@@ -46,6 +46,9 @@ func executeCommand(cmd string, args []string) error {
 	case "generate":
 		return handleGenerateCommand(args)
 
+	case "install-hook":
+		return handleInstallHookCommand(args)
+
 	case "version":
 		return handleVersionCommand()
 
@@ -268,7 +271,7 @@ func handleHelpCommand() error {
 }
 
 func getCommandSuggestion(cmd string) string {
-	commands := []string{"analyze", "extract", "report", "history", "interactive", "generate", "version", "help"}
+	commands := []string{"analyze", "extract", "report", "history", "interactive", "generate", "install-hook", "version", "help"}
 	closest := ""
 	for _, candidate := range commands {
 		if strings.HasPrefix(candidate, strings.ToLower(cmd[:min(1, len(cmd))])) || strings.Contains(candidate, strings.ToLower(cmd)) {
@@ -301,9 +304,10 @@ Commands:
   report       Display existing analysis report
   history      Show score trend history
   interactive  Start interactive mode for guided analysis
-  generate     Generate rule templates and other files
-  version      Show version information
-  help         Show this help message
+	generate     Generate rule templates and other files
+	install-hook Install git hook templates
+	version      Show version information
+	help         Show this help message
 
 Arguments:
   analyze [options]
@@ -324,8 +328,12 @@ Arguments:
     -path      Path to JSON report file (default: repodoctor-report.json)
     -format    Output format: text, json, json-v1 (default: text)
 
-  history [options]
-    -path      Path to repository (default: current directory)
+	history [options]
+	  -path      Path to repository (default: current directory)
+
+	install-hook [options]
+	  --type     Hook type (supported: pre-commit)
+	  -path      Repository path (default: current directory)
 
 Examples:
   repodoctor analyze .
@@ -333,9 +341,10 @@ Examples:
   repodoctor analyze -path . --json
   repodoctor extract .
   repodoctor extract -path ./src -module github.com/myorg/myrepo
-  repodoctor report -path ./report.json
-  repodoctor history -path .
-  repodoctor version`)
+	repodoctor report -path ./report.json
+	repodoctor history -path .
+	repodoctor install-hook --type pre-commit
+	repodoctor version`)
 }
 
 func runAnalyze(path, format string, verbose bool, colorEnabled bool, exitOnViolation bool, profiling profilingRequest) int {
