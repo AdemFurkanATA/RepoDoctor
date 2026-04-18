@@ -12,6 +12,7 @@ func init() {
 	DefaultRegistry.MustRegister(NewCodeDuplicationRule())
 	DefaultRegistry.MustRegister(NewDeadCodeRule())
 	DefaultRegistry.MustRegister(NewErrorHandlingConsistencyRule())
+	DefaultRegistry.MustRegister(NewInterfaceBloatRule())
 	// Note: CircularDependencyRule requires a graph parameter, so it's registered separately
 }
 

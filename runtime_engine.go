@@ -187,6 +187,8 @@ func buildReportFromRuleViolations(path string, version string, cfg *Config, vio
 			report.Size = append(report.Size, parseSizeViolation(v))
 		case "rule.error-handling":
 			report.Size = append(report.Size, parseSizeViolation(v))
+		case "rule.interface-bloat":
+			report.Size = append(report.Size, parseSizeViolation(v))
 		case "rule.size":
 			report.Size = append(report.Size, parseSizeViolation(v))
 		case "rule.god-object":
@@ -336,6 +338,8 @@ func remediationHintForViolation(v model.Violation) string {
 		return "Remove unused private symbols or wire them explicitly where needed to keep the codebase lean and auditable."
 	case "rule.error-handling":
 		return "Handle returned errors explicitly and wrap propagated errors with context using %w when appropriate."
+	case "rule.interface-bloat":
+		return "Split broad interfaces into smaller role-focused contracts to reduce coupling and improve substitutability."
 	default:
 		return ""
 	}
@@ -358,6 +362,8 @@ func applyConfiguredSeverity(v model.Violation, cfg *Config) model.Violation {
 	case "rule.dead-code":
 		severity = cfg.Rules.SizeSeverity
 	case "rule.error-handling":
+		severity = cfg.Rules.SizeSeverity
+	case "rule.interface-bloat":
 		severity = cfg.Rules.SizeSeverity
 	case "rule.size":
 		severity = cfg.Rules.SizeSeverity

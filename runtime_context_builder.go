@@ -1,6 +1,10 @@
 package main
 
 import (
+	"os"
+	"strconv"
+	"strings"
+
 	"RepoDoctor/internal/rules"
 )
 
@@ -31,6 +35,9 @@ func buildUnifiedRulesAnalysisContext(input runtimeAnalysisContextInput) rules.A
 		}
 		configuration["customLayerKeywords"] = copiedKeywords
 	}
+	if threshold, ok := resolveInterfaceBloatThreshold(); ok {
+		configuration["interfaceBloatMaxMethods"] = threshold
+	}
 
 	return rules.AnalysisContext{
 		RepositoryFiles: repositoryFiles,
@@ -38,6 +45,18 @@ func buildUnifiedRulesAnalysisContext(input runtimeAnalysisContextInput) rules.A
 		Configuration:   configuration,
 		Languages:       languages,
 	}
+}
+
+func resolveInterfaceBloatThreshold() (int, bool) {
+	raw := strings.TrimSpace(os.Getenv("REPODOCTOR_INTERFACE_BLOAT_MAX_METHODS"))
+	if raw == "" {
+		return 0, false
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil || value <= 0 {
+		return 0, false
+	}
+	return value, true
 }
 
 func buildContextRepositoryFiles(graph Graph) []rules.RepositoryFile {
