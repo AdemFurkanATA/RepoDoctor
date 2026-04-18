@@ -160,6 +160,31 @@ func writeGodObjectViolationsWithColor(sb *strings.Builder, report *StructuralRe
 	sb.WriteString("\n")
 }
 
+func writeAPIViolationsWithColor(sb *strings.Builder, report *StructuralReport, formatter *ColorFormatter) {
+	if len(report.APIStability) == 0 {
+		return
+	}
+
+	sb.WriteString(formatter.Color("┌───────────────────────────────────────────────────────────┐", ColorRed))
+	sb.WriteString("\n")
+	sb.WriteString(formatter.Color("│  API STABILITY BREAKING CHANGES [CRITICAL]               │", ColorRed))
+	sb.WriteString("\n")
+	sb.WriteString(formatter.Color("└───────────────────────────────────────────────────────────┘", ColorRed))
+	sb.WriteString("\n")
+
+	for i, v := range report.APIStability {
+		line := fmt.Sprintf("[%d] %s", i+1, v.Message)
+		if v.File != "" {
+			line += fmt.Sprintf(" [%s:%d]", v.File, v.Line)
+		}
+		sb.WriteString(formatter.Error(line + "\n"))
+		if v.Hint != "" {
+			sb.WriteString(formatter.Info(fmt.Sprintf("    Hint: %s\n", v.Hint)))
+		}
+	}
+	sb.WriteString("\n")
+}
+
 func writeComplexityBandsWithColor(sb *strings.Builder, report *StructuralReport, formatter *ColorFormatter) {
 	sb.WriteString(formatter.Color("┌───────────────────────────────────────────────────────────┐", ColorCyan))
 	sb.WriteString("\n")

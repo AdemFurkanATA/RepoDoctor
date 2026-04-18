@@ -59,6 +59,11 @@ func (s *AnalysisService) RunWithReport(request AnalyzeRequest) (int, *Structura
 		return 1, nil
 	}
 
+	apiBreakingChanges, apiWarnings := analysispkg.ComputeAPIBreakingChanges(absPath, analysisResult.AdapterName, analysisResult.Files)
+	if len(apiWarnings) > 0 {
+		analysisResult.Warnings = append(analysisResult.Warnings, apiWarnings...)
+	}
+
 	if request.Verbose {
 		fmt.Printf(ColorInfo("Selected adapter: ")+"%s\n", analysisResult.AdapterName)
 		reportAnalysisWarnings(analysisResult.Warnings)
@@ -85,7 +90,7 @@ func (s *AnalysisService) RunWithReport(request AnalyzeRequest) (int, *Structura
 	if config != nil {
 		architecture = config.Architecture
 	}
-	ruleSummary := runInternalRulePipelineWithProfile(absPath, graph, analysisResult.AdapterName, architecture)
+	ruleSummary := runInternalRulePipelineWithProfileAndAPI(absPath, graph, analysisResult.AdapterName, architecture, apiBreakingChanges)
 	progress.SetProgress(progress.totalSteps / 2)
 
 	report := generateRuleEngineReport(absPath, request.Format, request.Verbose, request.ColorEnabled, config, ruleSummary)

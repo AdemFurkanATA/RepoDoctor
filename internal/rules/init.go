@@ -13,6 +13,7 @@ func init() {
 	DefaultRegistry.MustRegister(NewDeadCodeRule())
 	DefaultRegistry.MustRegister(NewErrorHandlingConsistencyRule())
 	DefaultRegistry.MustRegister(NewInterfaceBloatRule())
+	DefaultRegistry.MustRegister(NewAPIStabilityRule())
 	// Note: CircularDependencyRule requires a graph parameter, so it's registered separately
 }
 

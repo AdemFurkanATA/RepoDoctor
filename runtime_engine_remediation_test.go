@@ -14,6 +14,7 @@ func TestBuildReportFromRuleViolations_AttachesRemediationHints(t *testing.T) {
 		{RuleID: "rule.dead-code", File: "repo/dead.go", Severity: model.SeverityWarning, Message: "Function 'unusedThing' has 3 lines (threshold: 1) and appears unused"},
 		{RuleID: "rule.error-handling", File: "repo/err.go", Severity: model.SeverityWarning, Message: "Function 'wrapError' has 1 lines (threshold: 1) and formats error without %w wrapping"},
 		{RuleID: "rule.interface-bloat", File: "repo/contracts.go", Severity: model.SeverityWarning, Message: "Function 'Interface Gateway' has 12 lines (threshold: 10)"},
+		{RuleID: "rule.api-stability", File: "repo/api.go", Severity: model.SeverityCritical, Message: "Public API removed: demo|function|Legacy. Action: restore symbol or introduce a compatibility shim."},
 		{RuleID: "rule.size", File: "a.go", Severity: model.SeverityWarning, Message: "Function 'big' has 101 lines (threshold: 80)"},
 		{RuleID: "rule.god-object", File: "obj.go", Severity: model.SeverityWarning, Message: "Manager has 12 methods (threshold: 10)"},
 	}
@@ -30,5 +31,8 @@ func TestBuildReportFromRuleViolations_AttachesRemediationHints(t *testing.T) {
 	}
 	if len(report.GodObject) == 0 || report.GodObject[0].Hint == "" {
 		t.Fatal("expected god object hint to be populated")
+	}
+	if len(report.APIStability) == 0 || report.APIStability[0].Hint == "" {
+		t.Fatal("expected api stability remediation hint to be populated")
 	}
 }
