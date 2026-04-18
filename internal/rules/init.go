@@ -8,6 +8,11 @@ func init() {
 	DefaultRegistry.MustRegister(NewGodObjectRule())
 	DefaultRegistry.MustRegister(NewSizeRule())
 	DefaultRegistry.MustRegister(NewLayerValidationRule())
+	DefaultRegistry.MustRegister(NewSecretDetectionRule())
+	DefaultRegistry.MustRegister(NewCodeDuplicationRule())
+	DefaultRegistry.MustRegister(NewDeadCodeRule())
+	DefaultRegistry.MustRegister(NewErrorHandlingConsistencyRule())
+	DefaultRegistry.MustRegister(NewInterfaceBloatRule())
 	// Note: CircularDependencyRule requires a graph parameter, so it's registered separately
 }
 

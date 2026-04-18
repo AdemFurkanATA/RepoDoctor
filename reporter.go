@@ -41,6 +41,8 @@ type StructuralReport struct {
 	GodObject     []GodObjectViolation
 	Summary       ReportSummary
 	Language      LanguageEvidenceSummary
+	Complexity    ComplexityBandSummary
+	Debt          TechnicalDebtEstimate
 	HasViolations bool
 }
 
@@ -91,6 +93,8 @@ func (r *Reporter) GenerateReport(scorer *StructuralScorer, path, version string
 			GodObject:       len(violations.GodObject),
 		},
 		Language:      LanguageEvidenceSummary{DetectedLanguage: "unknown", Confidence: 0.0},
+		Complexity:    ComplexityBandSummary{},
+		Debt:          TechnicalDebtEstimate{},
 		HasViolations: len(violations.Circular) > 0 || len(violations.Layer) > 0 || len(violations.Size) > 0 || len(violations.GodObject) > 0,
 	}
 }
@@ -118,6 +122,8 @@ func (r *Reporter) formatText(report *StructuralReport) string {
 	writeLayerViolations(&sb, report)
 	writeSizeViolations(&sb, report)
 	writeGodObjectViolations(&sb, report)
+	writeComplexityBands(&sb, report)
+	writeTechnicalDebtSummary(&sb, report)
 	writeScoreBreakdown(&sb, report)
 
 	return sb.String()
@@ -168,6 +174,19 @@ func (r *Reporter) formatJSON(report *StructuralReport) string {
 			"detectedLanguage": report.Language.DetectedLanguage,
 			"confidence":       report.Language.Confidence,
 			"reasonCodes":      append([]string(nil), report.Language.ReasonCodes...),
+		},
+		"complexity": map[string]interface{}{
+			"low":    report.Complexity.Low,
+			"medium": report.Complexity.Medium,
+			"high":   report.Complexity.High,
+		},
+		"technicalDebt": map[string]interface{}{
+			"circularHours":   report.Debt.CircularHours,
+			"layerHours":      report.Debt.LayerHours,
+			"sizeHours":       report.Debt.SizeHours,
+			"godObjectHours":  report.Debt.GodObjectHours,
+			"complexityHours": report.Debt.ComplexityHours,
+			"totalHours":      report.Debt.TotalHours,
 		},
 		"circularViolations":  sortedCircularViolations(report.Circular),
 		"layerViolations":     sortedLayerViolations(report.Layer),

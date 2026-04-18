@@ -30,6 +30,12 @@ func TestReporter_JSONV2_ContainsSchemaAndSummary(t *testing.T) {
 	if !strings.Contains(jsonOut, "\"language\"") {
 		t.Fatalf("expected language section in output: %s", jsonOut)
 	}
+	if !strings.Contains(jsonOut, "\"complexity\"") {
+		t.Fatalf("expected complexity section in output: %s", jsonOut)
+	}
+	if !strings.Contains(jsonOut, "\"technicalDebt\"") {
+		t.Fatalf("expected technicalDebt section in output: %s", jsonOut)
+	}
 	if !strings.Contains(jsonOut, "\"reasonCodes\"") {
 		t.Fatalf("expected reasonCodes in output: %s", jsonOut)
 	}

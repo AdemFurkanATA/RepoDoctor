@@ -90,6 +90,8 @@ func (s *AnalysisService) RunWithReport(request AnalyzeRequest) (int, *Structura
 
 	report := generateRuleEngineReport(absPath, request.Format, request.Verbose, request.ColorEnabled, config, ruleSummary)
 	report.Language = collectLanguageEvidenceSummary(absPath, analysisResult.AdapterName)
+	report.Complexity = collectCyclomaticComplexitySummary(absPath)
+	report.Debt = estimateTechnicalDebt(report)
 	progress.SetProgress(progress.totalSteps)
 	progress.Complete()
 
@@ -129,17 +131,20 @@ func exportMetricsSnapshot(absPath, outputFormat string, result *analysispkg.Res
 	}
 
 	snapshot := metricsPkg.Snapshot{
-		Version:         version,
-		Adapter:         result.AdapterName,
-		OutputFormat:    outputFormat,
-		FilesDetected:   len(result.Files),
-		GraphNodes:      0,
-		GraphEdges:      0,
-		CircularCount:   len(report.Circular),
-		LayerCount:      len(report.Layer),
-		SizeCount:       len(report.Size),
-		GodObjectCount:  len(report.GodObject),
-		TotalViolations: len(report.Circular) + len(report.Layer) + len(report.Size) + len(report.GodObject),
+		Version:          version,
+		Adapter:          result.AdapterName,
+		OutputFormat:     outputFormat,
+		FilesDetected:    len(result.Files),
+		GraphNodes:       0,
+		GraphEdges:       0,
+		CircularCount:    len(report.Circular),
+		LayerCount:       len(report.Layer),
+		SizeCount:        len(report.Size),
+		GodObjectCount:   len(report.GodObject),
+		ComplexityLow:    report.Complexity.Low,
+		ComplexityMedium: report.Complexity.Medium,
+		ComplexityHigh:   report.Complexity.High,
+		TotalViolations:  len(report.Circular) + len(report.Layer) + len(report.Size) + len(report.GodObject),
 	}
 
 	if result.Graph != nil {

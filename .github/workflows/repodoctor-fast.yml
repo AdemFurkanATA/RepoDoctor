@@ -1,0 +1,35 @@
+name: RepoDoctor Fast Gate
+
+on:
+  pull_request:
+    branches: [dev, main]
+
+permissions:
+  contents: read
+
+jobs:
+  fast-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v5
+        with:
+          go-version-file: go.mod
+
+      - name: Fast test pack
+        run: go test ./...
+
+      - name: Fast static analysis
+        run: go vet ./...
+
+      - name: Fast determinism check
+        run: go test ./... -run "TestRunInternalRulePipeline_MultiLanguageMixedFixtureDeterministic|TestJSTSParity_DeterministicAcrossRepeatedRuns"
+
+      - name: Fast self-analysis gate
+        run: go run . analyze -path .
