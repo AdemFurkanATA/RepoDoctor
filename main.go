@@ -513,6 +513,7 @@ func generateReport(scorer *StructuralScorer, absPath, format string, verbose bo
 		writeSizeViolationsWithColor(&sb, report, reporter.formatter)
 		writeGodObjectViolationsWithColor(&sb, report, reporter.formatter)
 		writeAPIViolationsWithColor(&sb, report, reporter.formatter)
+		writeGitChurnSummaryWithColor(&sb, report, reporter.formatter)
 		writeComplexityBandsWithColor(&sb, report, reporter.formatter)
 		writeTechnicalDebtSummaryWithColor(&sb, report, reporter.formatter)
 		writeScoreBreakdownWithColor(&sb, report, reporter.formatter)
@@ -523,10 +524,15 @@ func generateReport(scorer *StructuralScorer, absPath, format string, verbose bo
 
 func generateRuleEngineReport(absPath, format string, verbose bool, colorEnabled bool, cfg *Config, summary *runtimeRuleSummary) *StructuralReport {
 	report := buildReportFromRuleViolations(absPath, version, cfg, summary.result.Violations)
+	churnSummary, churnWarnings := analysis.ComputeGitChurnSummary(absPath)
+	report.GitChurn = churnSummary
 
 	if verbose {
 		fmt.Printf(ColorInfo("Rules in registry: ")+"%d\n", summary.rulesInScope)
 		fmt.Printf(ColorInfo("Rules executed: ")+"%d\n", summary.result.RulesExecuted)
+		for _, warning := range churnWarnings {
+			fmt.Printf("%s", ColorWarn(fmt.Sprintf("Warning: %s\n", warning)))
+		}
 	}
 
 	reporter := NewColoredReporter(OutputFormat(format), colorEnabled)
@@ -542,6 +548,7 @@ func generateRuleEngineReport(absPath, format string, verbose bool, colorEnabled
 		writeSizeViolationsWithColor(&sb, report, reporter.formatter)
 		writeGodObjectViolationsWithColor(&sb, report, reporter.formatter)
 		writeAPIViolationsWithColor(&sb, report, reporter.formatter)
+		writeGitChurnSummaryWithColor(&sb, report, reporter.formatter)
 		writeComplexityBandsWithColor(&sb, report, reporter.formatter)
 		writeTechnicalDebtSummaryWithColor(&sb, report, reporter.formatter)
 		writeScoreBreakdownWithColor(&sb, report, reporter.formatter)

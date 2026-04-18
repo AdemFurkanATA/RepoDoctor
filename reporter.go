@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"RepoDoctor/internal/model"
 )
 
 // OutputFormat defines the output format type
@@ -44,6 +46,7 @@ type StructuralReport struct {
 	Language      LanguageEvidenceSummary
 	Complexity    ComplexityBandSummary
 	Debt          TechnicalDebtEstimate
+	GitChurn      model.GitChurnSummary
 	HasViolations bool
 }
 
@@ -103,6 +106,7 @@ func (r *Reporter) GenerateReport(scorer *StructuralScorer, path, version string
 		Language:      LanguageEvidenceSummary{DetectedLanguage: "unknown", Confidence: 0.0},
 		Complexity:    ComplexityBandSummary{},
 		Debt:          TechnicalDebtEstimate{},
+		GitChurn:      model.GitChurnSummary{Files: []model.GitChurnFile{}},
 		HasViolations: len(violations.Circular) > 0 || len(violations.Layer) > 0 || len(violations.Size) > 0 || len(violations.GodObject) > 0,
 	}
 }
@@ -131,6 +135,7 @@ func (r *Reporter) formatText(report *StructuralReport) string {
 	writeSizeViolations(&sb, report)
 	writeGodObjectViolations(&sb, report)
 	writeAPIViolations(&sb, report)
+	writeGitChurnSummary(&sb, report)
 	writeComplexityBands(&sb, report)
 	writeTechnicalDebtSummary(&sb, report)
 	writeScoreBreakdown(&sb, report)
@@ -196,6 +201,12 @@ func (r *Reporter) formatJSON(report *StructuralReport) string {
 			"godObjectHours":  report.Debt.GodObjectHours,
 			"complexityHours": report.Debt.ComplexityHours,
 			"totalHours":      report.Debt.TotalHours,
+		},
+		"gitChurn": map[string]interface{}{
+			"totalCommits":        report.GitChurn.TotalCommits,
+			"recentWindowCommits": report.GitChurn.RecentWindowCommits,
+			"distinctAuthors":     report.GitChurn.DistinctAuthors,
+			"files":               sortedGitChurnFiles(report.GitChurn.Files),
 		},
 		"circularViolations":  sortedCircularViolations(report.Circular),
 		"layerViolations":     sortedLayerViolations(report.Layer),
