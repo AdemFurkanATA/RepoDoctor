@@ -269,6 +269,7 @@ Use `json-v1` only if an existing integration still depends on old schema.
 Current CI pipeline includes:
 
 - Linux + Windows matrix
+- PR fast gate (`.github/workflows/repodoctor-fast.yml`)
 - `go test ./...`
 - `go vet ./...`
 - deterministic confidence suites
@@ -282,6 +283,7 @@ Current CI pipeline includes:
   - `scripts/v130_release_stabilization_gate.ps1`
   - `scripts/v140_release_stabilization_gate.ps1`
   - `scripts/v150_release_stabilization_gate.ps1`
+  - `scripts/v160_release_stabilization_gate.ps1`
 
 You can also scaffold CI templates quickly:
 
