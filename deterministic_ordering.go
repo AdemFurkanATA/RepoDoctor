@@ -72,6 +72,18 @@ func sortedGodObjectViolations(in []GodObjectViolation) []GodObjectViolation {
 	})
 }
 
+func sortedAPIViolations(in []APIStabilityViolation) []APIStabilityViolation {
+	return stableSortedCopy(in, func(left, right APIStabilityViolation) bool {
+		if left.File != right.File {
+			return left.File < right.File
+		}
+		if left.Line != right.Line {
+			return left.Line < right.Line
+		}
+		return left.Message < right.Message
+	})
+}
+
 func sortModelViolationsDeterministic(violations []model.Violation) {
 	sort.SliceStable(violations, func(i, j int) bool {
 		if violations[i].RuleID != violations[j].RuleID {

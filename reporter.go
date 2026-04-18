@@ -39,11 +39,19 @@ type StructuralReport struct {
 	Layer         []LayerViolation
 	Size          []SizeViolation
 	GodObject     []GodObjectViolation
+	APIStability  []APIStabilityViolation
 	Summary       ReportSummary
 	Language      LanguageEvidenceSummary
 	Complexity    ComplexityBandSummary
 	Debt          TechnicalDebtEstimate
 	HasViolations bool
+}
+
+type APIStabilityViolation struct {
+	File    string `json:"file"`
+	Line    int    `json:"line"`
+	Message string `json:"message"`
+	Hint    string `json:"hint,omitempty"`
 }
 
 type ReportSummary struct {
@@ -122,6 +130,7 @@ func (r *Reporter) formatText(report *StructuralReport) string {
 	writeLayerViolations(&sb, report)
 	writeSizeViolations(&sb, report)
 	writeGodObjectViolations(&sb, report)
+	writeAPIViolations(&sb, report)
 	writeComplexityBands(&sb, report)
 	writeTechnicalDebtSummary(&sb, report)
 	writeScoreBreakdown(&sb, report)
@@ -192,6 +201,9 @@ func (r *Reporter) formatJSON(report *StructuralReport) string {
 		"layerViolations":     sortedLayerViolations(report.Layer),
 		"sizeViolations":      sortedSizeViolations(report.Size),
 		"godObjectViolations": sortedGodObjectViolations(report.GodObject),
+		"apiStability": map[string]interface{}{
+			"breakingChanges": sortedAPIViolations(report.APIStability),
+		},
 	}
 	data, err := json.MarshalIndent(payload, "", "  ")
 	if err != nil {

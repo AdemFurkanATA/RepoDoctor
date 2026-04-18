@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"RepoDoctor/internal/model"
 	"RepoDoctor/internal/rules"
 )
 
@@ -15,6 +16,7 @@ type runtimeAnalysisContextInput struct {
 	ArchitectureProfile string
 	CustomLayerOrder    []string
 	CustomLayerKeywords map[string][]string
+	APIBreakingChanges  []model.APIBreakingChange
 }
 
 func buildUnifiedRulesAnalysisContext(input runtimeAnalysisContextInput) rules.AnalysisContext {
@@ -37,6 +39,9 @@ func buildUnifiedRulesAnalysisContext(input runtimeAnalysisContextInput) rules.A
 	}
 	if threshold, ok := resolveInterfaceBloatThreshold(); ok {
 		configuration["interfaceBloatMaxMethods"] = threshold
+	}
+	if len(input.APIBreakingChanges) > 0 {
+		configuration["apiStabilityBreakingChanges"] = append([]model.APIBreakingChange{}, input.APIBreakingChanges...)
 	}
 
 	return rules.AnalysisContext{

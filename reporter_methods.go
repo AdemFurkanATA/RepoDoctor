@@ -122,6 +122,28 @@ func writeGodObjectViolations(sb *strings.Builder, report *StructuralReport) {
 	sb.WriteString("\n")
 }
 
+func writeAPIViolations(sb *strings.Builder, report *StructuralReport) {
+	if len(report.APIStability) == 0 {
+		return
+	}
+
+	sb.WriteString("┌───────────────────────────────────────────────────────────┐\n")
+	sb.WriteString("│  API STABILITY BREAKING CHANGES [CRITICAL]               │\n")
+	sb.WriteString("└───────────────────────────────────────────────────────────┘\n")
+
+	for i, v := range report.APIStability {
+		sb.WriteString(fmt.Sprintf("[%d] %s", i+1, v.Message))
+		if v.File != "" {
+			sb.WriteString(fmt.Sprintf(" [%s:%d]", v.File, v.Line))
+		}
+		sb.WriteString("\n")
+		if v.Hint != "" {
+			sb.WriteString(fmt.Sprintf("    Hint: %s\n", v.Hint))
+		}
+	}
+	sb.WriteString("\n")
+}
+
 func writeComplexityBands(sb *strings.Builder, report *StructuralReport) {
 	sb.WriteString("┌───────────────────────────────────────────────────────────┐\n")
 	sb.WriteString("│  CYCLOMATIC COMPLEXITY BANDS                              │\n")
