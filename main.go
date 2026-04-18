@@ -504,6 +504,7 @@ func generateReport(scorer *StructuralScorer, absPath, format string, verbose bo
 		writeSizeViolationsWithColor(&sb, report, reporter.formatter)
 		writeGodObjectViolationsWithColor(&sb, report, reporter.formatter)
 		writeComplexityBandsWithColor(&sb, report, reporter.formatter)
+		writeTechnicalDebtSummaryWithColor(&sb, report, reporter.formatter)
 		writeScoreBreakdownWithColor(&sb, report, reporter.formatter)
 		fmt.Println(sb.String())
 	}
@@ -531,6 +532,7 @@ func generateRuleEngineReport(absPath, format string, verbose bool, colorEnabled
 		writeSizeViolationsWithColor(&sb, report, reporter.formatter)
 		writeGodObjectViolationsWithColor(&sb, report, reporter.formatter)
 		writeComplexityBandsWithColor(&sb, report, reporter.formatter)
+		writeTechnicalDebtSummaryWithColor(&sb, report, reporter.formatter)
 		writeScoreBreakdownWithColor(&sb, report, reporter.formatter)
 		fmt.Println(sb.String())
 	}
