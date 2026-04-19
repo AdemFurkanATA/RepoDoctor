@@ -221,6 +221,38 @@ func writeGitChurnSummaryWithColor(sb *strings.Builder, report *StructuralReport
 	sb.WriteString("\n")
 }
 
+func writeHotspotSummaryWithColor(sb *strings.Builder, report *StructuralReport, formatter *ColorFormatter) {
+	if len(report.Hotspots) == 0 {
+		return
+	}
+
+	sb.WriteString(formatter.Color("┌───────────────────────────────────────────────────────────┐", ColorYellow))
+	sb.WriteString("\n")
+	sb.WriteString(formatter.Color("│  HOTSPOT RISK RANKING                                     │", ColorYellow))
+	sb.WriteString("\n")
+	sb.WriteString(formatter.Color("└───────────────────────────────────────────────────────────┘", ColorYellow))
+	sb.WriteString("\n")
+
+	hotspots := sortedHotspotEntries(report.Hotspots)
+	limit := 5
+	if len(hotspots) < limit {
+		limit = len(hotspots)
+	}
+	for i := 0; i < limit; i++ {
+		entry := hotspots[i]
+		sb.WriteString(formatter.Warn(fmt.Sprintf("[%d] %s | risk:%d complexity:%d churn:%d recent:%d\n",
+			i+1,
+			entry.File,
+			entry.RiskScore,
+			entry.Complexity,
+			entry.CommitTouches,
+			entry.RecentTouches,
+		)))
+		sb.WriteString(formatter.Info(fmt.Sprintf("    %s\n", entry.Explanation)))
+	}
+	sb.WriteString("\n")
+}
+
 func writeComplexityBandsWithColor(sb *strings.Builder, report *StructuralReport, formatter *ColorFormatter) {
 	sb.WriteString(formatter.Color("┌───────────────────────────────────────────────────────────┐", ColorCyan))
 	sb.WriteString("\n")

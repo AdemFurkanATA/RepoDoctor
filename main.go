@@ -514,6 +514,7 @@ func generateReport(scorer *StructuralScorer, absPath, format string, verbose bo
 		writeGodObjectViolationsWithColor(&sb, report, reporter.formatter)
 		writeAPIViolationsWithColor(&sb, report, reporter.formatter)
 		writeGitChurnSummaryWithColor(&sb, report, reporter.formatter)
+		writeHotspotSummaryWithColor(&sb, report, reporter.formatter)
 		writeComplexityBandsWithColor(&sb, report, reporter.formatter)
 		writeTechnicalDebtSummaryWithColor(&sb, report, reporter.formatter)
 		writeScoreBreakdownWithColor(&sb, report, reporter.formatter)
@@ -526,6 +527,9 @@ func generateRuleEngineReport(absPath, format string, verbose bool, colorEnabled
 	report := buildReportFromRuleViolations(absPath, version, cfg, summary.result.Violations)
 	churnSummary, churnWarnings := analysis.ComputeGitChurnSummary(absPath)
 	report.GitChurn = churnSummary
+	report.Complexity = collectCyclomaticComplexitySummary(absPath)
+	report.Hotspots = collectHotspotSummary(absPath, report.GitChurn)
+	report.Debt = estimateTechnicalDebt(report)
 
 	if verbose {
 		fmt.Printf(ColorInfo("Rules in registry: ")+"%d\n", summary.rulesInScope)
@@ -549,6 +553,7 @@ func generateRuleEngineReport(absPath, format string, verbose bool, colorEnabled
 		writeGodObjectViolationsWithColor(&sb, report, reporter.formatter)
 		writeAPIViolationsWithColor(&sb, report, reporter.formatter)
 		writeGitChurnSummaryWithColor(&sb, report, reporter.formatter)
+		writeHotspotSummaryWithColor(&sb, report, reporter.formatter)
 		writeComplexityBandsWithColor(&sb, report, reporter.formatter)
 		writeTechnicalDebtSummaryWithColor(&sb, report, reporter.formatter)
 		writeScoreBreakdownWithColor(&sb, report, reporter.formatter)

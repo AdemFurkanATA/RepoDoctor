@@ -99,6 +99,15 @@ func sortedGitChurnFiles(in []model.GitChurnFile) []model.GitChurnFile {
 	})
 }
 
+func sortedHotspotEntries(in []HotspotEntry) []HotspotEntry {
+	return stableSortedCopy(in, func(left, right HotspotEntry) bool {
+		if left.RiskScore != right.RiskScore {
+			return left.RiskScore > right.RiskScore
+		}
+		return left.File < right.File
+	})
+}
+
 func sortModelViolationsDeterministic(violations []model.Violation) {
 	sort.SliceStable(violations, func(i, j int) bool {
 		if violations[i].RuleID != violations[j].RuleID {
