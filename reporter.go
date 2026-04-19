@@ -48,6 +48,7 @@ type StructuralReport struct {
 	Hotspots      []HotspotEntry
 	Debt          TechnicalDebtEstimate
 	GitChurn      model.GitChurnSummary
+	Vulnerability model.VulnerabilitySummary
 	HasViolations bool
 }
 
@@ -109,6 +110,7 @@ func (r *Reporter) GenerateReport(scorer *StructuralScorer, path, version string
 		Hotspots:      []HotspotEntry{},
 		Debt:          TechnicalDebtEstimate{},
 		GitChurn:      model.GitChurnSummary{Files: []model.GitChurnFile{}},
+		Vulnerability: model.VulnerabilitySummary{Enabled: false, Findings: []model.VulnerabilityFinding{}},
 		HasViolations: len(violations.Circular) > 0 || len(violations.Layer) > 0 || len(violations.Size) > 0 || len(violations.GodObject) > 0,
 	}
 }
@@ -139,6 +141,7 @@ func (r *Reporter) formatText(report *StructuralReport) string {
 	writeAPIViolations(&sb, report)
 	writeGitChurnSummary(&sb, report)
 	writeHotspotSummary(&sb, report)
+	writeVulnerabilitySummary(&sb, report)
 	writeComplexityBands(&sb, report)
 	writeTechnicalDebtSummary(&sb, report)
 	writeScoreBreakdown(&sb, report)
@@ -210,6 +213,11 @@ func (r *Reporter) formatJSON(report *StructuralReport) string {
 			"recentWindowCommits": report.GitChurn.RecentWindowCommits,
 			"distinctAuthors":     report.GitChurn.DistinctAuthors,
 			"files":               sortedGitChurnFiles(report.GitChurn.Files),
+		},
+		"dependencyVulnerabilities": map[string]interface{}{
+			"enabled":         report.Vulnerability.Enabled,
+			"checkedPackages": report.Vulnerability.CheckedPackages,
+			"findings":        sortedVulnerabilityFindings(report.Vulnerability.Findings),
 		},
 		"hotspots":            sortedHotspotEntries(report.Hotspots),
 		"circularViolations":  sortedCircularViolations(report.Circular),

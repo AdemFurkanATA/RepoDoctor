@@ -42,6 +42,9 @@ func TestReporter_JSONV2_ContainsSchemaAndSummary(t *testing.T) {
 	if !strings.Contains(jsonOut, "\"hotspots\"") {
 		t.Fatalf("expected hotspots section in output: %s", jsonOut)
 	}
+	if !strings.Contains(jsonOut, "\"dependencyVulnerabilities\"") {
+		t.Fatalf("expected dependencyVulnerabilities section in output: %s", jsonOut)
+	}
 	if !strings.Contains(jsonOut, "\"apiStability\"") {
 		t.Fatalf("expected apiStability section in output: %s", jsonOut)
 	}

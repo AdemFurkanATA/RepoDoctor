@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	analysispkg "RepoDoctor/internal/analysis"
 	metricsPkg "RepoDoctor/internal/metrics"
@@ -15,6 +16,13 @@ type AnalyzeRequest struct {
 	ColorEnabled    bool
 	ExitOnViolation bool
 	Profiling       profilingRequest
+	Vulnerability   vulnerabilityCheckRequest
+}
+
+type vulnerabilityCheckRequest struct {
+	Enabled         bool
+	TimeoutSeconds  int
+	MaxDependencies int
 }
 
 type AnalysisService struct{}
@@ -92,9 +100,17 @@ func (s *AnalysisService) RunWithReport(request AnalyzeRequest) (int, *Structura
 	}
 	ruleSummary := runInternalRulePipelineWithProfileAndAPI(absPath, graph, analysisResult.AdapterName, architecture, apiBreakingChanges)
 	progress.SetProgress(progress.totalSteps / 2)
+	vulnSummary, vulnWarnings := analysispkg.ComputeDependencyVulnerabilities(absPath, analysispkg.VulnerabilityOptions{
+		Enabled:         request.Vulnerability.Enabled,
+		Timeout:         time.Duration(request.Vulnerability.TimeoutSeconds) * time.Second,
+		MaxDependencies: request.Vulnerability.MaxDependencies,
+	})
 
-	report := generateRuleEngineReport(absPath, request.Format, request.Verbose, request.ColorEnabled, config, ruleSummary)
+	report := generateRuleEngineReport(absPath, request.Format, request.Verbose, request.ColorEnabled, config, ruleSummary, vulnSummary, vulnWarnings)
 	report.Language = collectLanguageEvidenceSummary(absPath, analysisResult.AdapterName)
+	if len(vulnWarnings) > 0 {
+		analysisResult.Warnings = append(analysisResult.Warnings, vulnWarnings...)
+	}
 	progress.SetProgress(progress.totalSteps)
 	progress.Complete()
 

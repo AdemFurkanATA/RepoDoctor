@@ -108,6 +108,18 @@ func sortedHotspotEntries(in []HotspotEntry) []HotspotEntry {
 	})
 }
 
+func sortedVulnerabilityFindings(in []model.VulnerabilityFinding) []model.VulnerabilityFinding {
+	return stableSortedCopy(in, func(left, right model.VulnerabilityFinding) bool {
+		if left.Package != right.Package {
+			return left.Package < right.Package
+		}
+		if left.Version != right.Version {
+			return left.Version < right.Version
+		}
+		return left.ID < right.ID
+	})
+}
+
 func sortModelViolationsDeterministic(violations []model.Violation) {
 	sort.SliceStable(violations, func(i, j int) bool {
 		if violations[i].RuleID != violations[j].RuleID {
