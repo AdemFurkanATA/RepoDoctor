@@ -176,6 +176,35 @@ func writeGitChurnSummary(sb *strings.Builder, report *StructuralReport) {
 	sb.WriteString("\n")
 }
 
+func writeHotspotSummary(sb *strings.Builder, report *StructuralReport) {
+	if len(report.Hotspots) == 0 {
+		return
+	}
+
+	sb.WriteString("┌───────────────────────────────────────────────────────────┐\n")
+	sb.WriteString("│  HOTSPOT RISK RANKING                                     │\n")
+	sb.WriteString("└───────────────────────────────────────────────────────────┘\n")
+
+	hotspots := sortedHotspotEntries(report.Hotspots)
+	limit := 5
+	if len(hotspots) < limit {
+		limit = len(hotspots)
+	}
+	for i := 0; i < limit; i++ {
+		entry := hotspots[i]
+		sb.WriteString(fmt.Sprintf("[%d] %s | risk:%d complexity:%d churn:%d recent:%d\n",
+			i+1,
+			entry.File,
+			entry.RiskScore,
+			entry.Complexity,
+			entry.CommitTouches,
+			entry.RecentTouches,
+		))
+		sb.WriteString(fmt.Sprintf("    %s\n", entry.Explanation))
+	}
+	sb.WriteString("\n")
+}
+
 func writeComplexityBands(sb *strings.Builder, report *StructuralReport) {
 	sb.WriteString("┌───────────────────────────────────────────────────────────┐\n")
 	sb.WriteString("│  CYCLOMATIC COMPLEXITY BANDS                              │\n")

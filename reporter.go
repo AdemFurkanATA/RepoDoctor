@@ -45,6 +45,7 @@ type StructuralReport struct {
 	Summary       ReportSummary
 	Language      LanguageEvidenceSummary
 	Complexity    ComplexityBandSummary
+	Hotspots      []HotspotEntry
 	Debt          TechnicalDebtEstimate
 	GitChurn      model.GitChurnSummary
 	HasViolations bool
@@ -105,6 +106,7 @@ func (r *Reporter) GenerateReport(scorer *StructuralScorer, path, version string
 		},
 		Language:      LanguageEvidenceSummary{DetectedLanguage: "unknown", Confidence: 0.0},
 		Complexity:    ComplexityBandSummary{},
+		Hotspots:      []HotspotEntry{},
 		Debt:          TechnicalDebtEstimate{},
 		GitChurn:      model.GitChurnSummary{Files: []model.GitChurnFile{}},
 		HasViolations: len(violations.Circular) > 0 || len(violations.Layer) > 0 || len(violations.Size) > 0 || len(violations.GodObject) > 0,
@@ -136,6 +138,7 @@ func (r *Reporter) formatText(report *StructuralReport) string {
 	writeGodObjectViolations(&sb, report)
 	writeAPIViolations(&sb, report)
 	writeGitChurnSummary(&sb, report)
+	writeHotspotSummary(&sb, report)
 	writeComplexityBands(&sb, report)
 	writeTechnicalDebtSummary(&sb, report)
 	writeScoreBreakdown(&sb, report)
@@ -208,6 +211,7 @@ func (r *Reporter) formatJSON(report *StructuralReport) string {
 			"distinctAuthors":     report.GitChurn.DistinctAuthors,
 			"files":               sortedGitChurnFiles(report.GitChurn.Files),
 		},
+		"hotspots":            sortedHotspotEntries(report.Hotspots),
 		"circularViolations":  sortedCircularViolations(report.Circular),
 		"layerViolations":     sortedLayerViolations(report.Layer),
 		"sizeViolations":      sortedSizeViolations(report.Size),
