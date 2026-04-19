@@ -205,6 +205,32 @@ func writeHotspotSummary(sb *strings.Builder, report *StructuralReport) {
 	sb.WriteString("\n")
 }
 
+func writeVulnerabilitySummary(sb *strings.Builder, report *StructuralReport) {
+	if !report.Vulnerability.Enabled {
+		return
+	}
+
+	sb.WriteString("┌───────────────────────────────────────────────────────────┐\n")
+	sb.WriteString("│  DEPENDENCY VULNERABILITY CHECK                           │\n")
+	sb.WriteString("└───────────────────────────────────────────────────────────┘\n")
+	sb.WriteString(fmt.Sprintf("Checked packages: %d\n", report.Vulnerability.CheckedPackages))
+	sb.WriteString(fmt.Sprintf("Findings: %d\n", len(report.Vulnerability.Findings)))
+
+	findings := sortedVulnerabilityFindings(report.Vulnerability.Findings)
+	limit := 5
+	if len(findings) < limit {
+		limit = len(findings)
+	}
+	for i := 0; i < limit; i++ {
+		finding := findings[i]
+		sb.WriteString(fmt.Sprintf("[%d] %s@%s %s\n", i+1, finding.Package, finding.Version, finding.ID))
+		if finding.Summary != "" {
+			sb.WriteString(fmt.Sprintf("    %s\n", finding.Summary))
+		}
+	}
+	sb.WriteString("\n")
+}
+
 func writeComplexityBands(sb *strings.Builder, report *StructuralReport) {
 	sb.WriteString("┌───────────────────────────────────────────────────────────┐\n")
 	sb.WriteString("│  CYCLOMATIC COMPLEXITY BANDS                              │\n")

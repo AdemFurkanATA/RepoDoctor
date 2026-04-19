@@ -155,7 +155,7 @@ func (w *Watcher) runAnalysis(changedFile string) {
 	fmt.Println(strings.Repeat("=", 60))
 
 	// Run analysis
-	if code := runAnalyze(w.path, "text", false, true, false, profilingRequest{}); code != 0 {
+	if code := runAnalyze(w.path, "text", false, true, false, profilingRequest{}, vulnerabilityCheckRequest{}); code != 0 {
 		fmt.Printf("Analysis finished with exit code %d (watch continues).\n", code)
 	}
 }
@@ -220,7 +220,7 @@ func WatchAndAnalyze(path string) error {
 	// Run initial analysis
 	fmt.Println("Running initial analysis...")
 	fmt.Println()
-	if code := runAnalyze(path, "text", false, true, false, profilingRequest{}); code != 0 {
+	if code := runAnalyze(path, "text", false, true, false, profilingRequest{}, vulnerabilityCheckRequest{}); code != 0 {
 		fmt.Printf("Initial analysis finished with exit code %d (watch continues).\n", code)
 	}
 

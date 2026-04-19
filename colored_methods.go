@@ -253,6 +253,36 @@ func writeHotspotSummaryWithColor(sb *strings.Builder, report *StructuralReport,
 	sb.WriteString("\n")
 }
 
+func writeVulnerabilitySummaryWithColor(sb *strings.Builder, report *StructuralReport, formatter *ColorFormatter) {
+	if !report.Vulnerability.Enabled {
+		return
+	}
+
+	sb.WriteString(formatter.Color("┌───────────────────────────────────────────────────────────┐", ColorRed))
+	sb.WriteString("\n")
+	sb.WriteString(formatter.Color("│  DEPENDENCY VULNERABILITY CHECK                           │", ColorRed))
+	sb.WriteString("\n")
+	sb.WriteString(formatter.Color("└───────────────────────────────────────────────────────────┘", ColorRed))
+	sb.WriteString("\n")
+
+	sb.WriteString(formatter.Info(fmt.Sprintf("Checked packages: %d\n", report.Vulnerability.CheckedPackages)))
+	sb.WriteString(formatter.Info(fmt.Sprintf("Findings: %d\n", len(report.Vulnerability.Findings))))
+
+	findings := sortedVulnerabilityFindings(report.Vulnerability.Findings)
+	limit := 5
+	if len(findings) < limit {
+		limit = len(findings)
+	}
+	for i := 0; i < limit; i++ {
+		finding := findings[i]
+		sb.WriteString(formatter.Error(fmt.Sprintf("[%d] %s@%s %s\n", i+1, finding.Package, finding.Version, finding.ID)))
+		if finding.Summary != "" {
+			sb.WriteString(formatter.Info(fmt.Sprintf("    %s\n", finding.Summary)))
+		}
+	}
+	sb.WriteString("\n")
+}
+
 func writeComplexityBandsWithColor(sb *strings.Builder, report *StructuralReport, formatter *ColorFormatter) {
 	sb.WriteString(formatter.Color("┌───────────────────────────────────────────────────────────┐", ColorCyan))
 	sb.WriteString("\n")
