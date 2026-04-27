@@ -270,20 +270,11 @@ Current CI pipeline includes:
 
 - Linux + Windows matrix
 - PR fast gate (`.github/workflows/repodoctor-fast.yml`)
-- `go test ./...`
-- `go vet ./...`
-- deterministic confidence suites
-- self-analysis score gate
-- milestone gate packs:
-  - `scripts/v018_closeout_gate.ps1`
-  - `scripts/v019_release_stabilization_gate.ps1`
-  - `scripts/v100_release_stabilization_gate.ps1`
-  - `scripts/v110_release_stabilization_gate.ps1`
-  - `scripts/v120_release_stabilization_gate.ps1`
-  - `scripts/v130_release_stabilization_gate.ps1`
-  - `scripts/v140_release_stabilization_gate.ps1`
-  - `scripts/v150_release_stabilization_gate.ps1`
-  - `scripts/v160_release_stabilization_gate.ps1`
+- consolidated stabilization gate (`scripts/v170_release_stabilization_gate.ps1`) including:
+  - `go test ./...`
+  - `go vet ./...`
+  - deterministic confidence suites
+  - self-analysis score gate (`go run . analyze -path .`)
 
 You can also scaffold CI templates quickly:
 
