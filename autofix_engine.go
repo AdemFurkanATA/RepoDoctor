@@ -23,6 +23,8 @@ type AutoFixRequest struct {
 	RepositoryPath string
 	Apply          bool
 	Packs          []AutoFixPack
+	DisabledPacks  []string
+	UnknownPacks   []string
 }
 
 type AutoFixResult struct {
@@ -60,6 +62,12 @@ func runAutoFix(request AutoFixRequest) (*AutoFixResult, error) {
 	}
 
 	result := &AutoFixResult{DryRun: !request.Apply, Preview: []string{}, ChangedFiles: []string{}, SkippedReasons: []string{}}
+	for _, item := range request.DisabledPacks {
+		result.SkippedReasons = append(result.SkippedReasons, "high-risk pack disabled in auto mode: "+item)
+	}
+	for _, item := range request.UnknownPacks {
+		result.SkippedReasons = append(result.SkippedReasons, "unknown pack skipped: "+item)
+	}
 	result.FilesScanned = len(files)
 
 	edits := make([]fileEdit, 0)
@@ -112,6 +120,47 @@ func resolveAutoFixPacks(input []AutoFixPack) []AutoFixPack {
 		resolved = append(resolved, normalized)
 	}
 	return resolved
+}
+
+func parseAutoFixPacks(raw string) (safe []AutoFixPack, disabled []string, unknown []string) {
+	parts := strings.Split(strings.ToLower(strings.TrimSpace(raw)), ",")
+
+	safeSet := map[AutoFixPack]bool{}
+	safe = make([]AutoFixPack, 0, len(parts))
+	disabled = make([]string, 0)
+	unknown = make([]string, 0)
+
+	safeCatalog := map[string]AutoFixPack{
+		"size":       AutoFixPackSize,
+		"imports":    AutoFixPackImports,
+		"error-wrap": AutoFixPackErrorWrap,
+	}
+	highRiskCatalog := map[string]bool{
+		"extract-method": true,
+		"layer-refactor": true,
+		"api-rewrite":    true,
+	}
+
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed == "" {
+			continue
+		}
+		if pack, ok := safeCatalog[trimmed]; ok {
+			if !safeSet[pack] {
+				safeSet[pack] = true
+				safe = append(safe, pack)
+			}
+			continue
+		}
+		if highRiskCatalog[trimmed] {
+			disabled = append(disabled, trimmed)
+			continue
+		}
+		unknown = append(unknown, trimmed)
+	}
+
+	return safe, disabled, unknown
 }
 
 func collectSafeGoFiles(root string) ([]string, error) {
@@ -258,6 +307,9 @@ func printAutoFixResult(result *AutoFixResult) {
 	fmt.Printf("Total edits: %d\n", result.TotalEdits)
 	for _, line := range result.Preview {
 		fmt.Println(line)
+	}
+	for _, reason := range result.SkippedReasons {
+		fmt.Printf("Skipped: %s\n", reason)
 	}
 	if result.DryRun {
 		fmt.Println("Dry-run is default. Re-run with --apply to write safe fixes.")

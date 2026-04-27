@@ -20,6 +20,26 @@ func TestParseFixFlags_DryRunDefaultAndPacks(t *testing.T) {
 	}
 }
 
+func TestParseFixFlags_HighRiskPacksRemainDisabled(t *testing.T) {
+	request, err := parseFixFlags([]string{"-path", ".", "-packs", "size,extract-method"})
+	if err != nil {
+		t.Fatalf("parseFixFlags failed: %v", err)
+	}
+	if len(request.Packs) != 1 || request.Packs[0] != AutoFixPackSize {
+		t.Fatalf("expected only low-risk size pack enabled, got %v", request.Packs)
+	}
+	if len(request.DisabledPacks) != 1 || request.DisabledPacks[0] != "extract-method" {
+		t.Fatalf("expected high-risk pack to be disabled, got %v", request.DisabledPacks)
+	}
+}
+
+func TestParseFixFlags_OnlyHighRiskPackRejected(t *testing.T) {
+	_, err := parseFixFlags([]string{"-path", ".", "-packs", "extract-method"})
+	if err == nil {
+		t.Fatal("expected only high-risk pack selection to fail")
+	}
+}
+
 func TestRunAutoFix_DryRunDoesNotModifyFiles(t *testing.T) {
 	repo := t.TempDir()
 	file := filepath.Join(repo, "sample.go")
