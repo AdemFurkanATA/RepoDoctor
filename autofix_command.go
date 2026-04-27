@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strings"
 )
 
 func handleFixCommand(args []string) error {
@@ -40,28 +39,15 @@ func parseFixFlags(args []string) (AutoFixRequest, error) {
 	}
 
 	request := AutoFixRequest{RepositoryPath: *path, Apply: *apply}
-	request.Packs = parseFixPacks(*packs)
+	request.Packs, request.DisabledPacks, request.UnknownPacks = parseAutoFixPacks(*packs)
 	if len(request.Packs) == 0 {
 		return AutoFixRequest{}, NewCLIError(
 			ErrorInvalidArgument,
 			"No valid safe packs provided",
-			"Use --packs size,imports,error-wrap",
+			"Use --packs size,imports,error-wrap (high-risk packs remain suggestion-only)",
 			nil,
 		)
 	}
 
 	return request, nil
-}
-
-func parseFixPacks(raw string) []AutoFixPack {
-	parts := strings.Split(strings.ToLower(strings.TrimSpace(raw)), ",")
-	result := make([]AutoFixPack, 0, len(parts))
-	for _, part := range parts {
-		trimmed := strings.TrimSpace(part)
-		if trimmed == "" {
-			continue
-		}
-		result = append(result, AutoFixPack(trimmed))
-	}
-	return resolveAutoFixPacks(result)
 }
