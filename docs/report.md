@@ -121,6 +121,7 @@ Release path:
 
 - **Open:** Release distribution workflow'unda manuel tetikleme (`workflow_dispatch`) ile release akışı bypass riski; tag/ref doğrulaması ve protection kontrolü sıkılaştırılmalı.
 - **Mitigated (v1.7):** CI akışında stabilization script zinciri tek bir konsolide kapıya (`scripts/v170_release_stabilization_gate.ps1`) indirildi; mükerrer test/vet döngüleri azaltıldı.
+- **Mitigated (v1.8):** Auto-fix güvenlik sınırları gate kapsamına alındı (`scripts/v180_release_stabilization_gate.ps1`); dry-run default + high-risk pack disable doğrulamaları zorunlu.
 - **Plan (CI maliyet notu):**
   - PR tarafında hızlı kapı (`repodoctor-fast.yml`) düşük maliyetli geri bildirim için birincil kalacak.
   - Tam matris kapısı (`repodoctor.yml`) konsolide stabilization gate ile korunacak.

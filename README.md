@@ -270,7 +270,7 @@ Current CI pipeline includes:
 
 - Linux + Windows matrix
 - PR fast gate (`.github/workflows/repodoctor-fast.yml`)
-- consolidated stabilization gate (`scripts/v170_release_stabilization_gate.ps1`) including:
+- consolidated stabilization gate (`scripts/v180_release_stabilization_gate.ps1`) including:
   - `go test ./...`
   - `go vet ./...`
   - deterministic confidence suites
