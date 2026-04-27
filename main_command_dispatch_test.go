@@ -2,6 +2,8 @@ package main
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -85,5 +87,17 @@ func TestHasExplicitPathFlag_DetectionVariants(t *testing.T) {
 				t.Fatalf("hasExplicitPathFlag(%v)=%v, want %v", tc.args, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestExecuteCommand_FixCommandDryRun(t *testing.T) {
+	tmp := t.TempDir()
+	content := "package demo\n\nimport \"fmt\"\n\nfunc wrap(err error) error {\n\treturn fmt.Errorf(\"oops: %v\", err)\n}\n"
+	if err := os.WriteFile(filepath.Join(tmp, "sample.go"), []byte(content), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	if err := executeCommand("fix", []string{"-path", tmp}); err != nil {
+		t.Fatalf("fix command dry-run failed: %v", err)
 	}
 }
