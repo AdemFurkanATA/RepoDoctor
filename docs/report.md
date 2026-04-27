@@ -14,6 +14,7 @@ Bu dosya sürüm bazlı ilerleme/rapor özetini tek yerde takip etmek için tutu
 | v1.3 | M6: v1.3 Observability | Completed | RD-13001..RD-13005 merged into `dev`; structured logging, safe profiling hooks, error taxonomy hardening, deterministic metrics export, and v1.3 gate pack activated. |
 | v1.4 | M7: v1.4 Performance Hardening | Completed | RD-14001..RD-14004 merged into `dev`; parallel parsing tuning, memory budget fail-soft controls, filesystem-safe cache warmup, and benchmark/race gate automation activated. |
 | v1.5 | M8: v1.5 Developer Experience | Completed | RD-15001..RD-15005 merged into `dev`; released to `main` via `dev -> main` PR #305. |
+| v1.8 | M11: v1.8 Safe Auto-fix & Expansion | In Progress | IDE expansion plan drafted (`docs/v1.8-ide-plugin-expansion-plan.md`) with CLI-first guardrails and effort estimate. |
 
 ---
 
@@ -120,6 +121,7 @@ Release path:
 
 - **Open:** Release distribution workflow'unda manuel tetikleme (`workflow_dispatch`) ile release akışı bypass riski; tag/ref doğrulaması ve protection kontrolü sıkılaştırılmalı.
 - **Mitigated (v1.7):** CI akışında stabilization script zinciri tek bir konsolide kapıya (`scripts/v170_release_stabilization_gate.ps1`) indirildi; mükerrer test/vet döngüleri azaltıldı.
+- **Mitigated (v1.8):** Auto-fix güvenlik sınırları gate kapsamına alındı (`scripts/v180_release_stabilization_gate.ps1`); dry-run default + high-risk pack disable doğrulamaları zorunlu.
 - **Plan (CI maliyet notu):**
   - PR tarafında hızlı kapı (`repodoctor-fast.yml`) düşük maliyetli geri bildirim için birincil kalacak.
   - Tam matris kapısı (`repodoctor.yml`) konsolide stabilization gate ile korunacak.
