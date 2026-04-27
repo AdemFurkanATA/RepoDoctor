@@ -49,6 +49,9 @@ func executeCommand(cmd string, args []string) error {
 	case "install-hook":
 		return handleInstallHookCommand(args)
 
+	case "fix":
+		return handleFixCommand(args)
+
 	case "version":
 		return handleVersionCommand()
 
@@ -286,7 +289,7 @@ func handleHelpCommand() error {
 }
 
 func getCommandSuggestion(cmd string) string {
-	commands := []string{"analyze", "extract", "report", "history", "interactive", "generate", "install-hook", "version", "help"}
+	commands := []string{"analyze", "extract", "report", "history", "interactive", "generate", "install-hook", "fix", "version", "help"}
 	closest := ""
 	for _, candidate := range commands {
 		if strings.HasPrefix(candidate, strings.ToLower(cmd[:min(1, len(cmd))])) || strings.Contains(candidate, strings.ToLower(cmd)) {
@@ -321,6 +324,7 @@ Commands:
   interactive  Start interactive mode for guided analysis
 	generate     Generate rule templates and other files
 	install-hook Install git hook templates
+	fix          Apply safe auto-fix packs (dry-run default)
 	version      Show version information
 	help         Show this help message
 
@@ -353,6 +357,11 @@ Arguments:
 	  --type     Hook type (supported: pre-commit)
 	  -path      Repository path (default: current directory)
 
+	fix [options]
+	  -path      Repository path to fix (default: current directory)
+	  --apply    Apply safe changes to files (default: dry-run)
+	  --packs    Comma-separated safe packs: size,imports,error-wrap
+
 Examples:
   repodoctor analyze .
   repodoctor analyze -path ./myproject -format json
@@ -362,6 +371,7 @@ Examples:
 	repodoctor report -path ./report.json
 	repodoctor history -path .
 	repodoctor install-hook --type pre-commit
+	repodoctor fix -path . --packs size,error-wrap
 	repodoctor version`)
 }
 
