@@ -72,6 +72,54 @@ func sortedGodObjectViolations(in []GodObjectViolation) []GodObjectViolation {
 	})
 }
 
+func sortedAPIViolations(in []APIStabilityViolation) []APIStabilityViolation {
+	return stableSortedCopy(in, func(left, right APIStabilityViolation) bool {
+		if left.File != right.File {
+			return left.File < right.File
+		}
+		if left.Line != right.Line {
+			return left.Line < right.Line
+		}
+		return left.Message < right.Message
+	})
+}
+
+func sortedGitChurnFiles(in []model.GitChurnFile) []model.GitChurnFile {
+	return stableSortedCopy(in, func(left, right model.GitChurnFile) bool {
+		if left.CommitTouches != right.CommitTouches {
+			return left.CommitTouches > right.CommitTouches
+		}
+		if left.RecentTouches != right.RecentTouches {
+			return left.RecentTouches > right.RecentTouches
+		}
+		if left.UniqueAuthors != right.UniqueAuthors {
+			return left.UniqueAuthors > right.UniqueAuthors
+		}
+		return left.Path < right.Path
+	})
+}
+
+func sortedHotspotEntries(in []HotspotEntry) []HotspotEntry {
+	return stableSortedCopy(in, func(left, right HotspotEntry) bool {
+		if left.RiskScore != right.RiskScore {
+			return left.RiskScore > right.RiskScore
+		}
+		return left.File < right.File
+	})
+}
+
+func sortedVulnerabilityFindings(in []model.VulnerabilityFinding) []model.VulnerabilityFinding {
+	return stableSortedCopy(in, func(left, right model.VulnerabilityFinding) bool {
+		if left.Package != right.Package {
+			return left.Package < right.Package
+		}
+		if left.Version != right.Version {
+			return left.Version < right.Version
+		}
+		return left.ID < right.ID
+	})
+}
+
 func sortModelViolationsDeterministic(violations []model.Violation) {
 	sort.SliceStable(violations, func(i, j int) bool {
 		if violations[i].RuleID != violations[j].RuleID {

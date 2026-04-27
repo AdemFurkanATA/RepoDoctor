@@ -2,6 +2,7 @@ package main
 
 import (
 	"RepoDoctor/internal/engine"
+	"RepoDoctor/internal/model"
 	"strings"
 	"testing"
 )
@@ -47,7 +48,7 @@ func TestGenerateRuleEngineReport_JSONV1Path(t *testing.T) {
 	}
 
 	output := captureStdout(t, func() {
-		_ = generateRuleEngineReport(".", "json-v1", false, false, nil, summary)
+		_ = generateRuleEngineReport(".", "json-v1", false, false, nil, summary, model.VulnerabilitySummary{}, nil)
 	})
 
 	if !strings.Contains(output, "\"version\"") {

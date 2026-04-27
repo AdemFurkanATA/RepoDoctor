@@ -98,7 +98,7 @@ func (i *InteractiveMode) analyzeMenu() {
 
 func (i *InteractiveMode) runInteractiveAnalysis(path string) {
 	if i.fixSuggestions == nil || !i.fixSuggestions.Enabled {
-		runAnalyze(path, "text", false, true, true, profilingRequest{})
+		runAnalyze(path, "text", false, true, true, profilingRequest{}, vulnerabilityCheckRequest{})
 		return
 	}
 

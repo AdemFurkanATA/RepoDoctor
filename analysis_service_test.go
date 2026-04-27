@@ -29,7 +29,7 @@ func TestAnalysisService_RunAndRunAnalyze_SuccessPath(t *testing.T) {
 		t.Fatalf("expected analysis service success code 0, got %d", code)
 	}
 
-	if code := runAnalyze(tmp, "text", false, false, false, profilingRequest{}); code != 0 {
+	if code := runAnalyze(tmp, "text", false, false, false, profilingRequest{}, vulnerabilityCheckRequest{}); code != 0 {
 		t.Fatalf("expected runAnalyze wrapper success code 0, got %d", code)
 	}
 }

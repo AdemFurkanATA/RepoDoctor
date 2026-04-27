@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"RepoDoctor/internal/model"
 )
 
 // OutputFormat defines the output format type
@@ -39,11 +41,22 @@ type StructuralReport struct {
 	Layer         []LayerViolation
 	Size          []SizeViolation
 	GodObject     []GodObjectViolation
+	APIStability  []APIStabilityViolation
 	Summary       ReportSummary
 	Language      LanguageEvidenceSummary
 	Complexity    ComplexityBandSummary
+	Hotspots      []HotspotEntry
 	Debt          TechnicalDebtEstimate
+	GitChurn      model.GitChurnSummary
+	Vulnerability model.VulnerabilitySummary
 	HasViolations bool
+}
+
+type APIStabilityViolation struct {
+	File    string `json:"file"`
+	Line    int    `json:"line"`
+	Message string `json:"message"`
+	Hint    string `json:"hint,omitempty"`
 }
 
 type ReportSummary struct {
@@ -94,7 +107,10 @@ func (r *Reporter) GenerateReport(scorer *StructuralScorer, path, version string
 		},
 		Language:      LanguageEvidenceSummary{DetectedLanguage: "unknown", Confidence: 0.0},
 		Complexity:    ComplexityBandSummary{},
+		Hotspots:      []HotspotEntry{},
 		Debt:          TechnicalDebtEstimate{},
+		GitChurn:      model.GitChurnSummary{Files: []model.GitChurnFile{}},
+		Vulnerability: model.VulnerabilitySummary{Enabled: false, Findings: []model.VulnerabilityFinding{}},
 		HasViolations: len(violations.Circular) > 0 || len(violations.Layer) > 0 || len(violations.Size) > 0 || len(violations.GodObject) > 0,
 	}
 }
@@ -122,6 +138,10 @@ func (r *Reporter) formatText(report *StructuralReport) string {
 	writeLayerViolations(&sb, report)
 	writeSizeViolations(&sb, report)
 	writeGodObjectViolations(&sb, report)
+	writeAPIViolations(&sb, report)
+	writeGitChurnSummary(&sb, report)
+	writeHotspotSummary(&sb, report)
+	writeVulnerabilitySummary(&sb, report)
 	writeComplexityBands(&sb, report)
 	writeTechnicalDebtSummary(&sb, report)
 	writeScoreBreakdown(&sb, report)
@@ -188,10 +208,25 @@ func (r *Reporter) formatJSON(report *StructuralReport) string {
 			"complexityHours": report.Debt.ComplexityHours,
 			"totalHours":      report.Debt.TotalHours,
 		},
+		"gitChurn": map[string]interface{}{
+			"totalCommits":        report.GitChurn.TotalCommits,
+			"recentWindowCommits": report.GitChurn.RecentWindowCommits,
+			"distinctAuthors":     report.GitChurn.DistinctAuthors,
+			"files":               sortedGitChurnFiles(report.GitChurn.Files),
+		},
+		"dependencyVulnerabilities": map[string]interface{}{
+			"enabled":         report.Vulnerability.Enabled,
+			"checkedPackages": report.Vulnerability.CheckedPackages,
+			"findings":        sortedVulnerabilityFindings(report.Vulnerability.Findings),
+		},
+		"hotspots":            sortedHotspotEntries(report.Hotspots),
 		"circularViolations":  sortedCircularViolations(report.Circular),
 		"layerViolations":     sortedLayerViolations(report.Layer),
 		"sizeViolations":      sortedSizeViolations(report.Size),
 		"godObjectViolations": sortedGodObjectViolations(report.GodObject),
+		"apiStability": map[string]interface{}{
+			"breakingChanges": sortedAPIViolations(report.APIStability),
+		},
 	}
 	data, err := json.MarshalIndent(payload, "", "  ")
 	if err != nil {

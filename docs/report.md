@@ -119,7 +119,11 @@ Release path:
 ## Process/Gate Risk Watchlist
 
 - **Open:** Release distribution workflow'unda manuel tetikleme (`workflow_dispatch`) ile release akışı bypass riski; tag/ref doğrulaması ve protection kontrolü sıkılaştırılmalı.
-- **Open:** CI akışında stabilization script zinciri nedeniyle mükerrer test/vet çalışmaları toplam süre ve runner maliyetini artırıyor; hızlı kapı vs tam kapı ayrımı netleştirilmeli.
+- **Mitigated (v1.7):** CI akışında stabilization script zinciri tek bir konsolide kapıya (`scripts/v170_release_stabilization_gate.ps1`) indirildi; mükerrer test/vet döngüleri azaltıldı.
+- **Plan (CI maliyet notu):**
+  - PR tarafında hızlı kapı (`repodoctor-fast.yml`) düşük maliyetli geri bildirim için birincil kalacak.
+  - Tam matris kapısı (`repodoctor.yml`) konsolide stabilization gate ile korunacak.
+  - Çalışma süresi/runner tüketimi 2 sprint boyunca izlenip eşik dışına taşarsa determinism alt testleri için ayrı gece-job ayrıştırması yapılacak.
 - **Open:** Branch governance doğrulaması (required status checks / required review / up-to-date) repo ayarı seviyesinde izlenmeli; yalnız doküman kuralı yeterli değil.
 
 Son güncelleme: 11 Nisan 2026 (roadmap v1.6+ ile hizalandı)

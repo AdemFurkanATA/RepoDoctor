@@ -160,6 +160,129 @@ func writeGodObjectViolationsWithColor(sb *strings.Builder, report *StructuralRe
 	sb.WriteString("\n")
 }
 
+func writeAPIViolationsWithColor(sb *strings.Builder, report *StructuralReport, formatter *ColorFormatter) {
+	if len(report.APIStability) == 0 {
+		return
+	}
+
+	sb.WriteString(formatter.Color("┌───────────────────────────────────────────────────────────┐", ColorRed))
+	sb.WriteString("\n")
+	sb.WriteString(formatter.Color("│  API STABILITY BREAKING CHANGES [CRITICAL]               │", ColorRed))
+	sb.WriteString("\n")
+	sb.WriteString(formatter.Color("└───────────────────────────────────────────────────────────┘", ColorRed))
+	sb.WriteString("\n")
+
+	for i, v := range report.APIStability {
+		line := fmt.Sprintf("[%d] %s", i+1, v.Message)
+		if v.File != "" {
+			line += fmt.Sprintf(" [%s:%d]", v.File, v.Line)
+		}
+		sb.WriteString(formatter.Error(line + "\n"))
+		if v.Hint != "" {
+			sb.WriteString(formatter.Info(fmt.Sprintf("    Hint: %s\n", v.Hint)))
+		}
+	}
+	sb.WriteString("\n")
+}
+
+func writeGitChurnSummaryWithColor(sb *strings.Builder, report *StructuralReport, formatter *ColorFormatter) {
+	if report.GitChurn.TotalCommits == 0 {
+		return
+	}
+
+	sb.WriteString(formatter.Color("┌───────────────────────────────────────────────────────────┐", ColorCyan))
+	sb.WriteString("\n")
+	sb.WriteString(formatter.Color("│  GIT CHURN SUMMARY                                        │", ColorCyan))
+	sb.WriteString("\n")
+	sb.WriteString(formatter.Color("└───────────────────────────────────────────────────────────┘", ColorCyan))
+	sb.WriteString("\n")
+
+	sb.WriteString(formatter.Info(fmt.Sprintf("Commits analyzed: %d\n", report.GitChurn.TotalCommits)))
+	sb.WriteString(formatter.Info(fmt.Sprintf("Recent window commits: %d\n", report.GitChurn.RecentWindowCommits)))
+	sb.WriteString(formatter.Info(fmt.Sprintf("Distinct authors: %d\n", report.GitChurn.DistinctAuthors)))
+
+	files := sortedGitChurnFiles(report.GitChurn.Files)
+	limit := 5
+	if len(files) < limit {
+		limit = len(files)
+	}
+	for i := 0; i < limit; i++ {
+		entry := files[i]
+		sb.WriteString(formatter.Info(fmt.Sprintf("[%d] %s | touches:%d recent:%d authors:%d +%d/-%d\n",
+			i+1,
+			entry.Path,
+			entry.CommitTouches,
+			entry.RecentTouches,
+			entry.UniqueAuthors,
+			entry.AddedLines,
+			entry.DeletedLines,
+		)))
+	}
+	sb.WriteString("\n")
+}
+
+func writeHotspotSummaryWithColor(sb *strings.Builder, report *StructuralReport, formatter *ColorFormatter) {
+	if len(report.Hotspots) == 0 {
+		return
+	}
+
+	sb.WriteString(formatter.Color("┌───────────────────────────────────────────────────────────┐", ColorYellow))
+	sb.WriteString("\n")
+	sb.WriteString(formatter.Color("│  HOTSPOT RISK RANKING                                     │", ColorYellow))
+	sb.WriteString("\n")
+	sb.WriteString(formatter.Color("└───────────────────────────────────────────────────────────┘", ColorYellow))
+	sb.WriteString("\n")
+
+	hotspots := sortedHotspotEntries(report.Hotspots)
+	limit := 5
+	if len(hotspots) < limit {
+		limit = len(hotspots)
+	}
+	for i := 0; i < limit; i++ {
+		entry := hotspots[i]
+		sb.WriteString(formatter.Warn(fmt.Sprintf("[%d] %s | risk:%d complexity:%d churn:%d recent:%d\n",
+			i+1,
+			entry.File,
+			entry.RiskScore,
+			entry.Complexity,
+			entry.CommitTouches,
+			entry.RecentTouches,
+		)))
+		sb.WriteString(formatter.Info(fmt.Sprintf("    %s\n", entry.Explanation)))
+	}
+	sb.WriteString("\n")
+}
+
+func writeVulnerabilitySummaryWithColor(sb *strings.Builder, report *StructuralReport, formatter *ColorFormatter) {
+	if !report.Vulnerability.Enabled {
+		return
+	}
+
+	sb.WriteString(formatter.Color("┌───────────────────────────────────────────────────────────┐", ColorRed))
+	sb.WriteString("\n")
+	sb.WriteString(formatter.Color("│  DEPENDENCY VULNERABILITY CHECK                           │", ColorRed))
+	sb.WriteString("\n")
+	sb.WriteString(formatter.Color("└───────────────────────────────────────────────────────────┘", ColorRed))
+	sb.WriteString("\n")
+
+	sb.WriteString(formatter.Info(fmt.Sprintf("Checked packages: %d\n", report.Vulnerability.CheckedPackages)))
+	sb.WriteString(formatter.Info(fmt.Sprintf("Findings: %d\n", len(report.Vulnerability.Findings))))
+
+	findings := sortedVulnerabilityFindings(report.Vulnerability.Findings)
+	limit := 5
+	if len(findings) < limit {
+		limit = len(findings)
+	}
+	for i := 0; i < limit; i++ {
+		finding := findings[i]
+		sb.WriteString(formatter.Error(fmt.Sprintf("[%d] %s@%s %s\n", i+1, finding.Package, finding.Version, finding.ID)))
+		if finding.Summary != "" {
+			sb.WriteString(formatter.Info(fmt.Sprintf("    %s\n", finding.Summary)))
+		}
+	}
+	sb.WriteString("\n")
+}
+
 func writeComplexityBandsWithColor(sb *strings.Builder, report *StructuralReport, formatter *ColorFormatter) {
 	sb.WriteString(formatter.Color("┌───────────────────────────────────────────────────────────┐", ColorCyan))
 	sb.WriteString("\n")

@@ -122,6 +122,115 @@ func writeGodObjectViolations(sb *strings.Builder, report *StructuralReport) {
 	sb.WriteString("\n")
 }
 
+func writeAPIViolations(sb *strings.Builder, report *StructuralReport) {
+	if len(report.APIStability) == 0 {
+		return
+	}
+
+	sb.WriteString("┌───────────────────────────────────────────────────────────┐\n")
+	sb.WriteString("│  API STABILITY BREAKING CHANGES [CRITICAL]               │\n")
+	sb.WriteString("└───────────────────────────────────────────────────────────┘\n")
+
+	for i, v := range report.APIStability {
+		sb.WriteString(fmt.Sprintf("[%d] %s", i+1, v.Message))
+		if v.File != "" {
+			sb.WriteString(fmt.Sprintf(" [%s:%d]", v.File, v.Line))
+		}
+		sb.WriteString("\n")
+		if v.Hint != "" {
+			sb.WriteString(fmt.Sprintf("    Hint: %s\n", v.Hint))
+		}
+	}
+	sb.WriteString("\n")
+}
+
+func writeGitChurnSummary(sb *strings.Builder, report *StructuralReport) {
+	if report.GitChurn.TotalCommits == 0 {
+		return
+	}
+
+	sb.WriteString("┌───────────────────────────────────────────────────────────┐\n")
+	sb.WriteString("│  GIT CHURN SUMMARY                                        │\n")
+	sb.WriteString("└───────────────────────────────────────────────────────────┘\n")
+	sb.WriteString(fmt.Sprintf("Commits analyzed: %d\n", report.GitChurn.TotalCommits))
+	sb.WriteString(fmt.Sprintf("Recent window commits: %d\n", report.GitChurn.RecentWindowCommits))
+	sb.WriteString(fmt.Sprintf("Distinct authors: %d\n", report.GitChurn.DistinctAuthors))
+
+	files := sortedGitChurnFiles(report.GitChurn.Files)
+	limit := 5
+	if len(files) < limit {
+		limit = len(files)
+	}
+	for i := 0; i < limit; i++ {
+		entry := files[i]
+		sb.WriteString(fmt.Sprintf("[%d] %s | touches:%d recent:%d authors:%d +%d/-%d\n",
+			i+1,
+			entry.Path,
+			entry.CommitTouches,
+			entry.RecentTouches,
+			entry.UniqueAuthors,
+			entry.AddedLines,
+			entry.DeletedLines,
+		))
+	}
+	sb.WriteString("\n")
+}
+
+func writeHotspotSummary(sb *strings.Builder, report *StructuralReport) {
+	if len(report.Hotspots) == 0 {
+		return
+	}
+
+	sb.WriteString("┌───────────────────────────────────────────────────────────┐\n")
+	sb.WriteString("│  HOTSPOT RISK RANKING                                     │\n")
+	sb.WriteString("└───────────────────────────────────────────────────────────┘\n")
+
+	hotspots := sortedHotspotEntries(report.Hotspots)
+	limit := 5
+	if len(hotspots) < limit {
+		limit = len(hotspots)
+	}
+	for i := 0; i < limit; i++ {
+		entry := hotspots[i]
+		sb.WriteString(fmt.Sprintf("[%d] %s | risk:%d complexity:%d churn:%d recent:%d\n",
+			i+1,
+			entry.File,
+			entry.RiskScore,
+			entry.Complexity,
+			entry.CommitTouches,
+			entry.RecentTouches,
+		))
+		sb.WriteString(fmt.Sprintf("    %s\n", entry.Explanation))
+	}
+	sb.WriteString("\n")
+}
+
+func writeVulnerabilitySummary(sb *strings.Builder, report *StructuralReport) {
+	if !report.Vulnerability.Enabled {
+		return
+	}
+
+	sb.WriteString("┌───────────────────────────────────────────────────────────┐\n")
+	sb.WriteString("│  DEPENDENCY VULNERABILITY CHECK                           │\n")
+	sb.WriteString("└───────────────────────────────────────────────────────────┘\n")
+	sb.WriteString(fmt.Sprintf("Checked packages: %d\n", report.Vulnerability.CheckedPackages))
+	sb.WriteString(fmt.Sprintf("Findings: %d\n", len(report.Vulnerability.Findings)))
+
+	findings := sortedVulnerabilityFindings(report.Vulnerability.Findings)
+	limit := 5
+	if len(findings) < limit {
+		limit = len(findings)
+	}
+	for i := 0; i < limit; i++ {
+		finding := findings[i]
+		sb.WriteString(fmt.Sprintf("[%d] %s@%s %s\n", i+1, finding.Package, finding.Version, finding.ID))
+		if finding.Summary != "" {
+			sb.WriteString(fmt.Sprintf("    %s\n", finding.Summary))
+		}
+	}
+	sb.WriteString("\n")
+}
+
 func writeComplexityBands(sb *strings.Builder, report *StructuralReport) {
 	sb.WriteString("┌───────────────────────────────────────────────────────────┐\n")
 	sb.WriteString("│  CYCLOMATIC COMPLEXITY BANDS                              │\n")

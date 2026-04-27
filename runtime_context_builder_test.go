@@ -3,6 +3,8 @@ package main
 import (
 	"path/filepath"
 	"testing"
+
+	"RepoDoctor/internal/model"
 )
 
 func TestBuildUnifiedRulesAnalysisContext_DeterministicNodesAndLanguages(t *testing.T) {
@@ -127,5 +129,27 @@ func TestBuildUnifiedRulesAnalysisContext_IncludesInterfaceBloatThresholdFromEnv
 	v, ok := raw.(int)
 	if !ok || v != 14 {
 		t.Fatalf("unexpected interface bloat threshold in configuration: %v (%T)", raw, raw)
+	}
+}
+
+func TestBuildUnifiedRulesAnalysisContext_IncludesAPIBreakingChangesInConfiguration(t *testing.T) {
+	graph := NewDependencyGraph()
+	graph.AddNode("a.go")
+
+	ctx := buildUnifiedRulesAnalysisContext(runtimeAnalysisContextInput{
+		RepositoryPath: filepath.Clean("."),
+		Graph:          graph,
+		APIBreakingChanges: []model.APIBreakingChange{
+			{ChangeType: "removed", SymbolID: "demo|function|Legacy", File: "a.go", Line: 5},
+		},
+	})
+
+	raw, ok := ctx.Configuration["apiStabilityBreakingChanges"]
+	if !ok {
+		t.Fatalf("configuration key %q missing", "apiStabilityBreakingChanges")
+	}
+	changes, ok := raw.([]model.APIBreakingChange)
+	if !ok || len(changes) != 1 {
+		t.Fatalf("unexpected api stability payload type/value: %T (%v)", raw, raw)
 	}
 }

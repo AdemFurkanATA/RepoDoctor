@@ -78,17 +78,18 @@ func handleAnalyzeCommand(args []string) error {
 		return nil
 	}
 
-	runAnalyze(req.path, req.format, req.verbose, req.colorEnabled, true, req.profiling)
+	runAnalyze(req.path, req.format, req.verbose, req.colorEnabled, true, req.profiling, req.vulnerability)
 	return nil
 }
 
 type analyzeCommandRequest struct {
-	path         string
-	format       string
-	verbose      bool
-	colorEnabled bool
-	watch        bool
-	profiling    profilingRequest
+	path          string
+	format        string
+	verbose       bool
+	colorEnabled  bool
+	watch         bool
+	profiling     profilingRequest
+	vulnerability vulnerabilityCheckRequest
 }
 
 func composeAnalyzeRequest(args []string) (*analyzeCommandRequest, error) {
@@ -115,6 +116,11 @@ func composeAnalyzeRequest(args []string) (*analyzeCommandRequest, error) {
 		colorEnabled: !parsed.noColor,
 		watch:        parsed.watch,
 		profiling:    profiling,
+		vulnerability: vulnerabilityCheckRequest{
+			Enabled:         parsed.vulnCheck,
+			TimeoutSeconds:  parsed.vulnTimeout,
+			MaxDependencies: parsed.vulnMaxDeps,
+		},
 	}, nil
 }
 
@@ -126,6 +132,9 @@ type analyzeFlagInput struct {
 	noColor      bool
 	cpuProfile   string
 	memProfile   string
+	vulnCheck    bool
+	vulnTimeout  int
+	vulnMaxDeps  int
 	positional   []string
 }
 
@@ -141,6 +150,9 @@ func parseAnalyzeFlags(args []string) (*analyzeFlagInput, error) {
 	noColor := analyzeCmd.Bool("no-color", false, "Disable colored output")
 	cpuProfile := analyzeCmd.String("cpu-profile", "", "Write CPU profile to a file under analyze path")
 	memProfile := analyzeCmd.String("mem-profile", "", "Write heap profile to a file under analyze path")
+	vulnCheck := analyzeCmd.Bool("vuln-check", false, "Enable dependency vulnerability check (default: off)")
+	vulnTimeout := analyzeCmd.Int("vuln-timeout", 8, "Dependency vulnerability check timeout in seconds")
+	vulnMaxDeps := analyzeCmd.Int("vuln-max-deps", 30, "Max dependencies to query during vulnerability check")
 
 	if err := analyzeCmd.Parse(args); err != nil {
 		return nil, NewCLIError(
@@ -164,6 +176,9 @@ func parseAnalyzeFlags(args []string) (*analyzeFlagInput, error) {
 		noColor:      *noColor,
 		cpuProfile:   *cpuProfile,
 		memProfile:   *memProfile,
+		vulnCheck:    *vulnCheck,
+		vulnTimeout:  *vulnTimeout,
+		vulnMaxDeps:  *vulnMaxDeps,
 		positional:   analyzeCmd.Args(),
 	}, nil
 }
@@ -318,6 +333,9 @@ Arguments:
     -no-color  Disable colored output (default: enabled)
     -cpu-profile  Write CPU profile under analyze path (opt-in)
     -mem-profile  Write heap profile under analyze path (opt-in)
+    -vuln-check   Enable dependency vulnerability check (default: off)
+    -vuln-timeout Timeout seconds for vulnerability checks (default: 8)
+    -vuln-max-deps Max dependencies queried by vulnerability check (default: 30)
 
   extract [options]
     -path      Directory path to extract imports from (default: current directory)
@@ -347,7 +365,7 @@ Examples:
 	repodoctor version`)
 }
 
-func runAnalyze(path, format string, verbose bool, colorEnabled bool, exitOnViolation bool, profiling profilingRequest) int {
+func runAnalyze(path, format string, verbose bool, colorEnabled bool, exitOnViolation bool, profiling profilingRequest, vulnerability vulnerabilityCheckRequest) int {
 	service := NewAnalysisService()
 	exitCode := service.Run(AnalyzeRequest{
 		Path:            path,
@@ -356,6 +374,7 @@ func runAnalyze(path, format string, verbose bool, colorEnabled bool, exitOnViol
 		ColorEnabled:    colorEnabled,
 		ExitOnViolation: exitOnViolation,
 		Profiling:       profiling,
+		Vulnerability:   vulnerability,
 	})
 
 	if exitOnViolation && exitCode != 0 {
@@ -512,6 +531,10 @@ func generateReport(scorer *StructuralScorer, absPath, format string, verbose bo
 		writeLayerViolationsWithColor(&sb, report, reporter.formatter)
 		writeSizeViolationsWithColor(&sb, report, reporter.formatter)
 		writeGodObjectViolationsWithColor(&sb, report, reporter.formatter)
+		writeAPIViolationsWithColor(&sb, report, reporter.formatter)
+		writeGitChurnSummaryWithColor(&sb, report, reporter.formatter)
+		writeHotspotSummaryWithColor(&sb, report, reporter.formatter)
+		writeVulnerabilitySummaryWithColor(&sb, report, reporter.formatter)
 		writeComplexityBandsWithColor(&sb, report, reporter.formatter)
 		writeTechnicalDebtSummaryWithColor(&sb, report, reporter.formatter)
 		writeScoreBreakdownWithColor(&sb, report, reporter.formatter)
@@ -520,12 +543,24 @@ func generateReport(scorer *StructuralScorer, absPath, format string, verbose bo
 	return report
 }
 
-func generateRuleEngineReport(absPath, format string, verbose bool, colorEnabled bool, cfg *Config, summary *runtimeRuleSummary) *StructuralReport {
+func generateRuleEngineReport(absPath, format string, verbose bool, colorEnabled bool, cfg *Config, summary *runtimeRuleSummary, vulnerability model.VulnerabilitySummary, vulnerabilityWarnings []string) *StructuralReport {
 	report := buildReportFromRuleViolations(absPath, version, cfg, summary.result.Violations)
+	churnSummary, churnWarnings := analysis.ComputeGitChurnSummary(absPath)
+	report.GitChurn = churnSummary
+	report.Vulnerability = vulnerability
+	report.Complexity = collectCyclomaticComplexitySummary(absPath)
+	report.Hotspots = collectHotspotSummary(absPath, report.GitChurn)
+	report.Debt = estimateTechnicalDebt(report)
 
 	if verbose {
 		fmt.Printf(ColorInfo("Rules in registry: ")+"%d\n", summary.rulesInScope)
 		fmt.Printf(ColorInfo("Rules executed: ")+"%d\n", summary.result.RulesExecuted)
+		for _, warning := range churnWarnings {
+			fmt.Printf("%s", ColorWarn(fmt.Sprintf("Warning: %s\n", warning)))
+		}
+		for _, warning := range vulnerabilityWarnings {
+			fmt.Printf("%s", ColorWarn(fmt.Sprintf("Warning: %s\n", warning)))
+		}
 	}
 
 	reporter := NewColoredReporter(OutputFormat(format), colorEnabled)
@@ -540,6 +575,10 @@ func generateRuleEngineReport(absPath, format string, verbose bool, colorEnabled
 		writeLayerViolationsWithColor(&sb, report, reporter.formatter)
 		writeSizeViolationsWithColor(&sb, report, reporter.formatter)
 		writeGodObjectViolationsWithColor(&sb, report, reporter.formatter)
+		writeAPIViolationsWithColor(&sb, report, reporter.formatter)
+		writeGitChurnSummaryWithColor(&sb, report, reporter.formatter)
+		writeHotspotSummaryWithColor(&sb, report, reporter.formatter)
+		writeVulnerabilitySummaryWithColor(&sb, report, reporter.formatter)
 		writeComplexityBandsWithColor(&sb, report, reporter.formatter)
 		writeTechnicalDebtSummaryWithColor(&sb, report, reporter.formatter)
 		writeScoreBreakdownWithColor(&sb, report, reporter.formatter)

@@ -21,6 +21,10 @@ func runInternalRulePipeline(absPath string, graph Graph, primaryLanguage string
 }
 
 func runInternalRulePipelineWithProfile(absPath string, graph Graph, primaryLanguage string, architecture *ArchitectureConfig) *runtimeRuleSummary {
+	return runInternalRulePipelineWithProfileAndAPI(absPath, graph, primaryLanguage, architecture, nil)
+}
+
+func runInternalRulePipelineWithProfileAndAPI(absPath string, graph Graph, primaryLanguage string, architecture *ArchitectureConfig, apiBreakingChanges []model.APIBreakingChange) *runtimeRuleSummary {
 	profile := ""
 	customLayerOrder := []string{}
 	customLayerKeywords := map[string][]string{}
@@ -44,6 +48,7 @@ func runInternalRulePipelineWithProfile(absPath string, graph Graph, primaryLang
 		ArchitectureProfile: profile,
 		CustomLayerOrder:    customLayerOrder,
 		CustomLayerKeywords: customLayerKeywords,
+		APIBreakingChanges:  apiBreakingChanges,
 	})
 	result := executor.Execute(context)
 	sortViolations(result.Violations)
@@ -189,6 +194,8 @@ func buildReportFromRuleViolations(path string, version string, cfg *Config, vio
 			report.Size = append(report.Size, parseSizeViolation(v))
 		case "rule.interface-bloat":
 			report.Size = append(report.Size, parseSizeViolation(v))
+		case "rule.api-stability":
+			report.APIStability = append(report.APIStability, parseAPIViolation(v))
 		case "rule.size":
 			report.Size = append(report.Size, parseSizeViolation(v))
 		case "rule.god-object":
@@ -287,6 +294,15 @@ func parseSizeViolation(v model.Violation) SizeViolation {
 	return sv
 }
 
+func parseAPIViolation(v model.Violation) APIStabilityViolation {
+	return APIStabilityViolation{
+		File:    v.File,
+		Line:    v.Line,
+		Message: v.Message,
+		Hint:    remediationHintForViolation(v),
+	}
+}
+
 // mergeGodObjectViolation accumulates field and method counts for the same
 // struct into a single GodObjectViolation entry keyed by file + struct name.
 func mergeGodObjectViolation(m map[string]*GodObjectViolation, v model.Violation) {
@@ -340,6 +356,8 @@ func remediationHintForViolation(v model.Violation) string {
 		return "Handle returned errors explicitly and wrap propagated errors with context using %w when appropriate."
 	case "rule.interface-bloat":
 		return "Split broad interfaces into smaller role-focused contracts to reduce coupling and improve substitutability."
+	case "rule.api-stability":
+		return "Restore backward-compatible public APIs or explicitly communicate breaking changes via semantic versioning and migration notes."
 	default:
 		return ""
 	}
@@ -365,6 +383,8 @@ func applyConfiguredSeverity(v model.Violation, cfg *Config) model.Violation {
 		severity = cfg.Rules.SizeSeverity
 	case "rule.interface-bloat":
 		severity = cfg.Rules.SizeSeverity
+	case "rule.api-stability":
+		severity = cfg.Rules.LayerSeverity
 	case "rule.size":
 		severity = cfg.Rules.SizeSeverity
 	case "rule.god-object":
