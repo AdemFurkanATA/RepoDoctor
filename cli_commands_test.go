@@ -134,3 +134,25 @@ func TestParseGenerateCIArgs_SupportedAndInvalidOptions(t *testing.T) {
 		t.Fatal("expected invalid flag to fail parse")
 	}
 }
+
+func TestParseGenerateDocsArgs_ValidAndInvalid(t *testing.T) {
+	format, err := parseGenerateDocsArgs([]string{"--format", "markdown"})
+	if err != nil {
+		t.Fatalf("expected markdown docs args to parse, got: %v", err)
+	}
+	if format != "markdown" {
+		t.Fatalf("expected format markdown, got %s", format)
+	}
+
+	format, err = parseGenerateDocsArgs([]string{"--format=mermaid"})
+	if err != nil {
+		t.Fatalf("expected mermaid docs args to parse, got: %v", err)
+	}
+	if format != "mermaid" {
+		t.Fatalf("expected format mermaid, got %s", format)
+	}
+
+	if _, err := parseGenerateDocsArgs([]string{"--format", "html"}); err == nil {
+		t.Fatal("expected unsupported format to fail")
+	}
+}

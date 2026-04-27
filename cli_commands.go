@@ -174,7 +174,7 @@ func runExtract(path, module string, verbose bool, jsonOutput bool) error {
 
 func runGenerate(args []string) error {
 	if len(args) == 0 {
-		return HandleCLIUsageError("Usage: repodoctor generate <rule|ci> ...", nil)
+		return HandleCLIUsageError("Usage: repodoctor generate <rule|ci|docs> ...", nil)
 	}
 
 	switch args[0] {
@@ -201,14 +201,68 @@ func runGenerate(args []string) error {
 			return WrapError(err, ErrorRuntime, "Error generating CI template", GetSuggestion(err.Error()))
 		}
 		return nil
+	case "docs":
+		format, err := parseGenerateDocsArgs(args[1:])
+		if err != nil {
+			return err
+		}
+
+		generator := NewDocsGenerator(".")
+		if err := generator.Generate(format); err != nil {
+			return WrapError(err, ErrorRuntime, "Error generating docs", GetSuggestion(err.Error()))
+		}
+		return nil
 	default:
 		return NewCLIError(
 			ErrorInvalidArgument,
 			fmt.Sprintf("Unknown generate type: %s", args[0]),
-			"Available types: rule, ci",
+			"Available types: rule, ci, docs",
 			nil,
 		)
 	}
+}
+
+func parseGenerateDocsArgs(args []string) (string, error) {
+	if len(args) == 0 {
+		return "", HandleCLIUsageError("Usage: repodoctor generate docs --format <markdown|mermaid>", nil)
+	}
+
+	format := ""
+	for i := 0; i < len(args); i++ {
+		token := strings.TrimSpace(args[i])
+		switch {
+		case token == "--format":
+			if i+1 >= len(args) {
+				return "", HandleCLIUsageError("Usage: repodoctor generate docs --format <markdown|mermaid>", nil)
+			}
+			format = strings.ToLower(strings.TrimSpace(args[i+1]))
+			i++
+		case strings.HasPrefix(token, "--format="):
+			format = strings.ToLower(strings.TrimSpace(strings.TrimPrefix(token, "--format=")))
+		default:
+			return "", NewCLIError(
+				ErrorInvalidArgument,
+				fmt.Sprintf("Unknown generate docs option: %s", args[i]),
+				"Usage: repodoctor generate docs --format <markdown|mermaid>",
+				nil,
+			)
+		}
+	}
+
+	if format == "" {
+		return "", HandleCLIUsageError("Usage: repodoctor generate docs --format <markdown|mermaid>", nil)
+	}
+
+	if format != "markdown" && format != "mermaid" && format != "md" && format != "mmd" {
+		return "", NewCLIError(
+			ErrorInvalidArgument,
+			fmt.Sprintf("Unsupported docs format: %s", format),
+			"Use --format markdown or --format mermaid",
+			nil,
+		)
+	}
+
+	return format, nil
 }
 
 func parseGenerateCIArgs(args []string) (string, bool, error) {

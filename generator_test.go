@@ -157,3 +157,50 @@ func TestRunGenerate_RulePathRemainsBackwardCompatible(t *testing.T) {
 		t.Fatalf("expected generated rule file at %s, got error: %v", targetPath, err)
 	}
 }
+
+func TestDocsGenerator_GenerateMarkdownCreatesFile(t *testing.T) {
+	baseDir := t.TempDir()
+	generator := NewDocsGenerator(baseDir)
+
+	if err := generator.Generate("markdown"); err != nil {
+		t.Fatalf("expected docs markdown generation to succeed, got: %v", err)
+	}
+
+	targetPath := filepath.Join(baseDir, "docs", "architecture.generated.md")
+	content, err := os.ReadFile(targetPath)
+	if err != nil {
+		t.Fatalf("expected markdown docs file to exist, got: %v", err)
+	}
+	if !strings.Contains(string(content), "RepoDoctor Architecture (Generated)") {
+		t.Fatalf("unexpected markdown docs content: %s", string(content))
+	}
+}
+
+func TestDocsGenerator_NonDestructiveWritesPreviewInsteadOfOverwrite(t *testing.T) {
+	baseDir := t.TempDir()
+	targetPath := filepath.Join(baseDir, "docs", "architecture.generated.mmd")
+	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
+		t.Fatalf("failed creating docs directory: %v", err)
+	}
+	if err := os.WriteFile(targetPath, []byte("legacy"), 0o644); err != nil {
+		t.Fatalf("failed writing existing docs file: %v", err)
+	}
+
+	generator := NewDocsGenerator(baseDir)
+	if err := generator.Generate("mermaid"); err != nil {
+		t.Fatalf("expected mermaid docs generation to succeed, got: %v", err)
+	}
+
+	original, err := os.ReadFile(targetPath)
+	if err != nil {
+		t.Fatalf("failed reading original target: %v", err)
+	}
+	if string(original) != "legacy" {
+		t.Fatalf("expected original file to remain untouched, got: %s", string(original))
+	}
+
+	previewPath := targetPath + ".new"
+	if _, err := os.Stat(previewPath); err != nil {
+		t.Fatalf("expected preview file to be created, got: %v", err)
+	}
+}
