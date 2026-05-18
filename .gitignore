@@ -45,3 +45,5 @@ debug/
 *.debug
 debug.log
 *.trace
+# Docs should not be tracked in git
+docs/
