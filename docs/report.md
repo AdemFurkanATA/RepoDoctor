@@ -14,7 +14,7 @@ Bu dosya sürüm bazlı ilerleme/rapor özetini tek yerde takip etmek için tutu
 | v1.3 | M6: v1.3 Observability | Completed | RD-13001..RD-13005 merged into `dev`; structured logging, safe profiling hooks, error taxonomy hardening, deterministic metrics export, and v1.3 gate pack activated. |
 | v1.4 | M7: v1.4 Performance Hardening | Completed | RD-14001..RD-14004 merged into `dev`; parallel parsing tuning, memory budget fail-soft controls, filesystem-safe cache warmup, and benchmark/race gate automation activated. |
 | v1.5 | M8: v1.5 Developer Experience | Completed | RD-15001..RD-15005 merged into `dev`; released to `main` via `dev -> main` PR #305. |
-| v1.8 | M11: v1.8 Safe Auto-fix & Expansion | In Progress | IDE expansion plan drafted (`docs/v1.8-ide-plugin-expansion-plan.md`) with CLI-first guardrails and effort estimate. |
+| v1.8 | M11: v1.8 Safe Auto-fix & Expansion | Completed | Auto-fix engine + safe packs + IDE expansion plan merged; v1.8 stabilization gate active and released to `main` via `dev -> main` PR #348. |
 
 ---
 
@@ -100,7 +100,7 @@ Release path:
 ## Current Branch/Release State
 
 - Latest completed release line is synchronized on `main`; `dev` may temporarily run ahead with planning/docs-only deltas before the next release merge.
-- `dev` ve `main` v1.5 release sonrası aynı committe hizalı; bir sonraki icra hattı v1.6 (M9) planı.
+- `dev` ve `main` v1.8 release sonrası hizalı; bir sonraki icra hattı v1.9/v2.0 roadmap çalışmaları.
 - Mandatory quality baseline remains green:
   - `go test ./...`
   - `go vet ./...`
@@ -109,7 +109,7 @@ Release path:
 ## Next Planned Execution Line (Ready)
 
 1. Create/validate milestones: **M9 v1.6**, **M10 v1.7**, **M11 v1.8**.
-2. Open roadmap-governed issues: **RD-16001..RD-16009**, **RD-17001..RD-17006**, **RD-18001..RD-18004**.
+2. Open roadmap-governed issues: **RD-19001..RD-19005** (v1.8+ advanced intelligence / research).
 3. Enforce workflow for every implementation issue:
    - branch-per-issue from `dev`
    - PR target `dev`
@@ -128,4 +128,4 @@ Release path:
   - Çalışma süresi/runner tüketimi 2 sprint boyunca izlenip eşik dışına taşarsa determinism alt testleri için ayrı gece-job ayrıştırması yapılacak.
 - **Open:** Branch governance doğrulaması (required status checks / required review / up-to-date) repo ayarı seviyesinde izlenmeli; yalnız doküman kuralı yeterli değil.
 
-Son güncelleme: 11 Nisan 2026 (roadmap v1.6+ ile hizalandı)
+Son güncelleme: 27 Nisan 2026 (v1.8 release hizalandı)
